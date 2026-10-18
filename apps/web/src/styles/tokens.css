@@ -1,0 +1,93 @@
+/*
+ * Resonance design tokens. Every value used by a component comes from here.
+ * House style: Linear/Vercel developer-dark, application density, one cyan accent.
+ *
+ * Contrast (WCAG 2.x, measured by `node scripts/contrast.mjs`):
+ *   text            #E8EEF2  on bg 16.34, surface 15.02, raised 13.33, hover 11.56
+ *   text-secondary  #A7B8C3  on bg 9.37,  surface 8.61,  raised 7.64,  hover 6.63
+ *   text-tertiary   #8B9DA9  on bg 6.82,  surface 6.27,  raised 5.57,  hover 4.83
+ *   accent          #65C5D4  on bg 9.55,  surface 8.78,  raised 7.79,  hover 6.76
+ *   on-accent       #0B1014  on accent 9.55, on accent-strong 11.29
+ *   success #6CCB94 ≥ 6.84, warning #E3B65E ≥ 7.16, danger #F28B82 ≥ 5.66 on every surface
+ *   border-strong   #6A7F8C  (control boundaries) on bg 4.58, surface 4.21, raised 3.73, hover 3.24
+ *   trace-reference #9AABB6  (neutral chart trace) ≥ 5.72 on every surface
+ * Text pairs need 4.5:1; control boundaries, focus rings, and chart marks need 3:1.
+ */
+:root {
+  color-scheme: dark;
+
+  /* Spacing — 4px base. Nothing outside this scale. */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-12: 48px;
+
+  /* Type — five sizes, two weights. */
+  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI Variable Text",
+    "Segoe UI", Inter, system-ui, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", "Cascadia Mono", "Cascadia Code", Consolas, monospace;
+  --text-xs: 12px;
+  --text-sm: 14px;
+  --text-md: 16px;
+  --text-lg: 24px;
+  --text-xl: 32px;
+  --leading-tight: 1.2;
+  --leading-body: 1.5;
+  --weight-regular: 400;
+  --weight-strong: 600;
+  --tracking-label: 0.04em;
+  --tracking-display: -0.02em;
+
+  /* Color — neutrals carry a faint cyan tint. */
+  --color-bg: #0b1014;
+  --color-surface: #121a20;
+  --color-raised: #1a252d;
+  --color-hover: #22303a;
+  --color-border: rgba(232, 238, 242, 0.08); /* decorative hairline between regions */
+  --color-border-soft: rgba(232, 238, 242, 0.12);
+  --color-border-strong: #6a7f8c; /* control boundaries: ≥ 3:1 on every surface */
+  --color-text: #e8eef2;
+  --color-text-secondary: #a7b8c3;
+  --color-text-tertiary: #8b9da9;
+
+  --color-accent: #65c5d4;
+  --color-accent-strong: #86d3df;
+  --color-accent-subtle: rgba(101, 197, 212, 0.12);
+  --color-accent-border: rgba(101, 197, 212, 0.45);
+  --color-on-accent: #0b1014;
+
+  /* Semantic status only — never decoration. Always paired with text or an icon. */
+  --color-success: #6ccb94;
+  --color-success-subtle: rgba(108, 203, 148, 0.12);
+  --color-warning: #e3b65e;
+  --color-warning-subtle: rgba(227, 182, 94, 0.12);
+  --color-danger: #f28b82;
+  --color-danger-subtle: rgba(242, 139, 130, 0.12);
+
+  /* Chart marks. Reference/input = neutral dashed; output/observed = accent solid. */
+  --trace-reference: #9aabb6;
+  --trace-primary: var(--color-accent);
+  --chart-grid: rgba(232, 238, 242, 0.08);
+  --chart-axis: rgba(232, 238, 242, 0.2);
+  --chart-marker: #e3b65e;
+
+  /* Radius — three values. Inner = outer − padding. */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+
+  /* Motion. Disabled under reduced motion (see base.css). */
+  --motion-fast: 150ms;
+  --motion-base: 200ms;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+
+  /* Layout */
+  --rail-width: 80px;
+  --panel-width: 360px;
+  --control-height: 32px;
+  --control-height-lg: 40px;
+  --focus-ring: 2px solid var(--color-accent);
+}
