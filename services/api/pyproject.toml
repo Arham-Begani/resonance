@@ -1,0 +1,61 @@
+[project]
+name = "resonance"
+version = "0.1.0"
+description = "Resonance API: RC circuit simulation (ngspice), honest audio comparisons, hidden-fault investigations, and a Nemotron lab partner."
+requires-python = ">=3.12"
+license = "MIT"
+dependencies = [
+    "fastapi>=0.143.2",
+    "httpx>=0.28.1",
+    "numpy>=2.5.4",
+    "openai>=3.31.0",
+    "pydantic>=2.14.1",
+    "pydantic-settings>=2.16.0",
+    "uvicorn[standard]>=0.54.0",
+]
+
+[build-system]
+requires = ["uv_build>=0.12.3,<0.13.0"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-name = "resonance"
+module-root = ""
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+markers = [
+    "ngspice: requires a working ngspice binary (skipped only if NGSPICE is unavailable AND RESONANCE_REQUIRE_NGSPICE is not set)",
+    "live_ai: performs real Nebius inference; requires NEBIUS_API_KEY and opt-in via env RESONANCE_LIVE_AI=1",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "S", "ASYNC"]
+ignore = ["S101"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S", "B011"]
+
+[tool.mypy]
+python_version = "3.12"
+plugins = ["pydantic.mypy"]
+warn_unused_ignores = true
+warn_redundant_casts = true
+disallow_untyped_defs = true
+no_implicit_optional = true
+check_untyped_defs = true
+ignore_missing_imports = true
+
+[dependency-groups]
+dev = [
+    "mypy>=2.4.0",
+    "pytest>=9.1.1",
+    "pytest-asyncio>=1.4.0",
+    "ruff>=0.17.1",
+]
