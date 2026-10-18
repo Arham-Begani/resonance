@@ -1,0 +1,145 @@
+.schematic {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.schematic__svg {
+  display: block;
+  width: 100%;
+  max-width: 580px;
+  height: auto;
+  margin: 0 auto;
+  overflow: visible;
+  font-family: var(--font-sans);
+  user-select: none;
+}
+
+.schematic__caption {
+  color: var(--color-text-secondary);
+  font-size: var(--text-xs);
+  text-align: center;
+}
+
+.sch-net path {
+  fill: none;
+  stroke: var(--color-text-secondary);
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.sch-net.is-probed path {
+  stroke: var(--color-accent);
+  stroke-width: 2.5;
+}
+
+.sch-part {
+  cursor: pointer;
+}
+
+.sch-hit {
+  fill: transparent;
+  stroke: none;
+  rx: 6px;
+}
+
+.sch-part:hover .sch-hit {
+  fill: rgba(232, 238, 242, 0.04);
+}
+
+.sch-body {
+  fill: none;
+  stroke: var(--color-text);
+  stroke-width: 1.75;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+circle.sch-body {
+  fill: var(--color-surface);
+}
+
+.sch-glyph {
+  fill: none;
+  stroke: var(--color-text-secondary);
+  stroke-width: 1.5;
+}
+
+.sch-part.is-selected .sch-body {
+  stroke: var(--color-accent);
+  stroke-width: 2.5;
+}
+
+.sch-part.is-selected .sch-hit {
+  fill: var(--color-accent-subtle);
+}
+
+.sch-sign {
+  fill: var(--color-text-secondary);
+  font-size: 12px;
+}
+
+.sch-id {
+  fill: var(--color-text);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.sch-value {
+  fill: var(--color-text-secondary);
+  font-size: 12px;
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+}
+
+.sch-part.is-selected .sch-id {
+  fill: var(--color-accent);
+}
+
+.sch-node {
+  fill: var(--color-text-secondary);
+}
+
+.sch-node.is-probed {
+  fill: var(--color-accent);
+}
+
+.sch-terminal {
+  fill: var(--color-surface);
+  stroke: var(--color-text-secondary);
+  stroke-width: 1.5;
+}
+
+.sch-terminal.is-probed {
+  stroke: var(--color-accent);
+  stroke-width: 2.5;
+}
+
+.sch-node-label {
+  fill: var(--color-text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.sch-probe path,
+.sch-current path {
+  fill: none;
+  stroke: var(--color-accent);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.sch-probe rect {
+  fill: var(--color-accent-subtle);
+  stroke: var(--color-accent);
+  stroke-width: 1;
+}
+
+.sch-probe-label {
+  fill: var(--color-accent);
+  font-size: 12px;
+  font-weight: 600;
+}
