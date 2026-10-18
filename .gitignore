@@ -1,0 +1,35 @@
+# Secrets
+.env
+.env.*
+!.env.example
+
+# Local tools (ngspice download/extract) and runtime data
+.tools/
+.data/
+services/api/.data/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+
+# Node / web
+node_modules/
+apps/web/dist/
+apps/web/test-results/
+apps/web/playwright-report/
+apps/web/.vite/
+*.tsbuildinfo
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+*.swp
+
+# Claude Code local settings
+.claude/settings.local.json
