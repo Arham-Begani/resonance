@@ -1,0 +1,292 @@
+// Renders a run's genuine events as concise evidence cards: tool requests paired with their
+// results, visible assistant messages with citation chips, errors, and measured usage.
+// Never shows hidden reasoning, fake progress, or invented messages.
+import type { AgentEvent, AgentRun, EvidenceRef } from "../../api/types";
+import { Badge, Button, Callout } from "../../components/ui/primitives";
+import { Icon } from "../../components/ui/Icon";
+import { formatDurationMs, formatHz } from "../../lib/format";
+import type { RunView } from "./agentRuns";
+import "./agent.css";
+
+export interface CitationResolver {
+  /** Short label for an observation or experiment ID, e.g. "Obs 2" or "Experiment 3". */
+  label: (resultId: string) => string | null;
+  onSelect?: (resultId: string) => void;
+}
+
+const UNIT_SUFFIX = /_(db|dbv|ma|deg|v|hz|s|ms|fs|si)$/;
+
+export function humanizeQuantity(quantity: string): string {
+  return quantity.replace(UNIT_SUFFIX, "").replace(/_/g, " ");
+}
+
+export function humanize(name: string): string {
+  const text = name.replace(/_/g, " ").trim();
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
+export function citationText(ref: EvidenceRef, resolver?: CitationResolver): string {
+  const base = resolver?.label(ref.result_id) ?? "Result";
+  const at = ref.frequency_hz != null ? ` @ ${formatHz(ref.frequency_hz)}` : "";
+  return `${base} · ${humanizeQuantity(ref.quantity)}${at}`;
+}
+
+export function CitationChip({ refItem, resolver }: { refItem: EvidenceRef; resolver?: CitationResolver }) {
+  const text = citationText(refItem, resolver);
+  if (resolver?.onSelect && resolver.label(refItem.result_id)) {
+    return (
+      <button type="button" className="citation" onClick={() => resolver.onSelect?.(refItem.result_id)}>
+        {text}
+      </button>
+    );
+  }
+  return <span className="citation">{text}</span>;
+}
+
+function describeArgs(args: Record<string, unknown>): string {
+  return Object.entries(args)
+    .filter(([, v]) => v !== null && v !== undefined && (typeof v === "string" || typeof v === "number" || typeof v === "boolean"))
+    .slice(0, 3)
+    .map(([k, v]) => `${humanize(k).toLowerCase()}: ${typeof v === "string" ? humanize(v).toLowerCase() : String(v)}`)
+    .join(", ");
+}
+
+const STATUS_LABEL: Record<AgentRun["status"], { text: string; tone: "accent" | "success" | "warning" | "danger" | "neutral" }> = {
+  running: { text: "Running", tone: "accent" },
+  completed: { text: "Finished", tone: "success" },
+  cancelled: { text: "Cancelled", tone: "neutral" },
+  limit_reached: { text: "Limit reached", tone: "warning" },
+  failed: { text: "Failed", tone: "danger" },
+};
+
+type Item =
+  | { kind: "tool"; call: Extract<AgentEvent, { type: "tool_call" }> | null; result: Extract<AgentEvent, { type: "tool_result" }> | null; seq: number }
+  | { kind: "event"; event: AgentEvent; seq: number };
+
+export function groupEvents(events: AgentEvent[]): Item[] {
+  const items: Item[] = [];
+  const byCall = new Map<string, Extract<Item, { kind: "tool" }>>();
+  for (const e of events) {
+    if (e.type === "tool_call") {
+      const item: Extract<Item, { kind: "tool" }> = { kind: "tool", call: e, result: null, seq: e.seq };
+      byCall.set(e.call_id, item);
+      items.push(item);
+    } else if (e.type === "tool_result") {
+      const existing = byCall.get(e.call_id);
+      if (existing) existing.result = e;
+      else items.push({ kind: "tool", call: null, result: e, seq: e.seq });
+    } else if (e.type === "message" || e.type === "proposal" || e.type === "diagnosis" || e.type === "repair_proposal" || e.type === "error") {
+      items.push({ kind: "event", event: e, seq: e.seq });
+    }
+  }
+  return items;
+}
+
+interface AgentRunLogProps {
+  title: string;
+  /** ID for the heading so callers can move focus to the run after starting it. */
+  headingId?: string;
+  view: RunView;
+  resolver?: CitationResolver;
+  onCancel?: () => void;
+  onDismiss?: () => void;
+}
+
+export function AgentRunLog({ title, headingId, view, resolver, onCancel, onDismiss }: AgentRunLogProps) {
+  const { run, events, connection, startError, cancelling } = view;
+  if (startError) {
+    return (
+      <section className="agent-log" aria-label={title}>
+        {headingId ? (
+          <h3 id={headingId} tabIndex={-1} className="visually-hidden">
+            {title}
+          </h3>
+        ) : null}
+        <Callout
+          tone={startError.code === "ai_unavailable" ? "warning" : "danger"}
+          title={startError.code === "ai_unavailable" ? "AI lab partner unavailable" : startError.code === "run_in_progress" ? "The AI is already working on this" : "The AI run could not start"}
+          action={onDismiss ? <Button size="sm" onClick={onDismiss}>Dismiss</Button> : undefined}
+        >
+          {startError.message} Manual tools keep working.
+        </Callout>
+      </section>
+    );
+  }
+  if (!run && connection !== "starting") return null;
+
+  const running = connection === "starting" || run?.status === "running";
+  const latestStatus = [...events].reverse().find((e) => e.type === "status");
+  const items = groupEvents(events);
+  const hasMessage = events.some((e) => e.type === "message");
+  const status = run ? STATUS_LABEL[run.status] : STATUS_LABEL.running;
+
+  return (
+    <section className="agent-log" aria-label={title}>
+      <header className="agent-log__header">
+        <Icon name="ai" />
+        <h3 className="agent-log__title" id={headingId} tabIndex={headingId ? -1 : undefined}>
+          {title}
+        </h3>
+        <Badge tone={status.tone} icon={null}>
+          {connection === "starting" ? "Starting" : status.text}
+        </Badge>
+        {running && onCancel ? (
+          <Button size="sm" variant="danger" onClick={onCancel} loading={cancelling} disabled={!run} className="agent-log__cancel">
+            Cancel
+          </Button>
+        ) : null}
+        {!running && onDismiss ? (
+          <Button size="sm" variant="ghost" onClick={onDismiss} className="agent-log__cancel">
+            Dismiss
+          </Button>
+        ) : null}
+      </header>
+      {run && run.source !== "nebius" ? (
+        <Callout tone="warning" title="Development fixture">
+          This run uses scripted test data, not AI inference.
+        </Callout>
+      ) : null}
+      {run?.model ? (
+        <p className="agent-log__meta">
+          {run.source === "nebius" ? "Nemotron via Nebius Token Factory · " : ""}Model: <span className="mono">{run.model}</span>
+        </p>
+      ) : null}
+
+      {running ? (
+        <p className="agent-log__status">
+          <span className="spinner" aria-hidden="true" />
+          {latestStatus && latestStatus.type === "status" ? latestStatus.text : connection === "starting" ? "Starting the run…" : "Working…"}
+        </p>
+      ) : null}
+
+      {items.length > 0 ? (
+        <ol className="agent-log__items">
+          {items.map((item) => (
+            <li key={item.seq} className="agent-item">
+              {item.kind === "tool" ? <ToolItem call={item.call} result={item.result} resolver={resolver} /> : <EventItem event={item.event} resolver={resolver} />}
+            </li>
+          ))}
+        </ol>
+      ) : null}
+
+      {run && !running && run.final_message && !hasMessage ? <p className="agent-item__text">{run.final_message}</p> : null}
+      {run && run.status === "failed" && run.error ? (
+        <Callout tone="danger" title="The AI run failed">
+          {run.error.message} Manual tools keep working.
+        </Callout>
+      ) : null}
+      {run && run.status === "limit_reached" ? (
+        <Callout tone="warning" title="Stopped at a declared limit">
+          {run.error?.message ?? "The run reached one of its caps (model calls, tool calls, tokens, or time)."}
+        </Callout>
+      ) : null}
+
+      {run && run.usage.model_calls > 0 ? (
+        <p className="agent-log__usage num">
+          Measured: {run.usage.model_calls} model call{run.usage.model_calls === 1 ? "" : "s"} · {run.usage.tool_calls} tool call
+          {run.usage.tool_calls === 1 ? "" : "s"} · {run.usage.total_tokens.toLocaleString()} tokens · {formatDurationMs(run.usage.latency_ms)}
+        </p>
+      ) : null}
+      {connection === "polling" && running ? <p className="agent-log__meta">Live stream unavailable; refreshing from the event log.</p> : null}
+    </section>
+  );
+}
+
+function ToolItem({
+  call,
+  result,
+  resolver,
+}: {
+  call: Extract<AgentEvent, { type: "tool_call" }> | null;
+  result: Extract<AgentEvent, { type: "tool_result" }> | null;
+  resolver?: CitationResolver;
+}) {
+  const name = humanize(call?.tool ?? result?.tool ?? "tool");
+  const args = call ? describeArgs(call.arguments) : "";
+  const resultId = result?.observation_id ?? result?.experiment_id ?? null;
+  return (
+    <div className="agent-item__tool">
+      <div className="agent-item__line">
+        {result ? (
+          <Icon name={result.ok ? "check" : "x"} className={result.ok ? "is-ok" : "is-fail"} />
+        ) : (
+          <span className="spinner" aria-hidden="true" />
+        )}
+        <span>
+          <strong>{name}</strong>
+          {args ? <span className="muted"> ({args})</span> : null}
+        </span>
+        <span className="visually-hidden">{result ? (result.ok ? "succeeded" : "failed") : "in progress"}</span>
+      </div>
+      {result ? (
+        <p className="agent-item__text">
+          {result.ok ? result.summary : (result.error?.message ?? result.summary)}
+          {resultId && resolver?.label(resultId) ? (
+            <>
+              {" "}
+              {resolver.onSelect ? (
+                <button type="button" className="citation" onClick={() => resolver.onSelect?.(resultId)}>
+                  View {resolver.label(resultId)}
+                </button>
+              ) : (
+                <span className="citation">{resolver.label(resultId)}</span>
+              )}
+            </>
+          ) : null}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+function EventItem({ event, resolver }: { event: AgentEvent; resolver?: CitationResolver }) {
+  switch (event.type) {
+    case "message":
+      return (
+        <div className="agent-item__message">
+          <p className="agent-item__text">{event.text}</p>
+          {event.citations && event.citations.length > 0 ? (
+            <p className="agent-item__citations">
+              {event.citations.map((c, i) => (
+                <CitationChip key={`${c.result_id}-${c.quantity}-${i}`} refItem={c} resolver={resolver} />
+              ))}
+            </p>
+          ) : null}
+        </div>
+      );
+    case "proposal": {
+      const changes = event.proposal.changes.map((c) => `${c.component_id} ${c.from_display} → ${c.to_display}`).join(", ");
+      return (
+        <p className="agent-item__line">
+          <Icon name="edit" />
+          <span>
+            Proposed a change: <span className="num">{changes}</span> (preview below; nothing is applied until you choose Apply)
+          </span>
+        </p>
+      );
+    }
+    case "diagnosis":
+      return (
+        <p className="agent-item__line">
+          <Icon name="check" />
+          <span>Submitted a diagnosis (shown in the case panel).</span>
+        </p>
+      );
+    case "repair_proposal":
+      return (
+        <p className="agent-item__line">
+          <Icon name="edit" />
+          <span>Proposed a repair (shown in the case panel).</span>
+        </p>
+      );
+    case "error":
+      return (
+        <p className="agent-item__line agent-item__line--error">
+          <Icon name="alert" />
+          <span>{event.error.message}</span>
+        </p>
+      );
+    default:
+      return null;
+  }
+}

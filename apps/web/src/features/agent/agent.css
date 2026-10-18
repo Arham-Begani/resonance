@@ -1,0 +1,118 @@
+.agent-log {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: 1px solid var(--color-border-soft);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+}
+
+.agent-log__header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.agent-log__header > svg {
+  color: var(--color-accent);
+  flex: none;
+}
+
+.agent-log__title {
+  font-size: var(--text-sm);
+}
+
+.agent-log__cancel {
+  margin-left: auto;
+}
+
+.agent-log__meta,
+.agent-log__usage {
+  color: var(--color-text-secondary);
+  font-size: var(--text-xs);
+}
+
+.agent-log__status {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--color-text);
+  font-size: var(--text-sm);
+}
+
+.agent-log__status .spinner {
+  color: var(--color-accent);
+}
+
+.agent-log__items {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.agent-item {
+  padding: var(--space-2) var(--space-3);
+  border-left: 2px solid var(--color-border-soft);
+}
+
+.agent-item__line {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+}
+
+.agent-item__line > svg,
+.agent-item__line > .spinner {
+  flex: none;
+  margin-top: 3px;
+}
+
+.agent-item__line .is-ok {
+  color: var(--color-success);
+}
+
+.agent-item__line .is-fail,
+.agent-item__line--error svg {
+  color: var(--color-danger);
+}
+
+.agent-item__text {
+  color: var(--color-text-secondary);
+  font-size: var(--text-sm);
+  white-space: pre-wrap;
+}
+
+.agent-item__message .agent-item__text {
+  color: var(--color-text);
+}
+
+.agent-item__citations {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  margin-top: var(--space-1);
+}
+
+.citation {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 0 var(--space-2);
+  border: 1px solid var(--color-accent-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-accent-subtle);
+  color: var(--color-accent);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--text-xs);
+  white-space: nowrap;
+}
+
+button.citation {
+  cursor: pointer;
+}
+
+button.citation:hover {
+  background: rgba(101, 197, 212, 0.2);
+}
