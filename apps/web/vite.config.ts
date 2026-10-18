@@ -10,7 +10,20 @@ export default defineConfig({
     port: 5173,
     strictPort: true,
     proxy: {
-      "/api": { target: apiTarget, changeOrigin: false },
+      "/api": {
+        target: apiTarget,
+        changeOrigin: false,
+        // When the browser aborts a request (e.g. Cancel during an experiment), drop the upstream
+        // request too, so the API sees the disconnect and cancels the simulation, exactly as it
+        // does in the single-server deployment.
+        configure: (proxy) => {
+          proxy.on("proxyReq", (proxyReq, _req, res) => {
+            res.on("close", () => {
+              if (!res.writableFinished) proxyReq.destroy();
+            });
+          });
+        },
+      },
     },
   },
   build: {

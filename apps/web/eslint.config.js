@@ -28,6 +28,8 @@ export default tseslint.config(
       "jsx-a11y/label-has-associated-control": ["error", { assert: "either", depth: 3 }],
       // autoFocus is not used; focus is moved deliberately (inline editors, error fields).
       "jsx-a11y/no-autofocus": "error",
+      // Scrollable regions (e.g. chart data tables) must be keyboard focusable (WCAG 2.1.1).
+      "jsx-a11y/no-noninteractive-tabindex": ["error", { tags: [], roles: ["tabpanel", "region"], allowExpressionValues: true }],
     },
   },
 );
