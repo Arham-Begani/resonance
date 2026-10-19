@@ -7,7 +7,7 @@ from typing import Literal
 
 from pydantic import Field
 
-from .circuits import ComponentChange, Tone
+from .circuits import ComponentChange, EditableComponentId, TemplateId, Tone
 from .common import (
     ApiError,
     ArtifactId,
@@ -20,6 +20,9 @@ from .common import (
     RevisionId,
     SimulatorInfo,
 )
+from .goals import FeasibilityAnalysis, Goal, GoalConstraint, GoalInput
+
+__all__ = ["FeasibilityAnalysis", "Goal", "GoalConstraint", "GoalInput"]  # re-exported
 
 # --------------------------------------------------------------------------------------
 # Settings actually used (echoed in every record)
@@ -148,39 +151,6 @@ class AudioComparison(Contract):
 # --------------------------------------------------------------------------------------
 
 
-class GoalConstraint(Contract):
-    kind: Literal["preserve", "attenuate"] = Field(
-        description="preserve: attenuation ≤ limit_db. attenuate: attenuation ≥ limit_db."
-    )
-    frequency_hz: float = Field(ge=20, le=20_000)
-    limit_db: float = Field(ge=0, le=60)
-    label: str = Field(max_length=60, examples=["Musical tone", "Whistle"])
-
-
-class GoalInput(Contract):
-    title: str = Field(max_length=120)
-    constraints: list[GoalConstraint] = Field(min_length=1, max_length=4)
-
-
-class Goal(Contract):
-    id: GoalId
-    title: str = Field(examples=["Keep the musical tone. Reduce the whistle."])
-    constraints: list[GoalConstraint]
-    origin: Literal["default", "user", "agent"]
-
-
-class FeasibilityAnalysis(Contract):
-    """Analytical feasibility for the template family (a prediction, not a measurement)."""
-
-    basis: Literal["analytical_first_order_rc"] = "analytical_first_order_rc"
-    template_id: str
-    feasible: bool
-    cutoff_range_hz: tuple[float, float] | None = Field(
-        default=None, description="Cutoff frequencies that satisfy every constraint, if any."
-    )
-    explanation: str
-
-
 class ConstraintResult(Contract):
     constraint: GoalConstraint
     measured_gain_db: float
@@ -261,3 +231,54 @@ class ExperimentComparison(Contract):
         default=None, description="Previous vs current output clips at the same shared gain."
     )
     summary: str = Field(description="Deterministic text built from the numbers above.")
+
+
+# --------------------------------------------------------------------------------------
+# Design suggestions (goal -> standard part values; analytical, labeled as a prediction)
+# --------------------------------------------------------------------------------------
+
+
+class DesignSuggestionRequest(Contract):
+    revision_id: RevisionId = Field(
+        description="The revision whose template and values to start from."
+    )
+    vary: Literal["R1", "C1"] = Field(
+        default="R1", description="Which component to choose; the other keeps its current value."
+    )
+
+
+class SuggestedValue(Contract):
+    component_id: EditableComponentId
+    value_si: float
+    display: str
+    series: Literal["E12", "unchanged"]
+
+
+class PredictedGoalTone(Contract):
+    constraint_label: str
+    frequency_hz: float
+    predicted_gain_db: float
+    passes: bool
+    margin_db: float = Field(description="Positive = satisfied with this much room (predicted).")
+
+
+class DesignSuggestion(Contract):
+    """A goal-to-design preview built from first-order RC equations: target cutoff, nearest
+    standard (E12) part for the varied component, and predicted tone gains. Nothing is
+    measured until the learner applies it as a revision and runs an experiment."""
+
+    basis: Literal["analytical_first_order_rc"] = "analytical_first_order_rc"
+    template_id: TemplateId
+    revision_id: RevisionId
+    feasible: bool = Field(description="Whether any cutoff satisfies every constraint.")
+    target_cutoff_hz: float
+    values: list[SuggestedValue]
+    predicted_cutoff_hz: float
+    predicted: list[PredictedGoalTone]
+    predicted_goal_pass: bool
+    explanation: str
+    tradeoff: str | None = Field(
+        default=None,
+        description="When infeasible (or rounding to a standard part misses a limit): which "
+        "constraint falls short and by how much, for the closest achievable design.",
+    )

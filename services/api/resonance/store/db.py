@@ -25,6 +25,7 @@ DocKind = Literal[
     "goal",
     "case",
     "agent_run",
+    "learn_attempt",
 ]
 
 M = TypeVar("M", bound=BaseModel)

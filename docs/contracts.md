@@ -219,3 +219,39 @@ closed and attach the reveal. No agent event may be emitted after the reveal.
   hides client disconnects, so cancelled requests would keep simulating (finding B-01).
 - Run a single uvicorn worker: per-case locks, cancel tokens, and SSE run registries are
   in-process. The two SQLite files are written hidden-first; public writes are idempotent.
+
+## Milestone 2 additions (high-pass, open capacitor, Learn, suggestions, evaluation)
+
+Ownership additions: `explore/suggest.py`, `explore/learn*.py`, `api/routes_learn.py`,
+`tests/learn/**` → audio & signal engineer; `evals/**` → investigation & AI engineer.
+
+- **High-pass template** `rc_highpass`: V1 Input(+)→Ground, C1 Input→Output, R1 Output→Ground,
+  same component bounds and 20 Hz–20 kHz cutoff range. Each template carries its own two-tone
+  signal (`policy.TEMPLATE_TONES`: low-pass 440 Hz tone + 4 kHz whistle; high-pass 50 Hz mains
+  hum + 440 Hz tone) and opening goal (`policy.TEMPLATE_DEFAULT_GOALS`, also served as
+  `CircuitTemplate.default_goal`). Feasibility is always analysed for the template of the
+  workbench's current revision. Switching family on the workbench creates a new root revision
+  of that template; the UI then sets that template's default goal.
+- **Open capacitor** `c1_disconnected`: modeled by removing C1 from the netlist (an open
+  circuit), for both families. It enters the case generator only after tests prove it is
+  simulatable and identifiable with the allowed instruments; priors then become 1/6 for each
+  of the six conditions. Replacing C1 with its nominal part also repairs an open capacitor.
+  Non-finite results (e.g. 0 V or 0 mA) are clamped/floored per V-18, never a 500.
+- **Case family**: `CaseCreateRequest.template_id` is public; null draws a family with
+  `policy.CASE_FAMILY_PRIOR` (50/50).
+- **Learn mode**: prompts are deterministic (component × multiplier inside the supported
+  range). An attempt measures the base and changed revisions with ngspice, grades each
+  per-tone prediction from the MEASURED exact-frequency gain change (|Δ| <
+  `LEARN_SAME_THRESHOLD_DB` = about the same), and returns deterministic explanation and
+  tradeoff text that cites experiment IDs. AI explanations are separate, labeled runs.
+- **Design suggestions** (`POST /api/workbench/goal/suggest`): analytical, labeled as a
+  prediction; target cutoff inside the feasible interval and supported range; nearest E12
+  part for the varied component; a tradeoff statement when infeasible or when rounding misses.
+  The learner applies it as an ordinary revision and measures it.
+- **Template-switching proposals**: `EditProposal.template_id` names the target family;
+  applying it creates a revision of that template linked to the base for undo.
+- **Evaluation**: a frozen held-out set (≥ 24 balanced cases across both families and all
+  conditions, nominal values unseen in development tests) run by a fixed-experiment baseline
+  and, when credentials exist, by the Nemotron agent under identical symptoms, budgets and
+  tolerances. Reports exact diagnosis, abstentions, unsupported certainty, verified repair,
+  experiment count, failures and measured latency; costs only from measured usage.

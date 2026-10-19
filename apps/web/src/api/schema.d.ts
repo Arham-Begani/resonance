@@ -327,6 +327,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/learn/attempts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create Learn Attempt */
+        post: operations["createLearnAttempt"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/learn/attempts/{attempt_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Learn Attempt */
+        get: operations["getLearnAttempt"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/learn/prompts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Learn Prompts */
+        get: operations["listLearnPrompts"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/proposals/{proposal_id}/dismiss": {
         parameters: {
             query?: never;
@@ -460,6 +511,27 @@ export interface paths {
         /** Set Goal */
         put: operations["setGoal"];
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/workbench/goal/suggest": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Suggest Design
+         * @description Goal to standard part values for the given revision (analytical preview; apply it as a
+         *     revision and run an experiment to measure it).
+         */
+        post: operations["suggestDesign"];
         delete?: never;
         options?: never;
         head?: never;
@@ -729,15 +801,12 @@ export interface components {
         /**
          * CaseCreateRequest
          * @description No seed, fault, or value fields: clients cannot choose or learn the hidden state.
-         *     Returns 409 if the session already has an open (unclosed) case.
+         *     ``template_id`` picks the circuit family (public); null draws it at random with the published
+         *     ``policy.CASE_FAMILY_PRIOR``. Returns 409 if the session already has an open case.
          */
         CaseCreateRequest: {
-            /**
-             * Template Id
-             * @default rc_lowpass
-             * @constant
-             */
-            template_id: "rc_lowpass";
+            /** Template Id */
+            template_id?: ("rc_lowpass" | "rc_highpass") | null;
         };
         /** CaseExperimentRequest */
         CaseExperimentRequest: {
@@ -843,6 +912,16 @@ export interface components {
         };
         /** CircuitTemplate */
         CircuitTemplate: {
+            /**
+             * Cutoff Range Hz
+             * @description Supported cutoff range.
+             */
+            cutoff_range_hz: [
+                number,
+                number
+            ];
+            /** @description The template's opening goal (e.g. keep the tone, remove the interference). */
+            default_goal: components["schemas"]["GoalInput"];
             /** @description A ready-to-simulate revision with the template's default values. */
             default_revision: components["schemas"]["Revision"];
             /**
@@ -976,6 +1055,68 @@ export interface components {
             revision_id: string;
         };
         /**
+         * DesignSuggestion
+         * @description A goal-to-design preview built from first-order RC equations: target cutoff, nearest
+         *     standard (E12) part for the varied component, and predicted tone gains. Nothing is
+         *     measured until the learner applies it as a revision and runs an experiment.
+         */
+        DesignSuggestion: {
+            /**
+             * Basis
+             * @default analytical_first_order_rc
+             * @constant
+             */
+            basis: "analytical_first_order_rc";
+            /** Explanation */
+            explanation: string;
+            /**
+             * Feasible
+             * @description Whether any cutoff satisfies every constraint.
+             */
+            feasible: boolean;
+            /** Predicted */
+            predicted: components["schemas"]["PredictedGoalTone"][];
+            /** Predicted Cutoff Hz */
+            predicted_cutoff_hz: number;
+            /** Predicted Goal Pass */
+            predicted_goal_pass: boolean;
+            /**
+             * Revision Id
+             * @example rev_x7Kq2LmP9aBc
+             */
+            revision_id: string;
+            /** Target Cutoff Hz */
+            target_cutoff_hz: number;
+            /**
+             * Template Id
+             * @enum {string}
+             */
+            template_id: "rc_lowpass" | "rc_highpass";
+            /**
+             * Tradeoff
+             * @description When infeasible (or rounding to a standard part misses a limit): which constraint falls short and by how much, for the closest achievable design.
+             */
+            tradeoff?: string | null;
+            /** Values */
+            values: components["schemas"]["SuggestedValue"][];
+        };
+        /** DesignSuggestionRequest */
+        DesignSuggestionRequest: {
+            /**
+             * Revision Id
+             * @description The revision whose template and values to start from.
+             * @example rev_x7Kq2LmP9aBc
+             */
+            revision_id: string;
+            /**
+             * Vary
+             * @description Which component to choose; the other keeps its current value.
+             * @default R1
+             * @enum {string}
+             */
+            vary: "R1" | "C1";
+        };
+        /**
          * DiagnosisConclusion
          * @enum {string}
          */
@@ -1024,7 +1165,7 @@ export interface components {
              * Candidate Hypothesis Ids
              * @description Only for insufficient_evidence: explanations that still fit.
              */
-            candidate_hypothesis_ids?: ("no_fault" | "r1_increased" | "r1_decreased" | "c1_increased" | "c1_decreased")[];
+            candidate_hypothesis_ids?: ("no_fault" | "r1_increased" | "r1_decreased" | "c1_increased" | "c1_decreased" | "c1_disconnected")[];
             /**
              * Citations
              * @description At least one is required for fault and no_fault conclusions.
@@ -1037,7 +1178,7 @@ export interface components {
              * Hypothesis Id
              * @description Required when conclusion = fault; forbidden otherwise.
              */
-            hypothesis_id?: ("r1_increased" | "r1_decreased" | "c1_increased" | "c1_decreased") | null;
+            hypothesis_id?: ("r1_increased" | "r1_decreased" | "c1_increased" | "c1_decreased" | "c1_disconnected") | null;
             /** @description Only for insufficient_evidence: what would help. */
             suggested_instrument?: components["schemas"]["InstrumentKind"] | null;
         };
@@ -1072,6 +1213,11 @@ export interface components {
              * @enum {string}
              */
             status: "pending" | "applied" | "dismissed";
+            /**
+             * Template Id
+             * @description Target template when the proposal switches circuit family (e.g. low-pass to high-pass); null keeps the base revision's template. A switch lists both R1 and C1.
+             */
+            template_id?: ("rc_lowpass" | "rc_highpass") | null;
         };
         /**
          * ErrorCode
@@ -1109,7 +1255,7 @@ export interface components {
             /** Message */
             message: string;
             /** Remaining */
-            remaining: ("no_fault" | "r1_increased" | "r1_decreased" | "c1_increased" | "c1_decreased")[];
+            remaining: ("no_fault" | "r1_increased" | "r1_decreased" | "c1_increased" | "c1_decreased" | "c1_disconnected")[];
             /**
              * Status
              * @enum {string}
@@ -1185,7 +1331,7 @@ export interface components {
              * Remaining
              * @description Hypotheses not contradicted.
              */
-            remaining: ("no_fault" | "r1_increased" | "r1_decreased" | "c1_increased" | "c1_decreased")[];
+            remaining: ("no_fault" | "r1_increased" | "r1_decreased" | "c1_increased" | "c1_decreased" | "c1_disconnected")[];
             /**
              * Statement
              * @description Deterministic summary, e.g. 'Two explanations fit…'. While distinguishing_instruments is withheld it must not name instruments.
@@ -1325,7 +1471,7 @@ export interface components {
              * Hypothesis Id
              * @enum {string}
              */
-            hypothesis_id: "no_fault" | "r1_increased" | "r1_decreased" | "c1_increased" | "c1_decreased";
+            hypothesis_id: "no_fault" | "r1_increased" | "r1_decreased" | "c1_increased" | "c1_decreased" | "c1_disconnected";
             /** Multiplier */
             multiplier?: number | null;
             /** Nominal Value Si */
@@ -1443,6 +1589,38 @@ export interface components {
             feasibility: components["schemas"]["FeasibilityAnalysis"];
             goal: components["schemas"]["Goal"];
         };
+        /** GradedPrediction */
+        GradedPrediction: {
+            /** Correct */
+            correct: boolean;
+            /**
+             * Delta Db
+             * @description Measured tone gain after − before (exact-frequency AC).
+             */
+            delta_db: number;
+            /** Evidence */
+            evidence: components["schemas"]["EvidenceRef"][];
+            /** Frequency Hz */
+            frequency_hz: number;
+            /** Label */
+            label: string;
+            /**
+             * Observed
+             * @description From the measured change: |delta| < LEARN_SAME_THRESHOLD_DB is about the same.
+             * @enum {string}
+             */
+            observed: "louder" | "quieter" | "about_the_same";
+            /**
+             * Predicted
+             * @enum {string}
+             */
+            predicted: "louder" | "quieter" | "about_the_same";
+            /**
+             * Role
+             * @enum {string}
+             */
+            role: "wanted" | "interference";
+        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
@@ -1463,14 +1641,14 @@ export interface components {
         /** Hypothesis */
         Hypothesis: {
             /** Change */
-            change?: ("increased" | "decreased") | null;
+            change?: ("increased" | "decreased" | "disconnected") | null;
             /** Component Id */
             component_id?: ("R1" | "C1") | null;
             /**
              * Id
              * @enum {string}
              */
-            id: "no_fault" | "r1_increased" | "r1_decreased" | "c1_increased" | "c1_decreased";
+            id: "no_fault" | "r1_increased" | "r1_decreased" | "c1_increased" | "c1_decreased" | "c1_disconnected";
             /**
              * Label
              * @example R1 is about twice its nominal value
@@ -1478,7 +1656,7 @@ export interface components {
             label: string;
             /**
              * Multiplier
-             * @description 2.0 or 0.5 in milestone 1.
+             * @description 2.0 or 0.5 for value drift; null for no fault or disconnected.
              */
             multiplier?: number | null;
         };
@@ -1493,7 +1671,7 @@ export interface components {
              * Hypothesis Id
              * @enum {string}
              */
-            hypothesis_id: "no_fault" | "r1_increased" | "r1_decreased" | "c1_increased" | "c1_decreased";
+            hypothesis_id: "no_fault" | "r1_increased" | "r1_decreased" | "c1_increased" | "c1_decreased" | "c1_disconnected";
             /**
              * Status
              * @enum {string}
@@ -1569,6 +1747,113 @@ export interface components {
             returns: ("output_gain_db" | "output_phase_deg" | "source_current_ma" | "source_current_phase_deg" | "tone_gain_db" | "tone_phase_deg" | "tone_amplitude_v" | "tone_current_ma" | "tone_current_phase_deg")[];
             /** Title */
             title: string;
+        };
+        /** LearnAttempt */
+        LearnAttempt: {
+            /** Base Experiment Id */
+            base_experiment_id: string;
+            /**
+             * Base Revision Id
+             * @example rev_x7Kq2LmP9aBc
+             */
+            base_revision_id: string;
+            change: components["schemas"]["LearnChange"];
+            comparison: components["schemas"]["ExperimentComparison"];
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Explanation
+             * @description Deterministic text built from the measured numbers.
+             */
+            explanation: string;
+            /** Graded */
+            graded: components["schemas"]["GradedPrediction"][];
+            /** Id */
+            id: string;
+            /** New Experiment Id */
+            new_experiment_id: string;
+            /**
+             * New Revision Id
+             * @example rev_x7Kq2LmP9aBc
+             */
+            new_revision_id: string;
+            /** Predictions */
+            predictions: components["schemas"]["TonePredictionInput"][];
+            /** Reasoning */
+            reasoning?: string | null;
+            /** Score */
+            score: number;
+            /**
+             * Template Id
+             * @enum {string}
+             */
+            template_id: "rc_lowpass" | "rc_highpass";
+            /** Total */
+            total: number;
+            /**
+             * Tradeoff
+             * @description Deterministic statement of what was gained and lost (wanted vs interference).
+             */
+            tradeoff: string;
+        };
+        /** LearnAttemptRequest */
+        LearnAttemptRequest: {
+            change: components["schemas"]["LearnChange"];
+            /** Predictions */
+            predictions: components["schemas"]["TonePredictionInput"][];
+            /**
+             * Reasoning
+             * @description Optional free-text prediction in own words.
+             */
+            reasoning?: string | null;
+            /**
+             * Revision Id
+             * @example rev_x7Kq2LmP9aBc
+             */
+            revision_id: string;
+        };
+        /** LearnChange */
+        LearnChange: {
+            /**
+             * Component Id
+             * @enum {string}
+             */
+            component_id: "R1" | "C1";
+            /**
+             * Multiplier
+             * @description One of 0.25, 0.5, 2 or 4.
+             */
+            multiplier: number;
+        };
+        /**
+         * LearnPrompt
+         * @description A deterministic question for the current revision, e.g. 'If we double C1, what happens
+         *     to the whistle and the musical tone?'. Prompts whose change would leave the template's
+         *     supported range are not offered.
+         */
+        LearnPrompt: {
+            change: components["schemas"]["LearnChange"];
+            /**
+             * Id
+             * @description Stable key: component + multiplier.
+             * @example C1x2
+             */
+            id: string;
+            /** Question */
+            question: string;
+            /**
+             * Template Id
+             * @enum {string}
+             */
+            template_id: "rc_lowpass" | "rc_highpass";
+            /**
+             * Tones
+             * @description The tones the learner predicts for.
+             */
+            tones: components["schemas"]["Tone"][];
         };
         /**
          * MessageEvent
@@ -1727,6 +2012,22 @@ export interface components {
              * @enum {string}
              */
             unit: "V" | "mA";
+        };
+        /** PredictedGoalTone */
+        PredictedGoalTone: {
+            /** Constraint Label */
+            constraint_label: string;
+            /** Frequency Hz */
+            frequency_hz: number;
+            /**
+             * Margin Db
+             * @description Positive = satisfied with this much room (predicted).
+             */
+            margin_db: number;
+            /** Passes */
+            passes: boolean;
+            /** Predicted Gain Db */
+            predicted_gain_db: number;
         };
         /**
          * PredictedResponse
@@ -2140,6 +2441,23 @@ export interface components {
              */
             type: "status";
         };
+        /** SuggestedValue */
+        SuggestedValue: {
+            /**
+             * Component Id
+             * @enum {string}
+             */
+            component_id: "R1" | "C1";
+            /** Display */
+            display: string;
+            /**
+             * Series
+             * @enum {string}
+             */
+            series: "E12" | "unchanged";
+            /** Value Si */
+            value_si: number;
+        };
         /** SweepObservation */
         SweepObservation: {
             /**
@@ -2245,6 +2563,16 @@ export interface components {
              * @description 20·log10(output/input) from the transient fit.
              */
             transient_gain_db: number;
+        };
+        /** TonePredictionInput */
+        TonePredictionInput: {
+            /**
+             * Expectation
+             * @enum {string}
+             */
+            expectation: "louder" | "quieter" | "about_the_same";
+            /** Frequency Hz */
+            frequency_hz: number;
         };
         /**
          * ToolCallEvent
@@ -4132,6 +4460,291 @@ export interface operations {
             };
         };
     };
+    createLearnAttempt: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LearnAttemptRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LearnAttempt"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Bad Gateway */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Gateway Timeout */
+            504: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    getLearnAttempt: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                attempt_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LearnAttempt"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Bad Gateway */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Gateway Timeout */
+            504: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    listLearnPrompts: {
+        parameters: {
+            query: {
+                /** @description Session revision to ask about. */
+                revision_id: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LearnPrompt"][];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Bad Gateway */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Gateway Timeout */
+            504: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     dismissProposal: {
         parameters: {
             query?: never;
@@ -4668,6 +5281,102 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["GoalResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Bad Gateway */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Gateway Timeout */
+            504: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    suggestDesign: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DesignSuggestionRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DesignSuggestion"];
                 };
             };
             /** @description Not Found */

@@ -218,19 +218,26 @@ class Observation(Contract):
 # Hypotheses and evidence (deterministic evaluation over public data)
 # --------------------------------------------------------------------------------------
 
-HypothesisId = Literal["no_fault", "r1_increased", "r1_decreased", "c1_increased", "c1_decreased"]
-"""Milestone-1 hypothesis catalog. ``c1_disconnected`` is reserved for a later milestone and
-must not be added until it is proven simulatable and identifiable."""
+HypothesisId = Literal[
+    "no_fault", "r1_increased", "r1_decreased", "c1_increased", "c1_decreased", "c1_disconnected"
+]
+"""Hypothesis catalog. ``c1_disconnected`` (an open capacitor) is drawn by the case generator
+only once it is proven simulatable and identifiable with the allowed instruments for both
+template families (tests in tests/challenges and tests/simulation)."""
 
-FaultHypothesisId = Literal["r1_increased", "r1_decreased", "c1_increased", "c1_decreased"]
+FaultHypothesisId = Literal[
+    "r1_increased", "r1_decreased", "c1_increased", "c1_decreased", "c1_disconnected"
+]
 
 
 class Hypothesis(Contract):
     id: HypothesisId
     label: str = Field(examples=["R1 is about twice its nominal value"])
     component_id: EditableComponentId | None = None
-    change: Literal["increased", "decreased"] | None = None
-    multiplier: float | None = Field(default=None, description="2.0 or 0.5 in milestone 1.")
+    change: Literal["increased", "decreased", "disconnected"] | None = None
+    multiplier: float | None = Field(
+        default=None, description="2.0 or 0.5 for value drift; null for no fault or disconnected."
+    )
 
 
 HypothesisStatus = Literal["supported", "contradicted", "unresolved"]
@@ -506,9 +513,10 @@ class CaseSummary(Contract):
 
 class CaseCreateRequest(Contract):
     """No seed, fault, or value fields: clients cannot choose or learn the hidden state.
-    Returns 409 if the session already has an open (unclosed) case."""
+    ``template_id`` picks the circuit family (public); null draws it at random with the published
+    ``policy.CASE_FAMILY_PRIOR``. Returns 409 if the session already has an open case."""
 
-    template_id: Literal["rc_lowpass"] = "rc_lowpass"
+    template_id: Literal["rc_lowpass", "rc_highpass"] | None = None
 
 
 class CaseModeRequest(Contract):

@@ -20,7 +20,14 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from . import __version__
-from .api import routes_agent, routes_cases, routes_experiments, routes_meta, routes_revisions
+from .api import (
+    routes_agent,
+    routes_cases,
+    routes_experiments,
+    routes_learn,
+    routes_meta,
+    routes_revisions,
+)
 from .api.deps import install_session_middleware
 from .api.errors import install_error_handlers, not_found
 from .config import Settings, get_settings
@@ -93,6 +100,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         routes_experiments.router,
         routes_cases.router,
         routes_agent.router,
+        routes_learn.router,
     ):
         app.include_router(router)
     _mount_web(app, settings.web_dist_dir)

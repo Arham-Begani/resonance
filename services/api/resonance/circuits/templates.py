@@ -46,7 +46,8 @@ from ..contracts.circuits import (
     ValueBounds,
     ValueUnit,
 )
-from ..contracts.policy import DEFAULT_TONES
+from ..contracts.goals import GoalConstraint, GoalInput
+from ..contracts.policy import DEFAULT_TONES, TEMPLATE_DEFAULT_GOALS
 from .units import ValueParseError, format_frequency, format_value, parse_value_detailed
 
 
@@ -345,8 +346,21 @@ def _template_contract(template_id: TemplateId) -> CircuitTemplate:
 
     template = get_template(template_id)
     preview = build_revision(template_id, template.default_values(), origin="template_default")
+    title, constraints = TEMPLATE_DEFAULT_GOALS[template_id]
+    default_goal = GoalInput(
+        title=title,
+        constraints=[
+            GoalConstraint(kind=kind, frequency_hz=f, limit_db=limit, label=label)
+            for kind, f, limit, label in constraints
+        ],
+    )
     return CircuitTemplate(
-        id=template.id, title=template.title, summary=template.summary, default_revision=preview
+        id=template.id,
+        title=template.title,
+        summary=template.summary,
+        default_revision=preview,
+        default_goal=default_goal,
+        cutoff_range_hz=(template.cutoff_min_hz, template.cutoff_max_hz),
     )
 
 

@@ -7,7 +7,7 @@ from typing import Annotated, Any, Literal
 
 from pydantic import Field
 
-from .circuits import EditableComponentId, Revision
+from .circuits import EditableComponentId, Revision, TemplateId
 from .common import (
     AgentRunId,
     ApiError,
@@ -82,6 +82,11 @@ class EditProposal(Contract):
 
     id: ProposalId
     base_revision_id: RevisionId
+    template_id: TemplateId | None = Field(
+        default=None,
+        description="Target template when the proposal switches circuit family (e.g. low-pass to "
+        "high-pass); null keeps the base revision's template. A switch lists both R1 and C1.",
+    )
     changes: list[ProposedChange] = Field(min_length=1, max_length=2)
     rationale: str
     predicted: list[PredictedToneGain]

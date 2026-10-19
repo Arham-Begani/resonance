@@ -20,11 +20,23 @@ from ..contracts.agent import (
     SimulatorStatus,
     WorkbenchState,
 )
-from ..contracts.circuits import CircuitTemplate, Revision, ValueParseRequest, ValueParseResult
+from ..contracts.circuits import (
+    CircuitTemplate,
+    Revision,
+    TemplateId,
+    ValueParseRequest,
+    ValueParseResult,
+)
 from ..contracts.common import ErrorCode, ErrorResponse
-from ..contracts.experiments import ExperimentRecord, ExperimentSummary, GoalInput
+from ..contracts.experiments import (
+    DesignSuggestion,
+    DesignSuggestionRequest,
+    ExperimentRecord,
+    ExperimentSummary,
+    GoalInput,
+)
 from ..contracts.internal import Simulator
-from ..explore import goals
+from ..explore import goals, suggest
 from ..store.artifacts import ArtifactStore
 from ..store.db import DocumentStore
 from ..store.session_state import load_session_state, save_session_state
@@ -105,9 +117,9 @@ async def get_workbench(session_id: SessionId, store: Store) -> WorkbenchState:
         for p in store.list_docs("proposal", session_id, EditProposal, limit=50)
         if p.status == "pending"
     ]
-    template_id = revisions[-1].template_id if revisions else "rc_lowpass"
-    known = {r.id for r in revisions}
+    known = {r.id: r for r in revisions}
     current = state.current_revision_id if state.current_revision_id in known else None
+    template_id = _feasibility_template(known.get(current or ""), revisions)
     return WorkbenchState(
         revisions=revisions,
         current_revision_id=current,
@@ -152,7 +164,38 @@ async def set_goal(body: GoalInput, session_id: SessionId, store: Store) -> Goal
     state = load_session_state(store, session_id)
     state.goal = goal
     save_session_state(store, session_id, state)
-    return GoalResponse(goal=goal, feasibility=goals.analyze_feasibility(goal, "rc_lowpass"))
+    current = (
+        store.get("revision", state.current_revision_id, session_id, Revision)
+        if state.current_revision_id
+        else None
+    )
+    template_id = _feasibility_template(current, [])
+    return GoalResponse(goal=goal, feasibility=goals.analyze_feasibility(goal, template_id))
+
+
+@router.post(
+    "/workbench/goal/suggest",
+    response_model=DesignSuggestion,
+    operation_id="suggestDesign",
+    responses=ERRORS,
+)
+async def suggest_design(
+    body: DesignSuggestionRequest, session_id: SessionId, store: Store
+) -> DesignSuggestion:
+    """Goal to standard part values for the given revision (analytical preview; apply it as a
+    revision and run an experiment to measure it)."""
+    revision = store.get("revision", body.revision_id, session_id, Revision)
+    if revision is None:
+        raise not_found("Revision")
+    state = load_session_state(store, session_id)
+    return suggest.suggest_design(revision, state.goal, vary=body.vary)
+
+
+def _feasibility_template(current: Revision | None, revisions: list[Revision]) -> TemplateId:
+    """Feasibility is analysed for the circuit family on the workbench right now."""
+    if current is not None:
+        return current.template_id
+    return revisions[-1].template_id if revisions else "rc_lowpass"
 
 
 @router.get(

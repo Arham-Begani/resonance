@@ -9,6 +9,7 @@ from typing import Literal
 from pydantic import Field, field_validator
 
 from .common import Contract, ProposalId, RevisionId
+from .goals import GoalInput
 
 TemplateId = Literal["rc_lowpass", "rc_highpass"]
 """Milestone 1 implements ``rc_lowpass`` only. ``rc_highpass`` is reserved for milestone 2 and
@@ -139,6 +140,10 @@ class CircuitTemplate(Contract):
     default_revision: Revision = Field(
         description="A ready-to-simulate revision with the template's default values."
     )
+    default_goal: GoalInput = Field(
+        description="The template's opening goal (e.g. keep the tone, remove the interference)."
+    )
+    cutoff_range_hz: tuple[float, float] = Field(description="Supported cutoff range.")
 
 
 # --------------------------------------------------------------------------------------

@@ -600,13 +600,22 @@
       },
       "CaseCreateRequest": {
         "additionalProperties": false,
-        "description": "No seed, fault, or value fields: clients cannot choose or learn the hidden state.\nReturns 409 if the session already has an open (unclosed) case.",
+        "description": "No seed, fault, or value fields: clients cannot choose or learn the hidden state.\n``template_id`` picks the circuit family (public); null draws it at random with the published\n``policy.CASE_FAMILY_PRIOR``. Returns 409 if the session already has an open case.",
         "properties": {
           "template_id": {
-            "const": "rc_lowpass",
-            "default": "rc_lowpass",
-            "title": "Template Id",
-            "type": "string"
+            "anyOf": [
+              {
+                "enum": [
+                  "rc_lowpass",
+                  "rc_highpass"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Template Id"
           }
         },
         "title": "CaseCreateRequest",
@@ -829,6 +838,25 @@
       "CircuitTemplate": {
         "additionalProperties": false,
         "properties": {
+          "cutoff_range_hz": {
+            "description": "Supported cutoff range.",
+            "maxItems": 2,
+            "minItems": 2,
+            "prefixItems": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "number"
+              }
+            ],
+            "title": "Cutoff Range Hz",
+            "type": "array"
+          },
+          "default_goal": {
+            "$ref": "#/components/schemas/GoalInput",
+            "description": "The template's opening goal (e.g. keep the tone, remove the interference)."
+          },
           "default_revision": {
             "$ref": "#/components/schemas/Revision",
             "description": "A ready-to-simulate revision with the template's default values."
@@ -854,7 +882,9 @@
           "id",
           "title",
           "summary",
-          "default_revision"
+          "default_revision",
+          "default_goal",
+          "cutoff_range_hz"
         ],
         "title": "CircuitTemplate",
         "type": "object"
@@ -1147,6 +1177,123 @@
         "title": "CurrentRevisionRequest",
         "type": "object"
       },
+      "DesignSuggestion": {
+        "additionalProperties": false,
+        "description": "A goal-to-design preview built from first-order RC equations: target cutoff, nearest\nstandard (E12) part for the varied component, and predicted tone gains. Nothing is\nmeasured until the learner applies it as a revision and runs an experiment.",
+        "properties": {
+          "basis": {
+            "const": "analytical_first_order_rc",
+            "default": "analytical_first_order_rc",
+            "title": "Basis",
+            "type": "string"
+          },
+          "explanation": {
+            "title": "Explanation",
+            "type": "string"
+          },
+          "feasible": {
+            "description": "Whether any cutoff satisfies every constraint.",
+            "title": "Feasible",
+            "type": "boolean"
+          },
+          "predicted": {
+            "items": {
+              "$ref": "#/components/schemas/PredictedGoalTone"
+            },
+            "title": "Predicted",
+            "type": "array"
+          },
+          "predicted_cutoff_hz": {
+            "title": "Predicted Cutoff Hz",
+            "type": "number"
+          },
+          "predicted_goal_pass": {
+            "title": "Predicted Goal Pass",
+            "type": "boolean"
+          },
+          "revision_id": {
+            "examples": [
+              "rev_x7Kq2LmP9aBc"
+            ],
+            "pattern": "^rev_[A-Za-z0-9_-]{8,64}$",
+            "title": "Revision Id",
+            "type": "string"
+          },
+          "target_cutoff_hz": {
+            "title": "Target Cutoff Hz",
+            "type": "number"
+          },
+          "template_id": {
+            "enum": [
+              "rc_lowpass",
+              "rc_highpass"
+            ],
+            "title": "Template Id",
+            "type": "string"
+          },
+          "tradeoff": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "When infeasible (or rounding to a standard part misses a limit): which constraint falls short and by how much, for the closest achievable design.",
+            "title": "Tradeoff"
+          },
+          "values": {
+            "items": {
+              "$ref": "#/components/schemas/SuggestedValue"
+            },
+            "title": "Values",
+            "type": "array"
+          }
+        },
+        "required": [
+          "template_id",
+          "revision_id",
+          "feasible",
+          "target_cutoff_hz",
+          "values",
+          "predicted_cutoff_hz",
+          "predicted",
+          "predicted_goal_pass",
+          "explanation"
+        ],
+        "title": "DesignSuggestion",
+        "type": "object"
+      },
+      "DesignSuggestionRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "revision_id": {
+            "description": "The revision whose template and values to start from.",
+            "examples": [
+              "rev_x7Kq2LmP9aBc"
+            ],
+            "pattern": "^rev_[A-Za-z0-9_-]{8,64}$",
+            "title": "Revision Id",
+            "type": "string"
+          },
+          "vary": {
+            "default": "R1",
+            "description": "Which component to choose; the other keeps its current value.",
+            "enum": [
+              "R1",
+              "C1"
+            ],
+            "title": "Vary",
+            "type": "string"
+          }
+        },
+        "required": [
+          "revision_id"
+        ],
+        "title": "DesignSuggestionRequest",
+        "type": "object"
+      },
       "DiagnosisConclusion": {
         "enum": [
           "fault",
@@ -1255,7 +1402,8 @@
                 "r1_increased",
                 "r1_decreased",
                 "c1_increased",
-                "c1_decreased"
+                "c1_decreased",
+                "c1_disconnected"
               ],
               "type": "string"
             },
@@ -1287,7 +1435,8 @@
                   "r1_increased",
                   "r1_decreased",
                   "c1_increased",
-                  "c1_decreased"
+                  "c1_decreased",
+                  "c1_disconnected"
                 ],
                 "type": "string"
               },
@@ -1378,6 +1527,22 @@
             ],
             "title": "Status",
             "type": "string"
+          },
+          "template_id": {
+            "anyOf": [
+              {
+                "enum": [
+                  "rc_lowpass",
+                  "rc_highpass"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Target template when the proposal switches circuit family (e.g. low-pass to high-pass); null keeps the base revision's template. A switch lists both R1 and C1.",
+            "title": "Template Id"
           }
         },
         "required": [
@@ -1476,7 +1641,8 @@
                 "r1_increased",
                 "r1_decreased",
                 "c1_increased",
-                "c1_decreased"
+                "c1_decreased",
+                "c1_disconnected"
               ],
               "type": "string"
             },
@@ -1674,7 +1840,8 @@
                 "r1_increased",
                 "r1_decreased",
                 "c1_increased",
-                "c1_decreased"
+                "c1_decreased",
+                "c1_disconnected"
               ],
               "type": "string"
             },
@@ -2073,7 +2240,8 @@
               "r1_increased",
               "r1_decreased",
               "c1_increased",
-              "c1_decreased"
+              "c1_decreased",
+              "c1_disconnected"
             ],
             "title": "Hypothesis Id",
             "type": "string"
@@ -2378,6 +2546,74 @@
         "title": "GoalResponse",
         "type": "object"
       },
+      "GradedPrediction": {
+        "additionalProperties": false,
+        "properties": {
+          "correct": {
+            "title": "Correct",
+            "type": "boolean"
+          },
+          "delta_db": {
+            "description": "Measured tone gain after − before (exact-frequency AC).",
+            "title": "Delta Db",
+            "type": "number"
+          },
+          "evidence": {
+            "items": {
+              "$ref": "#/components/schemas/EvidenceRef"
+            },
+            "title": "Evidence",
+            "type": "array"
+          },
+          "frequency_hz": {
+            "title": "Frequency Hz",
+            "type": "number"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "observed": {
+            "description": "From the measured change: |delta| < LEARN_SAME_THRESHOLD_DB is about the same.",
+            "enum": [
+              "louder",
+              "quieter",
+              "about_the_same"
+            ],
+            "title": "Observed",
+            "type": "string"
+          },
+          "predicted": {
+            "enum": [
+              "louder",
+              "quieter",
+              "about_the_same"
+            ],
+            "title": "Predicted",
+            "type": "string"
+          },
+          "role": {
+            "enum": [
+              "wanted",
+              "interference"
+            ],
+            "title": "Role",
+            "type": "string"
+          }
+        },
+        "required": [
+          "frequency_hz",
+          "label",
+          "role",
+          "predicted",
+          "observed",
+          "delta_db",
+          "correct",
+          "evidence"
+        ],
+        "title": "GradedPrediction",
+        "type": "object"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -2430,7 +2666,8 @@
               {
                 "enum": [
                   "increased",
-                  "decreased"
+                  "decreased",
+                  "disconnected"
                 ],
                 "type": "string"
               },
@@ -2461,7 +2698,8 @@
               "r1_increased",
               "r1_decreased",
               "c1_increased",
-              "c1_decreased"
+              "c1_decreased",
+              "c1_disconnected"
             ],
             "title": "Id",
             "type": "string"
@@ -2482,7 +2720,7 @@
                 "type": "null"
               }
             ],
-            "description": "2.0 or 0.5 in milestone 1.",
+            "description": "2.0 or 0.5 for value drift; null for no fault or disconnected.",
             "title": "Multiplier"
           }
         },
@@ -2510,7 +2748,8 @@
               "r1_increased",
               "r1_decreased",
               "c1_increased",
-              "c1_decreased"
+              "c1_decreased",
+              "c1_disconnected"
             ],
             "title": "Hypothesis Id",
             "type": "string"
@@ -2699,6 +2938,238 @@
           "returns"
         ],
         "title": "InstrumentSpec",
+        "type": "object"
+      },
+      "LearnAttempt": {
+        "additionalProperties": false,
+        "properties": {
+          "base_experiment_id": {
+            "pattern": "^exp_[A-Za-z0-9_-]{8,64}$",
+            "title": "Base Experiment Id",
+            "type": "string"
+          },
+          "base_revision_id": {
+            "examples": [
+              "rev_x7Kq2LmP9aBc"
+            ],
+            "pattern": "^rev_[A-Za-z0-9_-]{8,64}$",
+            "title": "Base Revision Id",
+            "type": "string"
+          },
+          "change": {
+            "$ref": "#/components/schemas/LearnChange"
+          },
+          "comparison": {
+            "$ref": "#/components/schemas/ExperimentComparison"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "explanation": {
+            "description": "Deterministic text built from the measured numbers.",
+            "title": "Explanation",
+            "type": "string"
+          },
+          "graded": {
+            "items": {
+              "$ref": "#/components/schemas/GradedPrediction"
+            },
+            "title": "Graded",
+            "type": "array"
+          },
+          "id": {
+            "pattern": "^learn_[A-Za-z0-9_-]{8,64}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "new_experiment_id": {
+            "pattern": "^exp_[A-Za-z0-9_-]{8,64}$",
+            "title": "New Experiment Id",
+            "type": "string"
+          },
+          "new_revision_id": {
+            "examples": [
+              "rev_x7Kq2LmP9aBc"
+            ],
+            "pattern": "^rev_[A-Za-z0-9_-]{8,64}$",
+            "title": "New Revision Id",
+            "type": "string"
+          },
+          "predictions": {
+            "items": {
+              "$ref": "#/components/schemas/TonePredictionInput"
+            },
+            "title": "Predictions",
+            "type": "array"
+          },
+          "reasoning": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reasoning"
+          },
+          "score": {
+            "title": "Score",
+            "type": "integer"
+          },
+          "template_id": {
+            "enum": [
+              "rc_lowpass",
+              "rc_highpass"
+            ],
+            "title": "Template Id",
+            "type": "string"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          },
+          "tradeoff": {
+            "description": "Deterministic statement of what was gained and lost (wanted vs interference).",
+            "title": "Tradeoff",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "template_id",
+          "base_revision_id",
+          "new_revision_id",
+          "base_experiment_id",
+          "new_experiment_id",
+          "change",
+          "predictions",
+          "graded",
+          "score",
+          "total",
+          "comparison",
+          "explanation",
+          "tradeoff",
+          "created_at"
+        ],
+        "title": "LearnAttempt",
+        "type": "object"
+      },
+      "LearnAttemptRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "change": {
+            "$ref": "#/components/schemas/LearnChange"
+          },
+          "predictions": {
+            "items": {
+              "$ref": "#/components/schemas/TonePredictionInput"
+            },
+            "maxItems": 4,
+            "minItems": 1,
+            "title": "Predictions",
+            "type": "array"
+          },
+          "reasoning": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Optional free-text prediction in own words.",
+            "title": "Reasoning"
+          },
+          "revision_id": {
+            "examples": [
+              "rev_x7Kq2LmP9aBc"
+            ],
+            "pattern": "^rev_[A-Za-z0-9_-]{8,64}$",
+            "title": "Revision Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "revision_id",
+          "change",
+          "predictions"
+        ],
+        "title": "LearnAttemptRequest",
+        "type": "object"
+      },
+      "LearnChange": {
+        "additionalProperties": false,
+        "properties": {
+          "component_id": {
+            "enum": [
+              "R1",
+              "C1"
+            ],
+            "title": "Component Id",
+            "type": "string"
+          },
+          "multiplier": {
+            "description": "One of 0.25, 0.5, 2 or 4.",
+            "title": "Multiplier",
+            "type": "number"
+          }
+        },
+        "required": [
+          "component_id",
+          "multiplier"
+        ],
+        "title": "LearnChange",
+        "type": "object"
+      },
+      "LearnPrompt": {
+        "additionalProperties": false,
+        "description": "A deterministic question for the current revision, e.g. 'If we double C1, what happens\nto the whistle and the musical tone?'. Prompts whose change would leave the template's\nsupported range are not offered.",
+        "properties": {
+          "change": {
+            "$ref": "#/components/schemas/LearnChange"
+          },
+          "id": {
+            "description": "Stable key: component + multiplier.",
+            "examples": [
+              "C1x2"
+            ],
+            "title": "Id",
+            "type": "string"
+          },
+          "question": {
+            "title": "Question",
+            "type": "string"
+          },
+          "template_id": {
+            "enum": [
+              "rc_lowpass",
+              "rc_highpass"
+            ],
+            "title": "Template Id",
+            "type": "string"
+          },
+          "tones": {
+            "description": "The tones the learner predicts for.",
+            "items": {
+              "$ref": "#/components/schemas/Tone"
+            },
+            "title": "Tones",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "template_id",
+          "question",
+          "change",
+          "tones"
+        ],
+        "title": "LearnPrompt",
         "type": "object"
       },
       "MessageEvent": {
@@ -3080,6 +3551,41 @@
           "expected"
         ],
         "title": "ObservedWaveform",
+        "type": "object"
+      },
+      "PredictedGoalTone": {
+        "additionalProperties": false,
+        "properties": {
+          "constraint_label": {
+            "title": "Constraint Label",
+            "type": "string"
+          },
+          "frequency_hz": {
+            "title": "Frequency Hz",
+            "type": "number"
+          },
+          "margin_db": {
+            "description": "Positive = satisfied with this much room (predicted).",
+            "title": "Margin Db",
+            "type": "number"
+          },
+          "passes": {
+            "title": "Passes",
+            "type": "boolean"
+          },
+          "predicted_gain_db": {
+            "title": "Predicted Gain Db",
+            "type": "number"
+          }
+        },
+        "required": [
+          "constraint_label",
+          "frequency_hz",
+          "predicted_gain_db",
+          "passes",
+          "margin_db"
+        ],
+        "title": "PredictedGoalTone",
         "type": "object"
       },
       "PredictedResponse": {
@@ -4041,6 +4547,43 @@
         "title": "StatusEvent",
         "type": "object"
       },
+      "SuggestedValue": {
+        "additionalProperties": false,
+        "properties": {
+          "component_id": {
+            "enum": [
+              "R1",
+              "C1"
+            ],
+            "title": "Component Id",
+            "type": "string"
+          },
+          "display": {
+            "title": "Display",
+            "type": "string"
+          },
+          "series": {
+            "enum": [
+              "E12",
+              "unchanged"
+            ],
+            "title": "Series",
+            "type": "string"
+          },
+          "value_si": {
+            "title": "Value Si",
+            "type": "number"
+          }
+        },
+        "required": [
+          "component_id",
+          "value_si",
+          "display",
+          "series"
+        ],
+        "title": "SuggestedValue",
+        "type": "object"
+      },
       "SweepObservation": {
         "additionalProperties": false,
         "properties": {
@@ -4246,6 +4789,30 @@
           "phase_deg"
         ],
         "title": "ToneLevel",
+        "type": "object"
+      },
+      "TonePredictionInput": {
+        "additionalProperties": false,
+        "properties": {
+          "expectation": {
+            "enum": [
+              "louder",
+              "quieter",
+              "about_the_same"
+            ],
+            "title": "Expectation",
+            "type": "string"
+          },
+          "frequency_hz": {
+            "title": "Frequency Hz",
+            "type": "number"
+          }
+        },
+        "required": [
+          "frequency_hz",
+          "expectation"
+        ],
+        "title": "TonePredictionInput",
         "type": "object"
       },
       "ToolCallEvent": {
@@ -6844,6 +7411,347 @@
         ]
       }
     },
+    "/api/learn/attempts": {
+      "post": {
+        "operationId": "createLearnAttempt",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LearnAttemptRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LearnAttempt"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Gateway"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          },
+          "504": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Gateway Timeout"
+          }
+        },
+        "summary": "Create Learn Attempt",
+        "tags": [
+          "learn"
+        ]
+      }
+    },
+    "/api/learn/attempts/{attempt_id}": {
+      "get": {
+        "operationId": "getLearnAttempt",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "attempt_id",
+            "required": true,
+            "schema": {
+              "title": "Attempt Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LearnAttempt"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Gateway"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          },
+          "504": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Gateway Timeout"
+          }
+        },
+        "summary": "Get Learn Attempt",
+        "tags": [
+          "learn"
+        ]
+      }
+    },
+    "/api/learn/prompts": {
+      "get": {
+        "operationId": "listLearnPrompts",
+        "parameters": [
+          {
+            "description": "Session revision to ask about.",
+            "in": "query",
+            "name": "revision_id",
+            "required": true,
+            "schema": {
+              "description": "Session revision to ask about.",
+              "title": "Revision Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/LearnPrompt"
+                  },
+                  "title": "Response Listlearnprompts",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Gateway"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          },
+          "504": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Gateway Timeout"
+          }
+        },
+        "summary": "List Learn Prompts",
+        "tags": [
+          "learn"
+        ]
+      }
+    },
     "/api/proposals/{proposal_id}/dismiss": {
       "post": {
         "operationId": "dismissProposal",
@@ -7554,6 +8462,118 @@
           }
         },
         "summary": "Set Goal",
+        "tags": [
+          "meta"
+        ]
+      }
+    },
+    "/api/workbench/goal/suggest": {
+      "post": {
+        "description": "Goal to standard part values for the given revision (analytical preview; apply it as a\nrevision and run an experiment to measure it).",
+        "operationId": "suggestDesign",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DesignSuggestionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DesignSuggestion"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Gateway"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          },
+          "504": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Gateway Timeout"
+          }
+        },
+        "summary": "Suggest Design",
         "tags": [
           "meta"
         ]

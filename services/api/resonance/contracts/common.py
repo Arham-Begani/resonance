@@ -42,8 +42,11 @@ DiagnosisId = Annotated[str, Field(pattern=rf"^dx_{_ID_BODY}$")]
 RepairId = Annotated[str, Field(pattern=rf"^rep_{_ID_BODY}$")]
 ProposalId = Annotated[str, Field(pattern=rf"^prop_{_ID_BODY}$")]
 AgentRunId = Annotated[str, Field(pattern=rf"^run_{_ID_BODY}$")]
+LearnAttemptId = Annotated[str, Field(pattern=rf"^learn_{_ID_BODY}$")]
 
-IdPrefix = Literal["rev", "exp", "art", "cmp", "goal", "case", "obs", "dx", "rep", "prop", "run"]
+IdPrefix = Literal[
+    "rev", "exp", "art", "cmp", "goal", "case", "obs", "dx", "rep", "prop", "run", "learn"
+]
 
 
 def new_id(prefix: IdPrefix) -> str:

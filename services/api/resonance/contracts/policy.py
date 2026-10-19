@@ -8,11 +8,41 @@ from __future__ import annotations
 
 from .circuits import Tone
 
-# --- Demo signal (owner: audio) ---------------------------------------------------------
-DEFAULT_TONES: tuple[Tone, ...] = (
-    Tone(frequency_hz=440.0, amplitude_v=0.6, label="Musical tone", role="wanted"),
-    Tone(frequency_hz=4000.0, amplitude_v=0.3, label="Whistle", role="interference"),
-)
+# --- Demo signals (owner: audio) --------------------------------------------------------
+# Each template has its own two-tone test signal: the low-pass reduces a high whistle, the
+# high-pass removes a low mains hum. Peak sum stays 0.9 V, so the shared playback gain never
+# clips a passive first-order filter in steady state.
+TEMPLATE_TONES: dict[str, tuple[Tone, ...]] = {
+    "rc_lowpass": (
+        Tone(frequency_hz=440.0, amplitude_v=0.6, label="Musical tone", role="wanted"),
+        Tone(frequency_hz=4000.0, amplitude_v=0.3, label="Whistle", role="interference"),
+    ),
+    "rc_highpass": (
+        Tone(frequency_hz=50.0, amplitude_v=0.3, label="Mains hum", role="interference"),
+        Tone(frequency_hz=440.0, amplitude_v=0.6, label="Musical tone", role="wanted"),
+    ),
+}
+DEFAULT_TONES: tuple[Tone, ...] = TEMPLATE_TONES["rc_lowpass"]
+
+# Opening goals: (title, ((kind, frequency_hz, limit_db, label), ...)). Analytical feasible
+# cutoffs: low-pass 864.8-1037.9 Hz; high-pass 192.7-223.9 Hz.
+TEMPLATE_DEFAULT_GOALS: dict[str, tuple[str, tuple[tuple[str, float, float, str], ...]]] = {
+    "rc_lowpass": (
+        "Keep the musical tone. Reduce the whistle.",
+        (("preserve", 440.0, 1.0, "Musical tone"), ("attenuate", 4000.0, 12.0, "Whistle")),
+    ),
+    "rc_highpass": (
+        "Keep the musical tone. Remove the mains hum.",
+        (("preserve", 440.0, 1.0, "Musical tone"), ("attenuate", 50.0, 12.0, "Mains hum")),
+    ),
+}
+
+# --- Learn mode (owner: audio/explore) ---------------------------------------------------
+LEARN_MULTIPLIERS = (0.5, 2.0)  # offered prompts; requests may also use 0.25 and 4.0
+LEARN_SAME_THRESHOLD_DB = 1.0  # a measured change smaller than this is "about the same"
+
+# --- Design suggestions (owner: audio/explore) -------------------------------------------
+E12_SERIES = (1.0, 1.2, 1.5, 1.8, 2.2, 2.7, 3.3, 3.9, 4.7, 5.6, 6.8, 8.2)
 
 # --- Audio rendering (owner: audio) -----------------------------------------------------
 AUDIO_SAMPLE_RATE_HZ = 48_000
@@ -49,7 +79,11 @@ FAULT_MULTIPLIERS = (0.5, 2.0)
 # Nominal case designs keep every fault variant inside the template's 20 Hz–20 kHz cutoff
 # range and keep symptom predictions of non-equivalent hypotheses ≥ 3× tolerance apart.
 CASE_NOMINAL_CUTOFF_RANGE_HZ = (40.0, 5000.0)
-# Hosted cases draw nominal design and fault independently and i.i.d.; published priors:
+# Case family (public, shown in the intended design) when the learner does not pick one:
+CASE_FAMILY_PRIOR = {"rc_lowpass": 0.5, "rc_highpass": 0.5}
+# Hosted cases draw nominal design and fault independently and i.i.d.; published priors.
+# Once c1_disconnected is proven simulatable and identifiable for both families, the priors
+# become 1/6 each including "c1_disconnected" (owner: investigation).
 FAULT_PRIOR = {
     "no_fault": 0.2,
     "r1_increased": 0.2,

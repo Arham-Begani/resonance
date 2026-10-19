@@ -63,7 +63,8 @@ Cases = Annotated[CaseService, Depends(get_case_service)]
     responses=ERRORS,
 )
 async def create_case(body: CaseCreateRequest, session_id: SessionId, cases: Cases) -> PublicCase:
-    return await cases.create_case(session_id, body.template_id)
+    # Until random-family cases land, a missing family means the low-pass family.
+    return await cases.create_case(session_id, body.template_id or "rc_lowpass")
 
 
 @router.get("/cases/{case_id}", response_model=PublicCase, operation_id="getCase", responses=ERRORS)
