@@ -1,7 +1,7 @@
 // Case panel: start → symptom → approach → instruments/AI run → observations → evidence →
 // diagnosis → repair → close & reveal. Everything rendered here comes from PublicCase; the
 // hidden fault is shown only in the reveal, after the case is closed.
-import { useEffect, useId, useState } from "react";
+import { Fragment, useEffect, useId, useState } from "react";
 import type { InstrumentSpec, PublicCase } from "../../api/types";
 import { usePlayback } from "../../components/audio/PlaybackProvider";
 import { Badge, Button, Callout, ErrorCallout } from "../../components/ui/primitives";
@@ -517,22 +517,26 @@ export function InvestigatePanel() {
         />
       ) : null}
 
-      <SymptomCard c={c} />
-      <ApproachCard c={c} />
-      <AgentRunLog
-        headingId={CASE_AGENT_TITLE}
-        title={view.run?.kind === "hint" ? "Hint" : "AI lab partner"}
-        view={view}
-        resolver={{ label: obsLabelFor, onSelect: (id) => cs.setView({ kind: "observation", id }) }}
-        onCancel={() => void cs.cancelAgent()}
-        onDismiss={() => runs.clear("case")}
-      />
-      <InstrumentsCard c={c} />
-      <ObservationsCard c={c} />
-      <EvidenceCard c={c} />
-      <DiagnosisCard c={c} />
-      <RepairSection c={c} />
-      <CloseCard c={c} />
+      {/* Keyed by case: a new mystery must never inherit the previous case's local state
+          (an armed "Close & reveal" confirmation, diagnosis drafts, probe or repair choice). */}
+      <Fragment key={c.id}>
+        <SymptomCard c={c} />
+        <ApproachCard c={c} />
+        <AgentRunLog
+          headingId={CASE_AGENT_TITLE}
+          title={view.run?.kind === "hint" ? "Hint" : "AI lab partner"}
+          view={view}
+          resolver={{ label: obsLabelFor, onSelect: (id) => cs.setView({ kind: "observation", id }) }}
+          onCancel={() => void cs.cancelAgent()}
+          onDismiss={() => runs.clear("case")}
+        />
+        <InstrumentsCard c={c} />
+        <ObservationsCard c={c} />
+        <EvidenceCard c={c} />
+        <DiagnosisCard c={c} />
+        <RepairSection c={c} />
+        <CloseCard c={c} />
+      </Fragment>
     </div>
   );
 }
