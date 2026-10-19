@@ -308,9 +308,8 @@ written by the lead from that run's `e2e-results.json` and from targeted re-runs
   reveal a fresh case without confirmation (and drafts/choices could carry over). Fixed by
   keying all per-case cards by case ID (`InvestigatePanel.tsx`); new regression test
   `honesty.spec.ts` "D-14 …". The D-14, D-08 and ambiguity tests then passed (3/3, 2.4 min).
-- A final full-suite confirmation run after the D-14 fix was started but had not completed
-  when this was written (the host was critically low on memory). Treat the full-suite result
-  after D-14 as **not yet confirmed**.
+- Final full-suite confirmation run after the D-14 fix (lead, 2026-10-19 21:38): **32 passed,
+  0 failed in 14.8 min** (exit 0).
 - Unconfirmed observation from the verifier's last session: on the narrow layout the header's
   goal pill may be clipped behind the tab bar (seen on screenshots since Oct 16; not measured).
 - Still not performed: a real screen-reader session and testing with assistive-technology

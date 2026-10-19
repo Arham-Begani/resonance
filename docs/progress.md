@@ -35,7 +35,7 @@ verification workflow launched (results pending).
   targeted re-runs of D-14, D-08, ambiguity, audio and keyboard tests passed. A final full
   run after the D-14 fix was started at 21:38 but the host hit critically low memory
   (374 MB free, mostly non-project processes); its output is in D:\tmp\e2e_final2.txt.
-  NEXT: confirm that run (or rerun `cd apps/web && npx playwright test` when memory allows).
+  CONFIRMED later the same evening: 32/32 passed in 14.8 min (exit 0), including D-14.
 - Live Nemotron still unverified (no NEBIUS_API_KEY).
 
 ## 2026-10-18 — Independent verification results and fixes

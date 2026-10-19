@@ -141,6 +141,9 @@ Verified on the development host (Windows 10, Python 3.12, Node 20.15, ngspice 4
   with scripted provider responses.
 - Frontend: typecheck, lint, 43 unit tests and the production build pass; 42/42 contrast pairs.
 - Fresh setup from a clean copy of the repository with the commands above.
+- Browser end-to-end suite (Playwright, real API and ngspice): 32/32 passed in 14.8 min, covering
+  the complete edit → simulate → compare → mystery → diagnose → repair → reveal flow, keyboard-only
+  journeys, axe WCAG 2 A/AA scans and honest error states.
 - Independent verification found and fixed 2 isolation/lifecycle majors, an accessibility
   focus major and an accidental-reveal UI major among others (see docs/verification/).
 
@@ -148,7 +151,6 @@ Not yet verified:
 
 - **Live Nemotron inference**: no `NEBIUS_API_KEY` has been configured, so the agent has only
   run against scripted test responses (see docs/ai-integration.md).
-- The final full browser-suite run after the last UI fix (targeted re-runs passed).
 - The Docker image (Docker is unavailable on the development host).
 - No real screen-reader session and no user testing; accessibility is unvalidated by
   assistive-technology users.
