@@ -38,6 +38,34 @@ def test_create_and_read_revisions(client: TestClient) -> None:
     assert [r["id"] for r in workbench["revisions"]] == [root["id"], child["id"]]
 
 
+def test_both_templates_offered_and_family_switch_over_http(client: TestClient) -> None:
+    offered = client.get("/api/templates").json()
+    assert [t["id"] for t in offered] == ["rc_lowpass", "rc_highpass"]
+    high_template = offered[1]
+    assert high_template["default_goal"]["title"] == "Keep the musical tone. Remove the mains hum."
+    assert high_template["cutoff_range_hz"] == [20.0, 20000.0]
+
+    low = client.post("/api/revisions", json={"template_id": "rc_lowpass"}).json()
+    switched = client.post(
+        "/api/revisions",
+        json={
+            "parent_id": low["id"],
+            "template_id": "rc_highpass",
+            "values": [{"component_id": "R1", "value": "7.5 kΩ"}],
+        },
+    )
+    assert switched.status_code == 201
+    high = switched.json()
+    assert high["template_id"] == "rc_highpass" and high["parent_id"] == low["id"]
+    assert high["changes"] == [] and high["origin"] == "user_edit"
+    assert {c["id"]: c["display_value"] for c in high["components"]} == {
+        "V1": None,
+        "C1": "100 nF",
+        "R1": "7.5 kΩ",
+    }
+    assert [t["frequency_hz"] for t in high["source"]["tones"]] == [50.0, 440.0]
+
+
 def test_validation_error_names_field(client: TestClient) -> None:
     root = client.post("/api/revisions", json={"template_id": "rc_lowpass"}).json()
     response = client.post(

@@ -10,7 +10,13 @@ import numpy as np
 import pytest
 
 from resonance.circuits.revisions import build_revision, revision_to_circuit
-from resonance.contracts.internal import AcPoints, AcSweep, CancelToken, SimulationFailed
+from resonance.contracts.internal import (
+    AcPoints,
+    AcSweep,
+    CancelToken,
+    CircuitSpec,
+    SimulationFailed,
+)
 from resonance.simulation import NgspiceRunner, NgspiceSimulator
 from resonance.simulation.raw import RawFormatError, parse_raw
 
@@ -99,7 +105,7 @@ class _StubRunner(NgspiceRunner):
         return {outputs[0]: self.blob}
 
 
-def _circuit() -> object:
+def _circuit() -> CircuitSpec:
     return revision_to_circuit(build_revision("rc_lowpass", {}, origin="user_edit"))
 
 
@@ -108,7 +114,7 @@ def test_unexpected_variables_are_rejected(tmp_path: Path) -> None:
     blob = _raw(["frequency", "v(in)", "v(out)", "v(secret)"], rows, complex_data=True)
     sim = NgspiceSimulator(_StubRunner(blob, tmp_path))
     with pytest.raises(SimulationFailed):
-        asyncio.run(sim.ac(_circuit(), AcPoints((440.0,))))  # type: ignore[arg-type]
+        asyncio.run(sim.ac(_circuit(), AcPoints((440.0,))))
 
 
 def test_wrong_frequencies_and_non_finite_values_are_rejected(tmp_path: Path) -> None:
@@ -118,14 +124,14 @@ def test_wrong_frequencies_and_non_finite_values_are_rejected(tmp_path: Path) ->
         _StubRunner(_raw(["frequency", *probes], shifted, complex_data=True), tmp_path)
     )
     with pytest.raises(SimulationFailed):
-        asyncio.run(sim.ac(_circuit(), AcPoints((440.0,))))  # type: ignore[arg-type]
+        asyncio.run(sim.ac(_circuit(), AcPoints((440.0,))))
 
     nan_rows = np.array([[440.0 + 0j, 1.0 + 0j, np.nan + 0j, 1e-3 + 0j]])
     sim = NgspiceSimulator(
         _StubRunner(_raw(["frequency", *probes], nan_rows, complex_data=True), tmp_path)
     )
     with pytest.raises(SimulationFailed):
-        asyncio.run(sim.ac(_circuit(), AcPoints((440.0,))))  # type: ignore[arg-type]
+        asyncio.run(sim.ac(_circuit(), AcPoints((440.0,))))
 
     grid = np.geomspace(10.0, 1000.0, 5)  # wrong point count for 10 points/decade
     rows = np.column_stack([grid, np.ones(5), np.ones(5), np.ones(5)]).astype(complex)
@@ -133,7 +139,7 @@ def test_wrong_frequencies_and_non_finite_values_are_rejected(tmp_path: Path) ->
         _StubRunner(_raw(["frequency", *probes], rows, complex_data=True), tmp_path)
     )
     with pytest.raises(SimulationFailed):
-        asyncio.run(sim.ac(_circuit(), AcSweep(10.0, 1000.0, 10)))  # type: ignore[arg-type]
+        asyncio.run(sim.ac(_circuit(), AcSweep(10.0, 1000.0, 10)))
 
 
 def test_source_current_sign_is_converted_to_delivered(tmp_path: Path) -> None:
@@ -141,5 +147,5 @@ def test_source_current_sign_is_converted_to_delivered(tmp_path: Path) -> None:
     blob = _raw(["frequency", "v(in)", "v(out)", "i(v1)"], rows, complex_data=True)
     data = asyncio.run(
         NgspiceSimulator(_StubRunner(blob, tmp_path)).ac(_circuit(), AcPoints((440.0,)))
-    )  # type: ignore[arg-type]
+    )
     assert data.i_source is not None and data.i_source[0] == 7e-5 + 2.5e-4j

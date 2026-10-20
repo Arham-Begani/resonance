@@ -184,7 +184,12 @@ def test_parse_request_reports_bounds_and_never_raises() -> None:
     ambiguous = parse_value_request(ValueParseRequest(component_id="C1", text="10f"))
     assert not ambiguous.ok and "ambiguous" in (ambiguous.message or "")
 
-    unavailable = parse_value_request(
+    # The high-pass uses the same per-component bounds.
+    high = parse_value_request(
         ValueParseRequest(component_id="R1", text="1k", template_id="rc_highpass")
     )
-    assert not unavailable.ok and "not available" in (unavailable.message or "")
+    assert high.ok and high.value_si == 1000.0
+    high_low = parse_value_request(
+        ValueParseRequest(component_id="C1", text="100p", template_id="rc_highpass")
+    )
+    assert not high_low.ok and "1 nF" in (high_low.message or "")
