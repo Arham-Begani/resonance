@@ -230,8 +230,10 @@ Ownership additions: `explore/suggest.py`, `explore/learn*.py`, `api/routes_lear
   signal (`policy.TEMPLATE_TONES`: low-pass 440 Hz tone + 4 kHz whistle; high-pass 50 Hz mains
   hum + 440 Hz tone) and opening goal (`policy.TEMPLATE_DEFAULT_GOALS`, also served as
   `CircuitTemplate.default_goal`). Feasibility is always analysed for the template of the
-  workbench's current revision. Switching family on the workbench creates a new root revision
-  of that template; the UI then sets that template's default goal.
+  workbench's current revision. Switching family on the workbench creates a revision of the
+  new template (its defaults overridden by any given values) linked to the previous revision
+  for history/undo, with empty `changes`; the UI then sets that template's default goal.
+  A family-switch proposal must list both R1 and C1.
 - **Open capacitor** `c1_disconnected`: modeled by removing C1 from the netlist (an open
   circuit), for both families. It enters the case generator only after tests prove it is
   simulatable and identifiable with the allowed instruments; priors then become 1/6 for each

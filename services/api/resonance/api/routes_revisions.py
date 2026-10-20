@@ -5,6 +5,10 @@ Contract (fixed by lead; propose changes before editing signatures):
   Values are parsed with explicit SI units and validated against template bounds; errors are
   validation_error (422) naming ``values.<i>.value``. Frozen (case) revisions cannot be parents
   (stale_revision, 409). Revisions are session-scoped (others' IDs → 404).
+  A ``parent_id`` with a different ``template_id`` (or applying a proposal whose
+  ``template_id`` differs from its base) switches the circuit family: the new revision uses
+  that template's defaults overridden by any provided values, links ``parent_id`` to the
+  parent for history/undo, and has empty ``changes``.
 - GET /api/revisions/{revision_id} returns a revision owned by this session.
 """
 

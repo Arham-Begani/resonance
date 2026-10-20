@@ -6,11 +6,15 @@ Public API (stable):
 
 - ``build_revision(template_id, values, *, origin, parent=None, frozen=False, edited=())
   -> Revision`` — pure. ``values`` may be partial; missing editable values come from ``parent``
-  (if given) or the template defaults. Validates bounds and the joint cutoff constraint
-  (``ValueParseError``), assigns a new opaque ID, the analytical ``prediction`` (labeled, not a
-  measurement), ``changes`` versus ``parent``, and trusted descriptions. The investigation
-  engineer builds a case's intended design with
-  ``build_revision(..., origin="case_intended", frozen=True)`` and stores it themselves.
+  (if given, same template) or the template defaults. Validates bounds and the joint cutoff
+  constraint (``ValueParseError``), assigns a new opaque ID, the analytical ``prediction``
+  (labeled, not a measurement), ``changes`` versus ``parent``, and trusted descriptions. If
+  ``parent`` uses a DIFFERENT template this is a family switch: missing values come from the
+  new template's defaults, the source is the new template's default two-tone source,
+  ``changes`` is empty (the topology differs, so per-component diffs would mislead), and
+  ``parent_id`` still links the parent for history/undo. The investigation engineer builds a
+  case's intended design with ``build_revision(..., origin="case_intended", frozen=True)`` and
+  stores it themselves.
 - ``revision_values(rev) -> dict[str, float]`` — editable component values (SI).
 - ``revision_to_circuit(rev) -> CircuitSpec`` — what to simulate for a PUBLIC revision.
 - ``create_revision(store, session_id, RevisionCreateRequest) -> Revision`` — parse, validate,
@@ -20,6 +24,10 @@ Public API (stable):
   a different revision; conflict for a proposal that is no longer pending.
   A request with a ``parent_id`` and no ``values`` creates an unchanged copy whose parent is
   that revision (``changes == []``) — e.g. to restore an earlier revision as the newest (undo).
+  A request with a ``parent_id`` AND a ``template_id`` different from the parent's switches the
+  circuit family: the new revision uses the requested template's defaults overridden by any
+  provided ``values``, links ``parent_id`` to the parent, has ``changes == []`` and origin
+  ``user_edit`` (``agent_proposal_applied`` on the proposal path).
 - ``get_revision(store, session_id, revision_id) -> Revision`` — raises not_found (404).
 - ``find_revision(store, session_id, revision_id) -> Revision | None``.
 
@@ -27,6 +35,10 @@ Applying an explore proposal: ``POST /api/revisions`` with ``parent_id`` = the p
 ``base_revision_id``, ``origin="agent_proposal_applied"``, ``proposal_id``, and either no
 ``values`` (the proposal's values are used) or exactly the proposal's values. The proposal is
 then marked ``applied``. To change values further, create a normal ``user_edit`` afterwards.
+A proposal whose ``template_id`` differs from the base revision's template is a family switch:
+the revision uses that template (a request ``template_id``, if given, must equal it), and the
+proposal must list every editable component of the target (R1 and C1); otherwise it cannot be
+applied (validation_error on ``proposal_id``).
 """
 
 from __future__ import annotations
@@ -89,9 +101,10 @@ def build_revision(
 ) -> Revision:
     """Build (but do not store) a new immutable revision. See the module docstring."""
     template = get_template(template_id)
-    if parent is not None and parent.template_id != template_id:
-        raise ValueParseError("A revision must use the same circuit template as its parent.")
-    base = revision_values(parent) if parent is not None else template.default_values()
+    same_family = parent is not None and parent.template_id == template_id
+    base = revision_values(parent) if parent is not None and same_family else None
+    if base is None:
+        base = template.default_values()
     merged: dict[str, float] = dict(base)
     for cid, value in values.items():
         if cid not in template.editable_ids:
@@ -101,9 +114,12 @@ def build_revision(
         merged[cid] = float(value)
     validate_values(template_id, merged, edited=edited or tuple(values))
 
-    source = parent.source.model_copy(deep=True) if parent else default_source(template_id)
+    if parent is not None and same_family:
+        source = parent.source.model_copy(deep=True)
+    else:
+        source = default_source(template_id)
     changes: list[ComponentChange] = []
-    if parent is not None:
+    if parent is not None and same_family:
         for comp in template.components:
             if not comp.editable or comp.unit is None:
                 continue
@@ -188,6 +204,27 @@ def _load_proposal(
     return proposal
 
 
+def _target_template(
+    req: RevisionCreateRequest, parent: Revision | None, proposal: EditProposal | None
+) -> TemplateId:
+    """The new revision's template. Without a parent: the request's. With a parent: the
+    proposal's target (a request ``template_id`` must then equal it), else the request's, else
+    the parent's. A result different from the parent's template is a family switch."""
+    if parent is None:
+        if req.template_id is None:  # the caller already rejects this; kept for type safety
+            raise _validation("Choose a circuit template or a parent revision.", "template_id")
+        return req.template_id
+    if proposal is None:
+        return req.template_id or parent.template_id
+    target: TemplateId = proposal.template_id or parent.template_id
+    if req.template_id is not None and req.template_id != target:
+        raise _validation(
+            "template_id must match the circuit template of the proposal being applied.",
+            "template_id",
+        )
+    return target
+
+
 def create_revision(store: DocumentStore, session_id: str, req: RevisionCreateRequest) -> Revision:
     """Create, validate, and persist a revision for this session. See the module docstring."""
     parent: Revision | None = None
@@ -202,21 +239,16 @@ def create_revision(store: DocumentStore, session_id: str, req: RevisionCreateRe
                 "edited. Start from one of your own revisions.",
                 field="parent_id",
             )
-        if req.template_id is not None and req.template_id != parent.template_id:
-            raise _validation(
-                "template_id must match the parent revision's template.", "template_id"
-            )
-        template_id: TemplateId = parent.template_id
-    else:
-        if req.template_id is None:
-            raise _validation("Choose a circuit template or a parent revision.", "template_id")
-        template_id = req.template_id
-    try:
-        get_template(template_id)
-    except TemplateUnavailableError as exc:
-        raise _validation(str(exc), "template_id") from None
+    elif req.template_id is None:
+        raise _validation("Choose a circuit template or a parent revision.", "template_id")
 
     proposal = _load_proposal(store, session_id, req)
+    template_id = _target_template(req, parent, proposal)
+    try:
+        template = get_template(template_id)
+    except TemplateUnavailableError as exc:
+        raise _validation(str(exc), "template_id") from None
+    switching = parent is not None and parent.template_id != template_id
 
     values: dict[str, float] = {}
     field_for: dict[str, str] = {}
@@ -233,6 +265,12 @@ def create_revision(store: DocumentStore, session_id: str, req: RevisionCreateRe
 
     if proposal is not None:
         proposed: dict[str, float] = {ch.component_id: ch.to_value_si for ch in proposal.changes}
+        if switching and set(proposed) != set(template.editable_ids):
+            raise _validation(
+                "This proposal can't be applied: a change of circuit family must list every "
+                "component value (R1 and C1).",
+                "proposal_id",
+            )
         if not values:
             values = dict(proposed)
         elif set(values) != set(proposed) or any(
