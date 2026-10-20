@@ -55,6 +55,7 @@ from ..contracts.internal import (
     AcSweep,
     CancelToken,
     CircuitSpec,
+    ComplexArray,
     FloatArray,
     SimulationCancelled,
     SimulationFailed,
@@ -420,7 +421,7 @@ class NgspiceSimulator:
             frequency_hz=freq,
             v_in=columns.get("v(in)"),
             v_out=columns.get("v(out)"),
-            i_source=None if i_src is None else -i_src,  # ngspice: into +; contract: delivered
+            i_source=None if i_src is None else _delivered(i_src),
         )
 
     async def transient(
@@ -453,8 +454,17 @@ class NgspiceSimulator:
             time_s=data[:, 0].copy(),
             v_in=columns.get("v(in)"),
             v_out=columns.get("v(out)"),
-            i_source=None if i_src is None else -i_src,
+            i_source=None if i_src is None else _delivered(i_src),
         )
+
+
+def _delivered[A: (FloatArray, ComplexArray)](i_into_plus: A) -> A:
+    """ngspice reports current INTO V1's + terminal; the contract uses the delivered direction.
+
+    ``0.0 - x`` equals ``-x`` exactly for every nonzero value but maps a zero to +0.0 instead
+    of −0.0. This matters for an open capacitor (I = 0 exactly): ``angle(-0-0j)`` is −180°,
+    which would report a spurious phase, while ``angle(0j)`` is 0°."""
+    return np.subtract(0.0, i_into_plus)
 
 
 def _validate_sweep_grid(freq: FloatArray, sweep: AcSweep) -> None:

@@ -11,6 +11,13 @@ Public entry point: ``create_simulator(settings) -> Simulator`` (see ``contracts
   from a hand-computed ``start·10^(k/ppd)`` grid by float rounding (~1e-9 relative), so
   consumers must match points BY INDEX or with a relative tolerance, never by float equality.
   ``AcPoints`` returns exactly the requested frequencies, in order (≤ 16).
+- Both templates (``rc_lowpass``, ``rc_highpass``) and an open capacitor
+  (``CircuitSpec.disconnected == {"C1"}``) are simulated. With C1 open, ngspice returns
+  V(out) = 1 + 0j (low-pass) or 0 + 0j (high-pass) and I(V1) = 0 exactly in AC; transient
+  low-pass currents are ~1e-19 A round-off. Exact zeros are returned as +0.0 (never −0.0), so
+  their computed phase is 0°; a zero phasor has no physical phase, and consumers must not
+  compare phases where the magnitude is (near) zero. dB values of zero are −inf: clamp them at
+  ``policy.DB_FLOOR`` (``analytic.gain_db(h, floor_db=DB_FLOOR)``).
 - ``await transient(circuit, TransientRequest, cancel=...)`` → ``TransientData``: adaptive,
   strictly increasing ngspice timepoints from 0 to ``stop_s`` and the requested probes. The
   source is the sum of ``circuit.source.tones`` (zero-phase sines starting at t = 0).
