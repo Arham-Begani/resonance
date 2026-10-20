@@ -4,11 +4,12 @@ Owner: circuit & simulation engineer.
 
 Public API (stable):
 
-- ``list_templates() -> list[CircuitTemplate]`` — offered templates (milestone 1: ``rc_lowpass``
-  only), each with a preview ``default_revision`` (built once per process; it is NOT stored in
-  any session — create a session revision with ``POST /api/revisions {template_id}``).
-- ``get_template(template_id) -> TemplateDefinition`` — topology, defaults, bounds. Raises
-  ``TemplateUnavailableError`` for templates that are not offered.
+- ``list_templates() -> list[CircuitTemplate]`` — offered templates (``rc_lowpass``,
+  ``rc_highpass``), each with a preview ``default_revision`` (built once per process; it is NOT
+  stored in any session — create a session revision with ``POST /api/revisions {template_id}``),
+  its ``default_goal`` and ``cutoff_range_hz`` (both from ``contracts.policy``).
+- ``get_template(template_id) -> TemplateDefinition`` — topology, defaults, bounds, and the
+  graph-derived ``summary``. Raises ``TemplateUnavailableError`` for templates not offered.
 - ``available_template_ids() -> tuple[TemplateId, ...]``
 - ``parse_component_value(template_id, component_id, value) -> (value_si, unit)`` — explicit SI
   parse + per-component bounds; raises ``ValueParseError`` naming the component.
@@ -19,10 +20,23 @@ Public API (stable):
   call it with PUBLIC values only (for a repair, validate the proposed value against the
   intended design, never against hidden values).
 - ``build_components(template_id, values) -> list[Component]`` and ``default_source(...)`` —
-  trusted descriptions built from graph data.
+  trusted descriptions built from graph data. ``default_source`` uses the template's own
+  two-tone signal (``policy.TEMPLATE_TONES``).
 
-Validated ranges (rationale in the docstring of ``_RC_LOWPASS``):
+Templates (component order follows the signal path: source, series element, shunt element):
+
+- ``rc_lowpass``: V1 Input(+)→Ground, R1 Input→Output, C1 Output→Ground.
+  Defaults R1 = 1 kΩ, C1 = 100 nF (fc ≈ 1.59 kHz). Tones: 440 Hz tone + 4 kHz whistle.
+- ``rc_highpass``: V1 Input(+)→Ground, C1 Input→Output, R1 Output→Ground.
+  Defaults R1 = 10 kΩ, C1 = 100 nF (fc ≈ 159 Hz): a teaching default that keeps the 440 Hz
+  tone (≈ −0.5 dB) but only reduces the 50 Hz hum by ≈ 10.5 dB, so it does NOT yet meet the
+  default 12 dB hum goal (analytically feasible cutoffs 192.7–223.9 Hz). Tones: 50 Hz mains hum
+  + 440 Hz tone.
+
+Validated ranges (identical for both families; rationale in the docstring of ``_RC_LOWPASS``):
 R1 100 Ω – 100 kΩ, C1 1 nF – 10 µF, and the joint constraint 20 Hz ≤ fc = 1/(2π·R1·C1) ≤ 20 kHz.
+Both families have the same time constant τ = R1·C1 and the same series-RC input impedance, so
+the settling and step-size reasoning carries over unchanged.
 """
 
 from __future__ import annotations
@@ -47,7 +61,7 @@ from ..contracts.circuits import (
     ValueUnit,
 )
 from ..contracts.goals import GoalConstraint, GoalInput
-from ..contracts.policy import DEFAULT_TONES, TEMPLATE_DEFAULT_GOALS
+from ..contracts.policy import TEMPLATE_DEFAULT_GOALS, TEMPLATE_TONES
 from .units import ValueParseError, format_frequency, format_value, parse_value_detailed
 
 
@@ -71,11 +85,23 @@ class ComponentDef:
 class TemplateDefinition:
     id: TemplateId
     title: str
-    summary: str
+    behavior: str  # trusted family behavior text; the topology part of ``summary`` is derived
     nodes: tuple[CircuitNode, ...]
     components: tuple[ComponentDef, ...]
     cutoff_min_hz: float
     cutoff_max_hz: float
+
+    @property
+    def summary(self) -> str:
+        """Topology sentence built from the graph, followed by the family behavior."""
+        parts = []
+        for comp in self.components:
+            if comp.kind == ComponentKind.VOLTAGE_SOURCE:
+                continue
+            first, second = (self.node_label(n) for n in comp.nodes)
+            parts.append(f"{_article(comp.name)} {comp.name} ({comp.id}) from {first} to {second}")
+        topology = " and ".join(parts)
+        return f"{topology[0].upper()}{topology[1:]}. {self.behavior}"
 
     def component(self, component_id: str) -> ComponentDef:
         for comp in self.components:
@@ -106,23 +132,29 @@ _NODES = (
 _R_BOUNDS = ValueBounds(min_si=100.0, max_si=100e3, unit="ohm")
 _C_BOUNDS = ValueBounds(min_si=1e-9, max_si=10e-6, unit="farad")
 
+
+def _article(word: str) -> str:
+    return "an" if word[:1].lower() in "aeiou" else "a"
+
+
+_V1 = ComponentDef(
+    id="V1",
+    kind=ComponentKind.VOLTAGE_SOURCE,
+    name="ideal voltage source",
+    nodes=("in", "gnd"),
+    editable=False,
+)
+
 _RC_LOWPASS = TemplateDefinition(
     id="rc_lowpass",
     title="RC low-pass filter",
-    summary=(
-        "A resistor from Input to Output and a capacitor from Output to Ground. Low "
-        "frequencies pass; frequencies above the cutoff fc = 1/(2π·R1·C1) are reduced, by "
+    behavior=(
+        "Low frequencies pass; frequencies above the cutoff fc = 1/(2π·R1·C1) are reduced, by "
         "about 6 dB per octave well above it."
     ),
     nodes=_NODES,
     components=(
-        ComponentDef(
-            id="V1",
-            kind=ComponentKind.VOLTAGE_SOURCE,
-            name="ideal voltage source",
-            nodes=("in", "gnd"),
-            editable=False,
-        ),
+        _V1,
         ComponentDef(
             id="R1",
             kind=ComponentKind.RESISTOR,
@@ -157,8 +189,49 @@ _RC_LOWPASS = TemplateDefinition(
     cutoff_max_hz=20_000.0,
 )
 
-_DEFINITIONS: dict[str, TemplateDefinition] = {"rc_lowpass": _RC_LOWPASS}
-_AVAILABLE: tuple[TemplateId, ...] = ("rc_lowpass",)
+_RC_HIGHPASS = TemplateDefinition(
+    id="rc_highpass",
+    title="RC high-pass filter",
+    behavior=(
+        "High frequencies pass; frequencies below the cutoff fc = 1/(2π·R1·C1) are reduced, by "
+        "about 6 dB per octave well below it."
+    ),
+    nodes=_NODES,
+    components=(
+        _V1,
+        ComponentDef(
+            id="C1",
+            kind=ComponentKind.CAPACITOR,
+            name="capacitor",
+            nodes=("in", "out"),
+            editable=True,
+            unit="farad",
+            default_si=100e-9,
+            bounds=_C_BOUNDS,
+        ),
+        ComponentDef(
+            id="R1",
+            kind=ComponentKind.RESISTOR,
+            name="resistor",
+            nodes=("out", "gnd"),
+            editable=True,
+            unit="ohm",
+            default_si=10e3,
+            bounds=_R_BOUNDS,
+        ),
+    ),
+    # Same joint range and rationale as the low-pass: the high-pass has the same time constant
+    # τ = R1·C1 (its transient decays as e^(−t/τ)), the same series-RC source current, and the
+    # same 20 Hz–20 kHz case grid. Defaults (10 kΩ, 100 nF) give fc ≈ 159 Hz.
+    cutoff_min_hz=20.0,
+    cutoff_max_hz=20_000.0,
+)
+
+_DEFINITIONS: dict[str, TemplateDefinition] = {
+    "rc_lowpass": _RC_LOWPASS,
+    "rc_highpass": _RC_HIGHPASS,
+}
+_AVAILABLE: tuple[TemplateId, ...] = ("rc_lowpass", "rc_highpass")
 
 
 def available_template_ids() -> tuple[TemplateId, ...]:
@@ -280,7 +353,7 @@ def default_source(template_id: TemplateId) -> SourceSpec:
     template = get_template(template_id)
     v1 = template.component("V1")
     pos, neg = (template.node_label(n) for n in v1.nodes)
-    tones = [t.model_copy() for t in DEFAULT_TONES]
+    tones = [t.model_copy() for t in TEMPLATE_TONES[template_id]]
     return SourceSpec(
         ac_magnitude_v=1.0,
         tones=tones,

@@ -8,13 +8,22 @@ Safety contract:
   No user, model, or template prose is copied into a netlist; there are no includes, shell
   commands, paths, or model-authored ``.control`` lines.
 - Topology comes from the template graph (``circuits.templates``); ``gnd`` maps to node 0.
+  Both ``rc_lowpass`` and ``rc_highpass`` compile through the same generic code path.
+- ``CircuitSpec.disconnected`` may be empty or exactly ``{"C1"}`` (an open capacitor): the C1
+  element line is omitted, nothing else changes. Only components in ``DISCONNECTABLE`` may be
+  disconnected; anything else (unknown IDs, R1, V1, a non-set value) raises ``NetlistError``.
+  Real-ngspice tests prove both families stay well posed without C1 (no floating node, no
+  singular matrix): low-pass → V(out) = V(in), I(V1) = 0; high-pass → V(out) = 0, I(V1) = 0.
+  ``values`` must contain every R/C of the template (the disconnected part's value is still
+  range-checked but not emitted) or every connected one only; no other keys.
 - The ``.control`` block runs exactly one approved analysis (or one exact-frequency AC run per
   requested point) and ``write``s ONLY the requested probes to ``OUTPUT_FILE`` in the job
   directory. ``write`` is never issued without explicit vectors (that would dump everything).
 - Anything unexpected raises ``NetlistError`` (an internal error; its message is generic).
 
 Public API (stable): ``compile_ac(circuit, analysis)``, ``compile_transient(circuit, request)``
-→ ``CompiledNetlist``; ``NetlistError``; the ``*_LIMIT*`` constants below.
+→ ``CompiledNetlist``; ``NetlistError``; ``SIMULATABLE_TEMPLATES``, ``DISCONNECTABLE`` and the
+limit constants below.
 
 Analyses:
 - ``AcSweep`` → ``ac dec <ppd> <start> <stop>``. ngspice returns
@@ -40,7 +49,10 @@ from .templates import TemplateDefinition, TemplateUnavailableError, get_templat
 TITLE = "* resonance trusted netlist"
 OUTPUT_FILE = "result.raw"
 
-SIMULATABLE_TEMPLATES = frozenset({"rc_lowpass"})
+SIMULATABLE_TEMPLATES = frozenset({"rc_lowpass", "rc_highpass"})
+# Components that may be open-circuited (CircuitSpec.disconnected). Removing C1 leaves every
+# node of both families with a DC path to ground; removing R1 would float the output node.
+DISCONNECTABLE = frozenset({"C1"})
 
 # Defense-in-depth limits for anything that reaches ngspice (wider than the editing bounds so
 # hidden 0.5×/2× fault variants of any allowed design remain simulatable).
@@ -108,15 +120,32 @@ def _template(circuit: CircuitSpec) -> TemplateDefinition:
         raise NetlistError("template not available") from None
 
 
-def _validated_values(circuit: CircuitSpec, template: TemplateDefinition) -> dict[str, float]:
-    if circuit.disconnected:
-        raise NetlistError("disconnected components are not supported yet")
+def _disconnected(circuit: CircuitSpec, template: TemplateDefinition) -> frozenset[str]:
+    raw = circuit.disconnected
+    if not isinstance(raw, frozenset | set):
+        raise NetlistError("disconnected must be a set of component IDs")
+    if not all(isinstance(cid, str) for cid in raw):
+        raise NetlistError("disconnected must be a set of component IDs")
+    if not raw <= DISCONNECTABLE:
+        raise NetlistError("component cannot be disconnected")
+    if not raw <= {c.id for c in template.components}:
+        raise NetlistError("disconnected component is not part of the template")
+    return frozenset(raw)
+
+
+def _validated_values(
+    circuit: CircuitSpec, template: TemplateDefinition, disconnected: frozenset[str]
+) -> dict[str, float]:
+    """Range-checked values of the CONNECTED passive components (what the netlist emits)."""
     valued = [c for c in template.components if c.kind != ComponentKind.VOLTAGE_SOURCE]
     expected = {c.id for c in valued}
-    if set(circuit.values) != expected:
+    keys = set(circuit.values)
+    if keys != expected and keys != expected - disconnected:
         raise NetlistError("circuit values do not match the template")
     out: dict[str, float] = {}
     for comp in valued:
+        if comp.id not in circuit.values:
+            continue  # a disconnected component given without a value
         raw = circuit.values[comp.id]
         if isinstance(raw, bool) or not isinstance(raw, int | float):
             raise NetlistError("non-numeric component value")
@@ -124,14 +153,16 @@ def _validated_values(circuit: CircuitSpec, template: TemplateDefinition) -> dic
         lo, hi = VALUE_LIMITS[comp.kind]
         if not _in_range(value, lo, hi):
             raise NetlistError("component value outside simulation limits")
-        out[comp.id] = value
+        if comp.id not in disconnected:
+            out[comp.id] = value
     return out
 
 
 def _passive_lines(template: TemplateDefinition, values: dict[str, float]) -> list[str]:
+    """Element lines for the connected passive components (``values`` keys), in graph order."""
     lines = []
     for comp in template.components:
-        if comp.kind == ComponentKind.VOLTAGE_SOURCE:
+        if comp.kind == ComponentKind.VOLTAGE_SOURCE or comp.id not in values:
             continue
         if comp.kind not in (ComponentKind.RESISTOR, ComponentKind.CAPACITOR):
             raise NetlistError("unsupported component kind")
@@ -167,7 +198,7 @@ def _assemble(elements: list[str], control: list[str]) -> str:
 
 def compile_ac(circuit: CircuitSpec, analysis: AcSweep | AcPoints) -> CompiledNetlist:
     template = _template(circuit)
-    values = _validated_values(circuit, template)
+    values = _validated_values(circuit, template, _disconnected(circuit, template))
     ac_mag = circuit.source.ac_magnitude_v
     if not _in_range(float(ac_mag), 1e-12, SOURCE_MAX_AC_V):
         raise NetlistError("source AC magnitude outside limits")
@@ -228,7 +259,7 @@ def transient_step_estimate(request: TransientRequest) -> int:
 
 def compile_transient(circuit: CircuitSpec, request: TransientRequest) -> CompiledNetlist:
     template = _template(circuit)
-    values = _validated_values(circuit, template)
+    values = _validated_values(circuit, template, _disconnected(circuit, template))
     stop, step = float(request.stop_s), float(request.max_step_s)
     if not _in_range(stop, 1e-6, TRAN_MAX_STOP_S):
         raise NetlistError("transient duration outside limits")

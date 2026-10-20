@@ -12,8 +12,9 @@ from .common import Contract, ProposalId, RevisionId
 from .goals import GoalInput
 
 TemplateId = Literal["rc_lowpass", "rc_highpass"]
-"""Milestone 1 implements ``rc_lowpass`` only. ``rc_highpass`` is reserved for milestone 2 and
-must not be offered by ``GET /api/templates`` until it passes its physics gates."""
+"""Both families are offered: ``rc_lowpass`` (R1 Input→Output, C1 Output→Ground) and
+``rc_highpass`` (C1 Input→Output, R1 Output→Ground), each validated against analytical
+physics with real ngspice (1 % / 1°)."""
 
 NodeId = Literal["in", "out", "gnd"]
 """Named, user-visible nodes. Netlists may use additional internal node names (e.g. a

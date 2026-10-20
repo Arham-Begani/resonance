@@ -35,7 +35,8 @@ class CircuitSpec:
     template_id: TemplateId
     values: Mapping[str, float]  # {"R1": ohms, "C1": farads}
     source: SourceSpec
-    disconnected: frozenset[str] = field(default_factory=frozenset)  # reserved, milestone 2
+    # Only frozenset({"C1"}) is supported: C1 is omitted from the netlist (an open capacitor).
+    disconnected: frozenset[str] = field(default_factory=frozenset)
 
 
 @dataclass(frozen=True)
