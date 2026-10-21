@@ -1,8 +1,9 @@
 """Private SQLite store for hidden case state (evaluator boundary).
 
 A separate database file (``Settings.evaluator_db_path``) from the public DocumentStore. Only
-``resonance.challenges.evaluator`` opens it. Rows hold the seed, generator version, fault,
-nominal and actual values, and whether the case has been closed (which permits the reveal).
+``resonance.challenges.evaluator`` opens it. Rows hold the seed, generator version, family,
+fault (including whether a component is open), nominal and actual values, and whether the case
+has been closed (which permits the reveal).
 """
 
 from __future__ import annotations
@@ -30,6 +31,13 @@ class HiddenCase:
     actual: dict[str, float]
     fault: FaultSpec
     closed: bool
+
+    @property
+    def disconnected(self) -> frozenset[str]:
+        """Components that are open in the hidden circuit (``CircuitSpec.disconnected``)."""
+        if self.fault.disconnected and self.fault.component_id is not None:
+            return frozenset({self.fault.component_id})
+        return frozenset()
 
 
 class EvaluatorStore:
@@ -61,6 +69,7 @@ class EvaluatorStore:
             "hypothesis_id": case.fault.hypothesis_id,
             "component_id": case.fault.component_id,
             "multiplier": case.fault.multiplier,
+            "disconnected": case.fault.disconnected,
         }
         with self._lock:
             self._conn.execute(
@@ -99,6 +108,7 @@ class EvaluatorStore:
                 hypothesis_id=cast(HypothesisId, fault["hypothesis_id"]),
                 component_id=fault["component_id"],
                 multiplier=fault["multiplier"],
+                disconnected=bool(fault.get("disconnected", False)),
             ),
             closed=bool(row[7]),
         )

@@ -19,6 +19,12 @@ Boundary contract (docs/contracts.md "Hidden/public boundary", V-04):
 - Every measured value (hidden runs AND the matching intended reference) is quantized at this
   boundary to the declared resolutions in ``evaluator.quantize`` (A-01): full-precision solver
   round-off would otherwise fingerprint voltage-equivalent hidden circuits.
+- A zero phasor has no phase: where a magnitude is at or below the declared measurement floor
+  (``instruments.MEASUREMENT_FLOOR_DB`` / ``CURRENT_FLOOR_MA``, e.g. an open capacitor) the
+  published phase is 0 degrees by convention, for hidden and reference runs alike, instead of
+  solver noise. dB values are clamped at ``policy.DB_FLOOR``.
+- An open component (``c1_disconnected``) is simulated by removing it from the netlist
+  (``CircuitSpec.disconnected``); a repair that replaces it reconnects it.
 - Simulator errors propagate as ``SimulationError`` with a fixed learner-safe message; any other
   failure becomes ``EvaluatorFailure`` (generic message). Logs record the case ID, instrument,
   and status only.
@@ -77,7 +83,12 @@ from ...contracts.policy import (
     WAVEFORM_WINDOW_MAX_SAMPLES,
 )
 from ...store.artifacts import ArtifactStore
-from ..instruments import CASE_FREQUENCY_GRID_HZ, TRANSIENT_PROBES
+from ..instruments import (
+    CASE_FREQUENCY_GRID_HZ,
+    CURRENT_FLOOR_MA,
+    MEASUREMENT_FLOOR_DB,
+    TRANSIENT_PROBES,
+)
 from . import faults
 from .quantize import q_db, q_peak, q_phase, q_series, q_sig
 from .store import EvaluatorStore, HiddenCase
@@ -130,7 +141,8 @@ class RevealData:
     component_id: str | None
     multiplier: float | None
     nominal_value_si: float | None
-    actual_value_si: float | None
+    actual_value_si: float | None  # None for no fault and for an open (disconnected) part
+    disconnected: bool
     seed: str
     generator_version: str
 
@@ -243,12 +255,14 @@ class Evaluator:
         if not case.closed:
             raise PermissionError("The answer is only available after the case is closed.")
         comp = case.fault.component_id
+        open_part = case.fault.disconnected
         return RevealData(
             hypothesis_id=case.fault.hypothesis_id,
             component_id=comp,
             multiplier=case.fault.multiplier,
             nominal_value_si=case.nominal[comp] if comp else None,
-            actual_value_si=case.actual[comp] if comp else None,
+            actual_value_si=case.actual[comp] if comp and not open_part else None,
+            disconnected=open_part,
             seed=case.seed,
             generator_version=case.generator_version,
         )
@@ -284,7 +298,12 @@ class Evaluator:
     ) -> SweepObservation | TransientObservation:
         """Run one declared instrument on the hidden circuit (and the intended reference)."""
         case = self._case(case_id)
-        hidden = CircuitSpec(template_id=case.template_id, values=case.actual, source=source)
+        hidden = CircuitSpec(
+            template_id=case.template_id,
+            values=case.actual,
+            source=source,
+            disconnected=case.disconnected,
+        )
         intended = CircuitSpec(template_id=case.template_id, values=case.nominal, source=source)
         result: SweepObservation | TransientObservation
         try:
@@ -328,7 +347,13 @@ class Evaluator:
         case = self._case(case_id)
         repaired_values = dict(case.actual)
         repaired_values[component_id] = float(value_si)
-        repaired = CircuitSpec(template_id=case.template_id, values=repaired_values, source=source)
+        # Replacing a part with its nominal value also reconnects it if it was open.
+        repaired = CircuitSpec(
+            template_id=case.template_id,
+            values=repaired_values,
+            source=source,
+            disconnected=case.disconnected - {component_id},
+        )
         intended = CircuitSpec(template_id=case.template_id, values=case.nominal, source=source)
         try:
             _check_cancel(cancel)
@@ -369,16 +394,26 @@ class Evaluator:
         if quantity == "output_gain":
             if data.v_out is None or data.v_in is None:
                 raise EvaluatorFailure()
-            # Non-finite results (e.g. a broken simulator) are rejected by _check_finite below.
             with np.errstate(divide="ignore", invalid="ignore"):
                 h = np.asarray(data.v_out) / np.asarray(data.v_in)
+            # A broken simulator (NaN/inf, or a zero input) is a failure, never a reading: check
+            # the raw response BEFORE the dB floor and the zero-phasor phase convention, which
+            # would otherwise turn NaN into "no measurable output".
+            _check_finite_complex(h)
+            with np.errstate(divide="ignore"):
                 magnitude = [_db(x) for x in 20.0 * np.log10(np.abs(h))]
+            measurable = [m > MEASUREMENT_FLOOR_DB for m in magnitude]
         else:
             if data.i_source is None:
                 raise EvaluatorFailure()
             h = np.asarray(data.i_source) / circuit.source.ac_magnitude_v
+            _check_finite_complex(h)
             magnitude = [q_sig(x) for x in np.abs(h) * 1e3]
-        phase = [q_phase(x) for x in np.degrees(np.angle(h))]
+            measurable = [m > CURRENT_FLOOR_MA for m in magnitude]
+        phase = [
+            q_phase(x) if ok else 0.0
+            for x, ok in zip(np.degrees(np.angle(h)), measurable, strict=True)
+        ]
         _check_finite(magnitude + phase)
         return _SweepResult(magnitude=magnitude, phase_deg=phase)
 
@@ -482,20 +517,36 @@ def _observed_tones(
 ) -> list[ObservedTone]:
     node = _CAPTURE_NODE[probe]
     voltage = probe == "output_voltage"
+
+    def level(capture: TwoToneCapture, k: int) -> tuple[float, float | None, float]:
+        """(amplitude, gain_db or None, phase) with the floor convention for zero phasors."""
+        raw_amplitude = capture.node(node).amplitude(k)
+        raw_phase = capture.tone_phase_deg(node, k)
+        _check_finite([raw_amplitude, raw_phase])  # NaN is a failure, never "no signal"
+        amplitude = q_sig(raw_amplitude)
+        gain = _db(capture.tone_gain_db(node, k)) if voltage else None
+        measurable = (
+            gain > MEASUREMENT_FLOOR_DB if gain is not None else amplitude > CURRENT_FLOOR_MA
+        )
+        phase = q_phase(raw_phase) if measurable else 0.0
+        return amplitude, gain, phase
+
     tones: list[ObservedTone] = []
     for k, tone in enumerate(expected.tones):
+        amplitude, gain, phase = level(observed, k)
+        expected_amplitude, expected_gain, expected_phase = level(expected, k)
         tones.append(
             ObservedTone(
                 frequency_hz=tone.frequency_hz,
                 label=tone.label,
                 role=tone.role,
-                amplitude=q_sig(observed.node(node).amplitude(k)),
+                amplitude=amplitude,
                 amplitude_unit="V" if voltage else "mA",
-                gain_db=_db(observed.tone_gain_db(node, k)) if voltage else None,
-                phase_deg=q_phase(observed.tone_phase_deg(node, k)),
-                expected_amplitude=q_sig(expected.node(node).amplitude(k)),
-                expected_gain_db=_db(expected.tone_gain_db(node, k)) if voltage else None,
-                expected_phase_deg=q_phase(expected.tone_phase_deg(node, k)),
+                gain_db=gain,
+                phase_deg=phase,
+                expected_amplitude=expected_amplitude,
+                expected_gain_db=expected_gain,
+                expected_phase_deg=expected_phase,
             )
         )
     _check_finite([t.amplitude for t in tones] + [t.phase_deg for t in tones])
@@ -514,6 +565,11 @@ def _quantized_audio(audio: AudioComparison) -> AudioComparison:
 
 def _check_finite(values: Sequence[float]) -> None:
     if not bool(np.all(np.isfinite(np.asarray(values, dtype=np.float64)))):
+        raise EvaluatorFailure()
+
+
+def _check_finite_complex(values: object) -> None:
+    if not bool(np.all(np.isfinite(np.asarray(values, dtype=np.complex128)))):
         raise EvaluatorFailure()
 
 
