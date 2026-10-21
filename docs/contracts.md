@@ -235,9 +235,14 @@ Ownership additions: `explore/suggest.py`, `explore/learn*.py`, `api/routes_lear
   for history/undo, with empty `changes`; the UI then sets that template's default goal.
   A family-switch proposal must list both R1 and C1.
 - **Open capacitor** `c1_disconnected`: modeled by removing C1 from the netlist (an open
-  circuit), for both families. It enters the case generator only after tests prove it is
-  simulatable and identifiable with the allowed instruments; priors then become 1/6 for each
-  of the six conditions. Replacing C1 with its nominal part also repairs an open capacitor.
+  circuit), for both families. Proven simulatable (real ngspice: low-pass passes the input with
+  zero current; high-pass outputs nothing with zero current) and separable by the standardized
+  symptom alone for every drawable design (≥ 7.3 tolerance units low-pass, ≥ 205 high-pass),
+  so the generator (version `rc-m2-v1`) draws all six conditions at 1/6. High-pass nominal
+  cutoffs stop near 1.6 kHz, where the 50/440 Hz current capture would become ambiguous.
+- **No measurable signal**: a gain ≤ −120 dB or a current ≤ 1e-6 mA counts as no measurable
+  output (`challenges/instruments.py`); its phase is published as 0° and never used as
+  evidence. Non-finite raw simulator data is rejected before quantization. Replacing C1 with its nominal part also repairs an open capacitor.
   Non-finite results (e.g. 0 V or 0 mA) are clamped/floored per V-18, never a 500.
 - **Case family**: `CaseCreateRequest.template_id` is public; null draws a family with
   `policy.CASE_FAMILY_PRIOR` (50/50).
