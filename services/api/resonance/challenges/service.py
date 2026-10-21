@@ -4,7 +4,7 @@ STABLE INTERFACE (the agent runtime codes against exactly this; ``startup(app)``
 singleton as ``app.state.case_service``)::
 
     class CaseService:
-        async def create_case(self, session_id, template_id="rc_lowpass") -> PublicCase
+        async def create_case(self, session_id, template_id=None) -> PublicCase
         def get_case(self, session_id, case_id) -> PublicCase
         def get_observation(self, session_id, case_id, observation_id) -> Observation
         def is_closing_or_closed(self, session_id, case_id) -> bool
@@ -31,6 +31,11 @@ mutation of this case is running → ``retryable=true``; same idempotency key wi
 body), budget_exhausted, run_in_progress; 422 validation_error (never consumes budget, the
 diagnosis, or the verification); 409 cancelled; 502/503/504 simulator errors after the
 automatic retry (no budget consumed).
+
+Circuit families: ``template_id`` ("rc_lowpass" | "rc_highpass") is public; ``None`` draws the
+family with ``policy.CASE_FAMILY_PRIOR`` from an independent ``secrets`` draw
+(``families.draw_family``). The symptom and every instrument use the intended revision's own
+two-tone signal (``policy.TEMPLATE_TONES``).
 
 Transition table (docs/contracts.md V-11):
 - (no open case) → ``create_case`` → ready (409 if the session already has an unclosed case).
@@ -72,8 +77,9 @@ once that run can make no further case calls.
 Public-only computation (V-06): before close, status, available actions, budget, evidence, and
 summaries depend only on public data. Only the reveal reads hidden state.
 
-``harness_create_case`` creates a case from a given seed for the private evaluation harness
-(in-process only; there is no HTTP route for it).
+``harness_create_case(session_id, seed, template_id="rc_lowpass")`` creates a case of the given
+family from a given seed for the private evaluation harness (``evals/``; in-process only; there
+is no HTTP route for it).
 """
 
 from __future__ import annotations
@@ -91,8 +97,9 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from ..api.errors import ApiException, not_found, simulation_error_to_api
 from ..circuits.revisions import build_revision
+from ..circuits.templates import TemplateUnavailableError, available_template_ids
 from ..circuits.units import format_value
-from ..contracts.circuits import Revision, TemplateId
+from ..contracts.circuits import Revision, TemplateId, Tone
 from ..contracts.common import ErrorCode, QuantityName, new_id
 from ..contracts.internal import CancelToken, SimulationCancelled, SimulationError
 from ..contracts.investigation import (
@@ -133,7 +140,7 @@ from ..contracts.policy import (
 )
 from ..store.db import DocumentStore, utcnow
 from ..store.session_state import load_session_state, save_session_state
-from . import hypotheses, summaries
+from . import families, hypotheses, summaries
 from .evaluator import (
     Evaluator,
     EvaluatorFailure,
@@ -274,9 +281,14 @@ def _fingerprint(request: CaseExperimentRequest) -> str:
     return f"{request.instrument.value}|{request.probe or ''}"
 
 
-def _settings_for(instrument: InstrumentKind) -> ObservationSettings:
+def _tones(record: CaseRecord) -> list[Tone]:
+    """The case's public two-tone signal: the intended revision's own tones."""
+    return record.intended_revision.source.tones
+
+
+def _settings_for(instrument: InstrumentKind, tones: list[Tone]) -> ObservationSettings:
     if instrument == InstrumentKind.TRANSIENT_CAPTURE:
-        return ObservationSettings(transient=case_transient_settings())
+        return ObservationSettings(transient=case_transient_settings(tones))
     return ObservationSettings(sweep=sweep_settings())
 
 
@@ -371,7 +383,7 @@ class CaseService:
             _intended_values(record.intended_revision),
             record.observations,
             publish_distinguishing=publish,
-            tones=record.intended_revision.source.tones,
+            tones=_tones(record),
         )
 
     def _available_actions(self, record: CaseRecord) -> list[CaseAction]:
@@ -410,7 +422,7 @@ class CaseService:
             created_at=record.created_at,
             updated_at=record.updated_at,
             intended_revision=record.intended_revision,
-            instruments=instrument_specs(),
+            instruments=instrument_specs(_tones(record)),
             hypotheses=hypotheses.hypothesis_catalog(),
             policy=hypotheses.evidence_policy(),
             budget=self._budget(record),
@@ -427,21 +439,30 @@ class CaseService:
 
     # ------------------------------------------------------------------ creation
 
-    async def create_case(self, session_id: str, template_id: str = "rc_lowpass") -> PublicCase:
-        return await self._create(session_id, template_id, seed=None)
+    async def create_case(
+        self, session_id: str, template_id: TemplateId | None = None
+    ) -> PublicCase:
+        """New case of the given (public) family; ``None`` draws the family with
+        ``policy.CASE_FAMILY_PRIOR`` (independent ``secrets`` draw)."""
+        family = families.draw_family() if template_id is None else template_id
+        return await self._create(session_id, family, seed=None)
 
     async def harness_create_case(
-        self, session_id: str, seed: str, template_id: str = "rc_lowpass"
+        self, session_id: str, seed: str, template_id: TemplateId = "rc_lowpass"
     ) -> PublicCase:
         """PRIVATE EVALUATION HARNESS ONLY (in-process; never routed over HTTP): create a case
-        whose hidden state is generated from ``seed``."""
+        of family ``template_id`` whose hidden state is generated from ``seed``."""
         return await self._create(session_id, template_id, seed=seed)
 
-    async def _create(self, session_id: str, template_id: str, seed: str | None) -> PublicCase:
-        if template_id != "rc_lowpass":
+    async def _create(
+        self, session_id: str, template_id: TemplateId, seed: str | None
+    ) -> PublicCase:
+        if template_id not in families.CASE_FAMILIES:
             raise _invalid(
-                "Mysteries are available for the RC low-pass filter only.", "template_id"
+                "Mysteries are available for the RC filter families only.", "template_id"
             )
+        if template_id not in available_template_ids():
+            raise _invalid("That circuit family is not available yet.", "template_id")
         lock = self._session_locks.setdefault(session_id, asyncio.Lock())
         if lock.locked():
             raise _conflict("A mystery is already being prepared.", retryable=True)
@@ -451,15 +472,17 @@ class CaseService:
                 current = self._store.get("case", state.active_case_id, session_id, CaseRecord)
                 if current is not None and current.status != CaseStatus.CLOSED:
                     raise _conflict("Close the current mystery before starting a new one.")
-            return await self._create_locked(session_id, seed)
+            return await self._create_locked(session_id, template_id, seed)
 
-    async def _create_locked(self, session_id: str, seed: str | None) -> PublicCase:
+    async def _create_locked(
+        self, session_id: str, template_id: TemplateId, seed: str | None
+    ) -> PublicCase:
         case_id = new_id("case")
         # Hidden state first (V-19); public writes happen only after the symptom succeeded.
         design = (
-            self._evaluator.create_case(case_id, "rc_lowpass")
+            self._evaluator.create_case(case_id, template_id)
             if seed is None
-            else self._evaluator.create_case_from_seed(case_id, seed, "rc_lowpass")
+            else self._evaluator.create_case_from_seed(case_id, seed, template_id)
         )
         meta = _ObsMeta(
             obs_id=new_id("obs"),
@@ -471,7 +494,7 @@ class CaseService:
         )
         try:
             revision = build_revision(
-                "rc_lowpass", design.values, origin="case_intended", frozen=True
+                design.template_id, design.values, origin="case_intended", frozen=True
             )
             measurement = await self._measure_with_retry(
                 case_id,
@@ -486,16 +509,22 @@ class CaseService:
             self._evaluator.discard(case_id)
             if isinstance(exc, SimulationError):
                 raise simulation_error_to_api(exc) from None
-            if isinstance(exc, EvaluatorFailure):
+            if isinstance(exc, EvaluatorFailure | TemplateUnavailableError):
                 raise ApiException(
                     ErrorCode.INTERNAL_ERROR, "The mystery could not be prepared."
                 ) from None
             raise
         now = utcnow()
-        symptom = self._observation(meta, sequence=0, counted=False, measurement=measurement)
+        symptom = self._observation(
+            meta,
+            sequence=0,
+            counted=False,
+            measurement=measurement,
+            tones=revision.source.tones,
+        )
         record = CaseRecord(
             id=case_id,
-            template_id="rc_lowpass",
+            template_id=design.template_id,
             status=CaseStatus.READY,
             created_at=now,
             updated_at=now,
@@ -737,7 +766,11 @@ class CaseService:
             # Commit the observation, the budget, and the idempotency key in one write.
             record = self._load(session_id, case_id)
             obs = self._observation(
-                meta, sequence=len(record.observations), counted=True, measurement=measurement
+                meta,
+                sequence=len(record.observations),
+                counted=True,
+                measurement=measurement,
+                tones=_tones(record),
             )
             record.observations.append(obs)
             record.budget_used += 1
@@ -799,7 +832,7 @@ class CaseService:
             status="cancelled" if cancelled else "failed",
             created_at=utcnow(),
             simulator=self._evaluator.simulator_info(),
-            settings=_settings_for(instrument),
+            settings=_settings_for(instrument, _tones(record)),
             summary=(
                 summaries.CANCELLED_SUMMARY if cancelled else summaries.failed_summary(retried)
             ),
@@ -850,6 +883,7 @@ class CaseService:
         sequence: int,
         counted: bool,
         measurement: SweepObservation | TransientObservation,
+        tones: list[Tone],
     ) -> Observation:
         sweep = measurement if isinstance(measurement, SweepObservation) else None
         transient = measurement if isinstance(measurement, TransientObservation) else None
@@ -859,7 +893,7 @@ class CaseService:
         else:
             assert transient is not None
             summary = summaries.transient_summary(transient, symptom=meta.kind == "symptom")
-            settings = ObservationSettings(transient=case_transient_settings())
+            settings = ObservationSettings(transient=case_transient_settings(tones))
         return Observation(
             id=meta.obs_id,
             case_id=meta.case_id,
@@ -935,7 +969,7 @@ class CaseService:
                 _intended_values(record.intended_revision),
                 record.observations,
                 publish_distinguishing=False,
-                tones=record.intended_revision.source.tones,
+                tones=_tones(record),
             )
             record.diagnosis = DiagnosisRecord(
                 id=new_id("dx"),
@@ -1100,9 +1134,11 @@ class CaseService:
             sweep.expected_phase_deg,
             strict=True,
         ):
-            # Differences of values quantized at the evaluator boundary, same resolutions.
+            # Differences of values quantized at the evaluator boundary, same resolutions. A
+            # point without measurable output fails on gain; its (undefined) phase is not used.
             dg = round(abs(g - eg), 3)
-            dp = round(abs(float(hypotheses.wrap_deg(p - ep))), 2)
+            phase_defined = hypotheses.gain_measurable(g) and hypotheses.gain_measurable(eg)
+            dp = round(abs(float(hypotheses.wrap_deg(p - ep))), 2) if phase_defined else 0.0
             max_gain, max_phase = max(max_gain, dg), max(max_phase, dp)
             ratio = max(dg / REPAIR_GAIN_TOLERANCE_DB, dp / REPAIR_PHASE_TOLERANCE_DEG)
             if ratio > worst_ratio:
@@ -1228,7 +1264,12 @@ class CaseService:
         component = next(
             (c for c in record.intended_revision.components if c.id == data.component_id), None
         )
-        if component is not None and component.unit is not None and data.actual_value_si:
+        if component is not None and data.disconnected:
+            description = (
+                f"{hyp.label}: {component.id} ({component.display_value}) was not connected, "
+                "so the circuit behaved as if it were removed."
+            )
+        elif component is not None and component.unit is not None and data.actual_value_si:
             actual = format_value(data.actual_value_si, component.unit)
             description = (
                 f"{hyp.label}: {component.id} was {actual} instead of the intended "

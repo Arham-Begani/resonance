@@ -3,7 +3,8 @@
 Contract (fixed by lead; propose changes before editing signatures):
 - POST /api/cases: new case with a fresh opaque ID and hidden state created by the evaluator;
   records the standardized symptom (uncounted). Sets the session's active case. 409 if the
-  session already has an unclosed case.
+  session already has an unclosed case. ``template_id`` (public) picks the circuit family;
+  null draws it with ``policy.CASE_FAMILY_PRIOR``.
 - GET /api/cases/{id}: public state only. Cases are session-scoped (others → 404).
 - POST /api/cases/{id}/mode: choose guide | agent (ready|observing → observing; no run active).
 - POST /api/cases/{id}/experiments: run one allowed instrument against the hidden circuit.
@@ -63,8 +64,8 @@ Cases = Annotated[CaseService, Depends(get_case_service)]
     responses=ERRORS,
 )
 async def create_case(body: CaseCreateRequest, session_id: SessionId, cases: Cases) -> PublicCase:
-    # Until random-family cases land, a missing family means the low-pass family.
-    return await cases.create_case(session_id, body.template_id or "rc_lowpass")
+    # A null family is drawn with the published policy.CASE_FAMILY_PRIOR (secrets-based).
+    return await cases.create_case(session_id, body.template_id)
 
 
 @router.get("/cases/{case_id}", response_model=PublicCase, operation_id="getCase", responses=ERRORS)
