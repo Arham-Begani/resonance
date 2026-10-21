@@ -1,0 +1,1319 @@
+{
+  "run_id": "baseline-heldout_v1-20261021T174452Z",
+  "runner": "baseline",
+  "model": null,
+  "case_set": {
+    "name": "heldout_v1",
+    "sha256": "c84b0d8996dcebe182c19c23fba80e6a715aadcae1e69b42fa84b2ea0225c118",
+    "generator_version": "rc-m2-v1",
+    "cases": 24,
+    "selected_keys": [
+      "heldout_v1-lp-01",
+      "heldout_v1-lp-02",
+      "heldout_v1-lp-03",
+      "heldout_v1-lp-04",
+      "heldout_v1-lp-05",
+      "heldout_v1-lp-06",
+      "heldout_v1-lp-07",
+      "heldout_v1-lp-08",
+      "heldout_v1-lp-09",
+      "heldout_v1-lp-10",
+      "heldout_v1-lp-11",
+      "heldout_v1-lp-12",
+      "heldout_v1-hp-01",
+      "heldout_v1-hp-02",
+      "heldout_v1-hp-03",
+      "heldout_v1-hp-04",
+      "heldout_v1-hp-05",
+      "heldout_v1-hp-06",
+      "heldout_v1-hp-07",
+      "heldout_v1-hp-08",
+      "heldout_v1-hp-09",
+      "heldout_v1-hp-10",
+      "heldout_v1-hp-11",
+      "heldout_v1-hp-12"
+    ]
+  },
+  "started_at": "2026-10-21T17:44:52.775431+00:00",
+  "finished_at": "2026-10-21T17:46:35.966149+00:00",
+  "environment": {
+    "simulator": "ngspice 47",
+    "platform": "Windows-10-10.0.19045-SP0",
+    "python": "3.12.10"
+  },
+  "protocol": {
+    "description": "standardized symptom; Guide-me mode; fixed experiments output_voltage_sweep \u2192 source_current_sweep (2 of 3 budgeted); unique remaining hypothesis \u2192 that conclusion, else insufficient_evidence with the remaining candidates; nominal repair of the named component verified once; close and reveal.",
+    "budget": 3,
+    "evidence_tolerances": {
+      "gain_db": 0.5,
+      "phase_deg": 3.0,
+      "current_pct": 3.0,
+      "current_abs_ma": 1e-06
+    },
+    "repair_tolerances": {
+      "gain_db": 0.5,
+      "phase_deg": 3.0
+    }
+  },
+  "results": [
+    {
+      "key": "heldout_v1-lp-01",
+      "runner": "baseline",
+      "template_id": "rc_lowpass",
+      "nominal": {
+        "R1": 6800.0,
+        "C1": 2.2e-07
+      },
+      "seed": "ab35be81bee8d6cee4e24ab3ddf53cb6",
+      "case_id": "case_QPtF_dTyc8MKw7ZZ",
+      "completed": true,
+      "error": null,
+      "true_condition": "no_fault",
+      "terminal_status": "closed",
+      "conclusion": "no_fault",
+      "named_hypothesis": "no_fault",
+      "candidates": [],
+      "evidence_check": "supported",
+      "exact_identification": "correct",
+      "true_cause_among_candidates": null,
+      "unsupported_certainty": false,
+      "repair_component": null,
+      "functional_recovery": "not_needed",
+      "experiments_used": 2,
+      "experiment_sequence": [
+        "output_voltage_sweep",
+        "source_current_sweep"
+      ],
+      "infrastructure_failures": 0,
+      "latency_s": {
+        "symptom": 1.945,
+        "output_voltage_sweep": 0.23,
+        "source_current_sweep": 0.262,
+        "diagnosis": 0.057,
+        "close": 0.043,
+        "total": 2.543
+      },
+      "agent": null
+    },
+    {
+      "key": "heldout_v1-lp-02",
+      "runner": "baseline",
+      "template_id": "rc_lowpass",
+      "nominal": {
+        "R1": 4700.0,
+        "C1": 1.5e-07
+      },
+      "seed": "cc8057e33f0aed4d639c7794d8ebc71f",
+      "case_id": "case_AcMru87_PUmJ35mA",
+      "completed": true,
+      "error": null,
+      "true_condition": "r1_increased",
+      "terminal_status": "closed",
+      "conclusion": "fault",
+      "named_hypothesis": "r1_increased",
+      "candidates": [],
+      "evidence_check": "supported",
+      "exact_identification": "correct",
+      "true_cause_among_candidates": null,
+      "unsupported_certainty": false,
+      "repair_component": "R1",
+      "functional_recovery": "restored",
+      "experiments_used": 2,
+      "experiment_sequence": [
+        "output_voltage_sweep",
+        "source_current_sweep"
+      ],
+      "infrastructure_failures": 0,
+      "latency_s": {
+        "symptom": 1.956,
+        "output_voltage_sweep": 0.355,
+        "source_current_sweep": 0.335,
+        "diagnosis": 0.056,
+        "verify_repair": 1.833,
+        "close": 0.035,
+        "total": 4.612
+      },
+      "agent": null
+    },
+    {
+      "key": "heldout_v1-lp-03",
+      "runner": "baseline",
+      "template_id": "rc_lowpass",
+      "nominal": {
+        "R1": 680.0,
+        "C1": 6.8e-07
+      },
+      "seed": "e67e2bdfccd9e91473ccf93c89e51f3d",
+      "case_id": "case_8612vF3DBkG-43GL",
+      "completed": true,
+      "error": null,
+      "true_condition": "r1_decreased",
+      "terminal_status": "closed",
+      "conclusion": "fault",
+      "named_hypothesis": "r1_decreased",
+      "candidates": [],
+      "evidence_check": "supported",
+      "exact_identification": "correct",
+      "true_cause_among_candidates": null,
+      "unsupported_certainty": false,
+      "repair_component": "R1",
+      "functional_recovery": "restored",
+      "experiments_used": 2,
+      "experiment_sequence": [
+        "output_voltage_sweep",
+        "source_current_sweep"
+      ],
+      "infrastructure_failures": 0,
+      "latency_s": {
+        "symptom": 2.106,
+        "output_voltage_sweep": 0.322,
+        "source_current_sweep": 0.362,
+        "diagnosis": 0.058,
+        "verify_repair": 1.726,
+        "close": 0.034,
+        "total": 4.647
+      },
+      "agent": null
+    },
+    {
+      "key": "heldout_v1-lp-04",
+      "runner": "baseline",
+      "template_id": "rc_lowpass",
+      "nominal": {
+        "R1": 1500.0,
+        "C1": 1.5e-07
+      },
+      "seed": "6caaa23a2eb4fd1976085a76f27ac5b3",
+      "case_id": "case_y_f6TWfZcULpIhc1",
+      "completed": true,
+      "error": null,
+      "true_condition": "c1_increased",
+      "terminal_status": "closed",
+      "conclusion": "fault",
+      "named_hypothesis": "c1_increased",
+      "candidates": [],
+      "evidence_check": "supported",
+      "exact_identification": "correct",
+      "true_cause_among_candidates": null,
+      "unsupported_certainty": false,
+      "repair_component": "C1",
+      "functional_recovery": "restored",
+      "experiments_used": 2,
+      "experiment_sequence": [
+        "output_voltage_sweep",
+        "source_current_sweep"
+      ],
+      "infrastructure_failures": 0,
+      "latency_s": {
+        "symptom": 2.703,
+        "output_voltage_sweep": 0.448,
+        "source_current_sweep": 0.391,
+        "diagnosis": 0.056,
+        "verify_repair": 2.16,
+        "close": 0.034,
+        "total": 5.83
+      },
+      "agent": null
+    },
+    {
+      "key": "heldout_v1-lp-05",
+      "runner": "baseline",
+      "template_id": "rc_lowpass",
+      "nominal": {
+        "R1": 4700.0,
+        "C1": 2.2e-08
+      },
+      "seed": "ca66f79616b41f02ec13a42fb3d9fa3d",
+      "case_id": "case_68WEbKG9rr13nisp",
+      "completed": true,
+      "error": null,
+      "true_condition": "c1_decreased",
+      "terminal_status": "closed",
+      "conclusion": "fault",
+      "named_hypothesis": "c1_decreased",
+      "candidates": [],
+      "evidence_check": "supported",
+      "exact_identification": "correct",
+      "true_cause_among_candidates": null,
+      "unsupported_certainty": false,
+      "repair_component": "C1",
+      "functional_recovery": "restored",
+      "experiments_used": 2,
+      "experiment_sequence": [
+        "output_voltage_sweep",
+        "source_current_sweep"
+      ],
+      "infrastructure_failures": 0,
+      "latency_s": {
+        "symptom": 2.005,
+        "output_voltage_sweep": 0.255,
+        "source_current_sweep": 0.347,
+        "diagnosis": 0.067,
+        "verify_repair": 1.914,
+        "close": 0.033,
+        "total": 4.667
+      },
+      "agent": null
+    },
+    {
+      "key": "heldout_v1-lp-06",
+      "runner": "baseline",
+      "template_id": "rc_lowpass",
+      "nominal": {
+        "R1": 3300.0,
+        "C1": 1.5e-08
+      },
+      "seed": "af0db7348b0c9dd01d72629e7fb53d14",
+      "case_id": "case_lubPE4pnFwdxr7KC",
+      "completed": true,
+      "error": null,
+      "true_condition": "c1_disconnected",
+      "terminal_status": "closed",
+      "conclusion": "fault",
+      "named_hypothesis": "c1_disconnected",
+      "candidates": [],
+      "evidence_check": "supported",
+      "exact_identification": "correct",
+      "true_cause_among_candidates": null,
+      "unsupported_certainty": false,
+      "repair_component": "C1",
+      "functional_recovery": "restored",
+      "experiments_used": 2,
+      "experiment_sequence": [
+        "output_voltage_sweep",
+        "source_current_sweep"
+      ],
+      "infrastructure_failures": 0,
+      "latency_s": {
+        "symptom": 1.777,
+        "output_voltage_sweep": 0.216,
+        "source_current_sweep": 0.206,
+        "diagnosis": 0.056,
+        "verify_repair": 1.598,
+        "close": 0.03,
+        "total": 3.919
+      },
+      "agent": null
+    },
+    {
+      "key": "heldout_v1-lp-07",
+      "runner": "baseline",
+      "template_id": "rc_lowpass",
+      "nominal": {
+        "R1": 1500.0,
+        "C1": 1.5e-07
+      },
+      "seed": "e6a5267c93236fdeac6c602fec904639",
+      "case_id": "case_Q9cbbxvffv9WpCKr",
+      "completed": true,
+      "error": null,
+      "true_condition": "no_fault",
+      "terminal_status": "closed",
+      "conclusion": "no_fault",
+      "named_hypothesis": "no_fault",
+      "candidates": [],
+      "evidence_check": "supported",
+      "exact_identification": "correct",
+      "true_cause_among_candidates": null,
+      "unsupported_certainty": false,
+      "repair_component": null,
+      "functional_recovery": "not_needed",
+      "experiments_used": 2,
+      "experiment_sequence": [
+        "output_voltage_sweep",
+        "source_current_sweep"
+      ],
+      "infrastructure_failures": 0,
+      "latency_s": {
+        "symptom": 1.705,
+        "output_voltage_sweep": 0.211,
+        "source_current_sweep": 0.188,
+        "diagnosis": 0.055,
+        "close": 0.036,
+        "total": 2.205
+      },
+      "agent": null
+    },
+    {
+      "key": "heldout_v1-lp-08",
+      "runner": "baseline",
+      "template_id": "rc_lowpass",
+      "nominal": {
+        "R1": 4700.0,
+        "C1": 2.2e-08
+      },
+      "seed": "49c19101121d977cef5ec03fd11007cd",
+      "case_id": "case_vVitZPrNqEyDc1Mn",
+      "completed": true,
+      "error": null,
+      "true_condition": "r1_increased",
+      "terminal_status": "closed",
+      "conclusion": "fault",
+      "named_hypothesis": "r1_increased",
+      "candidates": [],
+      "evidence_check": "supported",
+      "exact_identification": "correct",
+      "true_cause_among_candidates": null,
+      "unsupported_certainty": false,
+      "repair_component": "R1",
+      "functional_recovery": "restored",
+      "experiments_used": 2,
+      "experiment_sequence": [
+        "output_voltage_sweep",
+        "source_current_sweep"
+      ],
+      "infrastructure_failures": 0,
+      "latency_s": {
+        "symptom": 1.439,
+        "output_voltage_sweep": 0.163,
+        "source_current_sweep": 0.246,
+        "diagnosis": 0.061,
+        "verify_repair": 1.423,
+        "close": 0.026,
+        "total": 3.398
+      },
+      "agent": null
+    },
+    {
+      "key": "heldout_v1-lp-09",
+      "runner": "baseline",
+      "template_id": "rc_lowpass",
+      "nominal": {
+        "R1": 3300.0,
+        "C1": 1.5e-08
+      },
+      "seed": "b8bda0351c64985a34359954802abf39",
+      "case_id": "case_trb6JYxjzK-rJ0Fp",
+      "completed": true,
+      "error": null,
+      "true_condition": "r1_decreased",
+      "terminal_status": "closed",
+      "conclusion": "fault",
+      "named_hypothesis": "r1_decreased",
+      "candidates": [],
+      "evidence_check": "supported",
+      "exact_identification": "correct",
+      "true_cause_among_candidates": null,
+      "unsupported_certainty": false,
+      "repair_component": "R1",
+      "functional_recovery": "restored",
+      "experiments_used": 2,
+      "experiment_sequence": [
+        "output_voltage_sweep",
+        "source_current_sweep"
+      ],
+      "infrastructure_failures": 0,
+      "latency_s": {
+        "symptom": 1.398,
+        "output_voltage_sweep": 0.149,
+        "source_current_sweep": 0.175,
+        "diagnosis": 0.073,
+        "verify_repair": 1.316,
+        "close": 0.032,
+        "total": 3.18
+      },
+      "agent": null
+    },
+    {
+      "key": "heldout_v1-lp-10",
+      "runner": "baseline",
+      "template_id": "rc_lowpass",
+      "nominal": {
+        "R1": 6800.0,
+        "C1": 2.2e-07
+      },
+      "seed": "f51b19e4c272242c842103216357f472",
+      "case_id": "case_i7CnhfzhmYfJ941E",
+      "completed": true,
+      "error": null,
+      "true_condition": "c1_increased",
+      "terminal_status": "closed",
+      "conclusion": "fault",
+      "named_hypothesis": "c1_increased",
+      "candidates": [],
+      "evidence_check": "supported",
+      "exact_identification": "correct",
+      "true_cause_among_candidates": null,
+      "unsupported_certainty": false,
+      "repair_component": "C1",
+      "functional_recovery": "restored",
+      "experiments_used": 2,
+      "experiment_sequence": [
+        "output_voltage_sweep",
+        "source_current_sweep"
+      ],
+      "infrastructure_failures": 0,
+      "latency_s": {
+        "symptom": 1.866,
+        "output_voltage_sweep": 0.207,
+        "source_current_sweep": 0.184,
+        "diagnosis": 0.063,
+        "verify_repair": 1.405,
+        "close": 0.029,
+        "total": 3.798
+      },
+      "agent": null
+    },
+    {
+      "key": "heldout_v1-lp-11",
+      "runner": "baseline",
+      "template_id": "rc_lowpass",
+      "nominal": {
+        "R1": 4700.0,
+        "C1": 1.5e-07
+      },
+      "seed": "24b637e2226a18b60b6d15abc588b12f",
+      "case_id": "case_dl2b4KoWKhtmmKsj",
+      "completed": true,
+      "error": null,
+      "true_condition": "c1_decreased",
+      "terminal_status": "closed",
+      "conclusion": "fault",
+      "named_hypothesis": "c1_decreased",
+      "candidates": [],
+      "evidence_check": "supported",
+      "exact_identification": "correct",
+      "true_cause_among_candidates": null,
+      "unsupported_certainty": false,
+      "repair_component": "C1",
+      "functional_recovery": "restored",
+      "experiments_used": 2,
+      "experiment_sequence": [
+        "output_voltage_sweep",
+        "source_current_sweep"
+      ],
+      "infrastructure_failures": 0,
+      "latency_s": {
+        "symptom": 1.544,
+        "output_voltage_sweep": 0.218,
+        "source_current_sweep": 0.215,
+        "diagnosis": 0.057,
+        "verify_repair": 1.459,
+        "close": 0.033,
+        "total": 3.564
+      },
+      "agent": null
+    },
+    {
+      "key": "heldout_v1-lp-12",
+      "runner": "baseline",
+      "template_id": "rc_lowpass",
+      "nominal": {
+        "R1": 680.0,
+        "C1": 6.8e-07
+      },
+      "seed": "baf26ce4ccff07335d59b073022bfe92",
+      "case_id": "case_ICzbqn02VM_sxtQJ",
+      "completed": true,
+      "error": null,
+      "true_condition": "c1_disconnected",
+      "terminal_status": "closed",
+      "conclusion": "fault",
+      "named_hypothesis": "c1_disconnected",
+      "candidates": [],
+      "evidence_check": "supported",
+      "exact_identification": "correct",
+      "true_cause_among_candidates": null,
+      "unsupported_certainty": false,
+      "repair_component": "C1",
+      "functional_recovery": "restored",
+      "experiments_used": 2,
+      "experiment_sequence": [
+        "output_voltage_sweep",
+        "source_current_sweep"
+      ],
+      "infrastructure_failures": 0,
+      "latency_s": {
+        "symptom": 1.554,
+        "output_voltage_sweep": 0.169,
+        "source_current_sweep": 0.165,
+        "diagnosis": 0.049,
+        "verify_repair": 1.505,
+        "close": 0.03,
+        "total": 3.504
+      },
+      "agent": null
+    },
+    {
+      "key": "heldout_v1-hp-01",
+      "runner": "baseline",
+      "template_id": "rc_highpass",
+      "nominal": {
+        "R1": 4700.0,
+        "C1": 6.8e-07
+      },
+      "seed": "8e721d67e9b195ec3aa629f45727266e",
+      "case_id": "case_xpE_MAh_wCs_F8wd",
+      "completed": true,
+      "error": null,
+      "true_condition": "no_fault",
+      "terminal_status": "closed",
+      "conclusion": "no_fault",
+      "named_hypothesis": "no_fault",
+      "candidates": [],
+      "evidence_check": "supported",
+      "exact_identification": "correct",
+      "true_cause_among_candidates": null,
+      "unsupported_certainty": false,
+      "repair_component": null,
+      "functional_recovery": "not_needed",
+      "experiments_used": 2,
+      "experiment_sequence": [
+        "output_voltage_sweep",
+        "source_current_sweep"
+      ],
+      "infrastructure_failures": 0,
+      "latency_s": {
+        "symptom": 1.383,
+        "output_voltage_sweep": 0.284,
+        "source_current_sweep": 0.19,
+        "diagnosis": 0.051,
+        "close": 0.033,
+        "total": 1.95
+      },
+      "agent": null
+    },
+    {
+      "key": "heldout_v1-hp-02",
+      "runner": "baseline",
+      "template_id": "rc_highpass",
+      "nominal": {
+        "R1": 10000.0,
+        "C1": 2.2e-07
+      },
+      "seed": "65f2844931e2a92f216dd5d8703bcebb",
+      "case_id": "case_7-YrXDY5e71Nq5WV",
+      "completed": true,
+      "error": null,
+      "true_condition": "r1_increased",
+      "terminal_status": "closed",
+      "conclusion": "fault",
+      "named_hypothesis": "r1_increased",
+      "candidates": [],
+      "evidence_check": "supported",
+      "exact_identification": "correct",
+      "true_cause_among_candidates": null,
+      "unsupported_certainty": false,
+      "repair_component": "R1",
+      "functional_recovery": "restored",
+      "experiments_used": 2,
+      "experiment_sequence": [
+        "output_voltage_sweep",
+        "source_current_sweep"
+      ],
+      "infrastructure_failures": 0,
+      "latency_s": {
+        "symptom": 1.489,
+        "output_voltage_sweep": 0.171,
+        "source_current_sweep": 0.214,
+        "diagnosis": 0.056,
+        "verify_repair": 1.459,
+        "close": 0.031,
+        "total": 3.464
+      },
+      "agent": null
+    },
+    {
+      "key": "heldout_v1-hp-03",
+      "runner": "baseline",
+      "template_id": "rc_highpass",
+      "nominal": {
+        "R1": 2200.0,
+        "C1": 3.3e-07
+      },
+      "seed": "a284a8d4d2779ff0d1d48aed9549f8b8",
+      "case_id": "case_IYYb89TpQMY1Il5s",
+      "completed": true,
+      "error": null,
+      "true_condition": "r1_decreased",
+      "terminal_status": "closed",
+      "conclusion": "fault",
+      "named_hypothesis": "r1_decreased",
+      "candidates": [],
+      "evidence_check": "supported",
+      "exact_identification": "correct",
+      "true_cause_among_candidates": null,
+      "unsupported_certainty": false,
+      "repair_component": "R1",
+      "functional_recovery": "restored",
+      "experiments_used": 2,
+      "experiment_sequence": [
+        "output_voltage_sweep",
+        "source_current_sweep"
+      ],
+      "infrastructure_failures": 0,
+      "latency_s": {
+        "symptom": 1.358,
+        "output_voltage_sweep": 0.162,
+        "source_current_sweep": 0.178,
+        "diagnosis": 0.056,
+        "verify_repair": 1.499,
+        "close": 0.033,
+        "total": 3.327
+      },
+      "agent": null
+    },
+    {
+      "key": "heldout_v1-hp-04",
+      "runner": "baseline",
+      "template_id": "rc_highpass",
+      "nominal": {
+        "R1": 10000.0,
+        "C1": 3.3e-08
+      },
+      "seed": "cab79a516fcb234f57aa3df67cf770d8",
+      "case_id": "case_Qql1pKtp-zz50yWe",
+      "completed": true,
+      "error": null,
+      "true_condition": "c1_increased",
+      "terminal_status": "closed",
+      "conclusion": "fault",
+      "named_hypothesis": "c1_increased",
+      "candidates": [],
+      "evidence_check": "supported",
+      "exact_identification": "correct",
+      "true_cause_among_candidates": null,
+      "unsupported_certainty": false,
+      "repair_component": "C1",
+      "functional_recovery": "restored",
+      "experiments_used": 2,
+      "experiment_sequence": [
+        "output_voltage_sweep",
+        "source_current_sweep"
+      ],
+      "infrastructure_failures": 0,
+      "latency_s": {
+        "symptom": 1.573,
+        "output_voltage_sweep": 0.214,
+        "source_current_sweep": 0.214,
+        "diagnosis": 0.055,
+        "verify_repair": 1.706,
+        "close": 0.033,
+        "total": 3.835
+      },
+      "agent": null
+    },
+    {
+      "key": "heldout_v1-hp-05",
+      "runner": "baseline",
+      "template_id": "rc_highpass",
+      "nominal": {
+        "R1": 680.0,
+        "C1": 3.3e-07
+      },
+      "seed": "3c8a3022cb7f601a32c05cf2d2743361",
+      "case_id": "case_oZUseG9RiHC44rcF",
+      "completed": true,
+      "error": null,
+      "true_condition": "c1_decreased",
+      "terminal_status": "closed",
+      "conclusion": "fault",
+      "named_hypothesis": "c1_decreased",
+      "candidates": [],
+      "evidence_check": "supported",
+      "exact_identification": "correct",
+      "true_cause_among_candidates": null,
+      "unsupported_certainty": false,
+      "repair_component": "C1",
+      "functional_recovery": "restored",
+      "experiments_used": 2,
+      "experiment_sequence": [
+        "output_voltage_sweep",
+        "source_current_sweep"
+      ],
+      "infrastructure_failures": 0,
+      "latency_s": {
+        "symptom": 1.772,
+        "output_voltage_sweep": 0.321,
+        "source_current_sweep": 0.237,
+        "diagnosis": 0.049,
+        "verify_repair": 1.652,
+        "close": 0.03,
+        "total": 4.101
+      },
+      "agent": null
+    },
+    {
+      "key": "heldout_v1-hp-06",
+      "runner": "baseline",
+      "template_id": "rc_highpass",
+      "nominal": {
+        "R1": 6800.0,
+        "C1": 1.5e-08
+      },
+      "seed": "c684fc682a62c77fc82fd2b989f98080",
+      "case_id": "case_nl4iaFbiOvTeFpV0",
+      "completed": true,
+      "error": null,
+      "true_condition": "c1_disconnected",
+      "terminal_status": "closed",
+      "conclusion": "fault",
+      "named_hypothesis": "c1_disconnected",
+      "candidates": [],
+      "evidence_check": "supported",
+      "exact_identification": "correct",
+      "true_cause_among_candidates": null,
+      "unsupported_certainty": false,
+      "repair_component": "C1",
+      "functional_recovery": "restored",
+      "experiments_used": 2,
+      "experiment_sequence": [
+        "output_voltage_sweep",
+        "source_current_sweep"
+      ],
+      "infrastructure_failures": 0,
+      "latency_s": {
+        "symptom": 1.383,
+        "output_voltage_sweep": 0.187,
+        "source_current_sweep": 0.226,
+        "diagnosis": 0.058,
+        "verify_repair": 2.709,
+        "close": 0.027,
+        "total": 4.624
+      },
+      "agent": null
+    },
+    {
+      "key": "heldout_v1-hp-07",
+      "runner": "baseline",
+      "template_id": "rc_highpass",
+      "nominal": {
+        "R1": 10000.0,
+        "C1": 3.3e-08
+      },
+      "seed": "832bc38c30b467b119fcab89c19ed3ec",
+      "case_id": "case_STZNE1obfOMIztrp",
+      "completed": true,
+      "error": null,
+      "true_condition": "no_fault",
+      "terminal_status": "closed",
+      "conclusion": "no_fault",
+      "named_hypothesis": "no_fault",
+      "candidates": [],
+      "evidence_check": "supported",
+      "exact_identification": "correct",
+      "true_cause_among_candidates": null,
+      "unsupported_certainty": false,
+      "repair_component": null,
+      "functional_recovery": "not_needed",
+      "experiments_used": 2,
+      "experiment_sequence": [
+        "output_voltage_sweep",
+        "source_current_sweep"
+      ],
+      "infrastructure_failures": 0,
+      "latency_s": {
+        "symptom": 2.093,
+        "output_voltage_sweep": 0.175,
+        "source_current_sweep": 0.273,
+        "diagnosis": 0.055,
+        "close": 0.03,
+        "total": 2.633
+      },
+      "agent": null
+    },
+    {
+      "key": "heldout_v1-hp-08",
+      "runner": "baseline",
+      "template_id": "rc_highpass",
+      "nominal": {
+        "R1": 680.0,
+        "C1": 3.3e-07
+      },
+      "seed": "f923aa291251381663a9454ffb135d6b",
+      "case_id": "case_svzc_XuFAFPMhWq1",
+      "completed": true,
+      "error": null,
+      "true_condition": "r1_increased",
+      "terminal_status": "closed",
+      "conclusion": "fault",
+      "named_hypothesis": "r1_increased",
+      "candidates": [],
+      "evidence_check": "supported",
+      "exact_identification": "correct",
+      "true_cause_among_candidates": null,
+      "unsupported_certainty": false,
+      "repair_component": "R1",
+      "functional_recovery": "restored",
+      "experiments_used": 2,
+      "experiment_sequence": [
+        "output_voltage_sweep",
+        "source_current_sweep"
+      ],
+      "infrastructure_failures": 0,
+      "latency_s": {
+        "symptom": 2.81,
+        "output_voltage_sweep": 0.431,
+        "source_current_sweep": 0.611,
+        "diagnosis": 0.053,
+        "verify_repair": 2.061,
+        "close": 0.032,
+        "total": 6.037
+      },
+      "agent": null
+    },
+    {
+      "key": "heldout_v1-hp-09",
+      "runner": "baseline",
+      "template_id": "rc_highpass",
+      "nominal": {
+        "R1": 6800.0,
+        "C1": 1.5e-08
+      },
+      "seed": "3c7a1f023b4f01340c94071c84d873fd",
+      "case_id": "case_btRij_HkD3XW_9YO",
+      "completed": true,
+      "error": null,
+      "true_condition": "r1_decreased",
+      "terminal_status": "closed",
+      "conclusion": "fault",
+      "named_hypothesis": "r1_decreased",
+      "candidates": [],
+      "evidence_check": "supported",
+      "exact_identification": "correct",
+      "true_cause_among_candidates": null,
+      "unsupported_certainty": false,
+      "repair_component": "R1",
+      "functional_recovery": "restored",
+      "experiments_used": 2,
+      "experiment_sequence": [
+        "output_voltage_sweep",
+        "source_current_sweep"
+      ],
+      "infrastructure_failures": 0,
+      "latency_s": {
+        "symptom": 4.058,
+        "output_voltage_sweep": 0.841,
+        "source_current_sweep": 0.702,
+        "diagnosis": 0.061,
+        "verify_repair": 2.766,
+        "close": 0.034,
+        "total": 8.504
+      },
+      "agent": null
+    },
+    {
+      "key": "heldout_v1-hp-10",
+      "runner": "baseline",
+      "template_id": "rc_highpass",
+      "nominal": {
+        "R1": 4700.0,
+        "C1": 6.8e-07
+      },
+      "seed": "f90c9cd71e9f9ff865855fe58ea70f0b",
+      "case_id": "case_cnSj9F48uKcHcW7o",
+      "completed": true,
+      "error": null,
+      "true_condition": "c1_increased",
+      "terminal_status": "closed",
+      "conclusion": "fault",
+      "named_hypothesis": "c1_increased",
+      "candidates": [],
+      "evidence_check": "supported",
+      "exact_identification": "correct",
+      "true_cause_among_candidates": null,
+      "unsupported_certainty": false,
+      "repair_component": "C1",
+      "functional_recovery": "restored",
+      "experiments_used": 2,
+      "experiment_sequence": [
+        "output_voltage_sweep",
+        "source_current_sweep"
+      ],
+      "infrastructure_failures": 0,
+      "latency_s": {
+        "symptom": 2.62,
+        "output_voltage_sweep": 0.7,
+        "source_current_sweep": 0.736,
+        "diagnosis": 0.051,
+        "verify_repair": 2.463,
+        "close": 0.036,
+        "total": 6.644
+      },
+      "agent": null
+    },
+    {
+      "key": "heldout_v1-hp-11",
+      "runner": "baseline",
+      "template_id": "rc_highpass",
+      "nominal": {
+        "R1": 10000.0,
+        "C1": 2.2e-07
+      },
+      "seed": "18a4a46c39bdee40b8e54200598ae439",
+      "case_id": "case_fL5bJoBXODcMkPBs",
+      "completed": true,
+      "error": null,
+      "true_condition": "c1_decreased",
+      "terminal_status": "closed",
+      "conclusion": "fault",
+      "named_hypothesis": "c1_decreased",
+      "candidates": [],
+      "evidence_check": "supported",
+      "exact_identification": "correct",
+      "true_cause_among_candidates": null,
+      "unsupported_certainty": false,
+      "repair_component": "C1",
+      "functional_recovery": "restored",
+      "experiments_used": 2,
+      "experiment_sequence": [
+        "output_voltage_sweep",
+        "source_current_sweep"
+      ],
+      "infrastructure_failures": 0,
+      "latency_s": {
+        "symptom": 2.616,
+        "output_voltage_sweep": 0.174,
+        "source_current_sweep": 0.201,
+        "diagnosis": 0.056,
+        "verify_repair": 1.497,
+        "close": 0.035,
+        "total": 4.614
+      },
+      "agent": null
+    },
+    {
+      "key": "heldout_v1-hp-12",
+      "runner": "baseline",
+      "template_id": "rc_highpass",
+      "nominal": {
+        "R1": 2200.0,
+        "C1": 3.3e-07
+      },
+      "seed": "e1e298118203436828be2d313d2e976d",
+      "case_id": "case__2FnKzHDuHR-G-AL",
+      "completed": true,
+      "error": null,
+      "true_condition": "c1_disconnected",
+      "terminal_status": "closed",
+      "conclusion": "fault",
+      "named_hypothesis": "c1_disconnected",
+      "candidates": [],
+      "evidence_check": "supported",
+      "exact_identification": "correct",
+      "true_cause_among_candidates": null,
+      "unsupported_certainty": false,
+      "repair_component": "C1",
+      "functional_recovery": "restored",
+      "experiments_used": 2,
+      "experiment_sequence": [
+        "output_voltage_sweep",
+        "source_current_sweep"
+      ],
+      "infrastructure_failures": 0,
+      "latency_s": {
+        "symptom": 2.283,
+        "output_voltage_sweep": 1.232,
+        "source_current_sweep": 0.848,
+        "diagnosis": 0.057,
+        "verify_repair": 2.754,
+        "close": 0.029,
+        "total": 7.238
+      },
+      "agent": null
+    }
+  ],
+  "summary": {
+    "totals": {
+      "cases": 24,
+      "completed": 24,
+      "correct": 24,
+      "incorrect": 0,
+      "abstained": 0,
+      "not_submitted": 0,
+      "unsupported_certainty": 0,
+      "restored": 20,
+      "not_restored": 0,
+      "not_attempted": 0,
+      "not_needed": 4,
+      "experiments_mean": 2.0,
+      "infrastructure_failures": 0,
+      "errors": 0
+    },
+    "by_family": {
+      "rc_highpass": {
+        "cases": 12,
+        "completed": 12,
+        "correct": 12,
+        "incorrect": 0,
+        "abstained": 0,
+        "not_submitted": 0,
+        "unsupported_certainty": 0,
+        "restored": 10,
+        "not_restored": 0,
+        "not_attempted": 0,
+        "not_needed": 2,
+        "experiments_mean": 2.0,
+        "infrastructure_failures": 0,
+        "errors": 0
+      },
+      "rc_lowpass": {
+        "cases": 12,
+        "completed": 12,
+        "correct": 12,
+        "incorrect": 0,
+        "abstained": 0,
+        "not_submitted": 0,
+        "unsupported_certainty": 0,
+        "restored": 10,
+        "not_restored": 0,
+        "not_attempted": 0,
+        "not_needed": 2,
+        "experiments_mean": 2.0,
+        "infrastructure_failures": 0,
+        "errors": 0
+      }
+    },
+    "by_family_condition": {
+      "rc_highpass|no_fault": {
+        "cases": 2,
+        "completed": 2,
+        "correct": 2,
+        "incorrect": 0,
+        "abstained": 0,
+        "not_submitted": 0,
+        "unsupported_certainty": 0,
+        "restored": 0,
+        "not_restored": 0,
+        "not_attempted": 0,
+        "not_needed": 2,
+        "experiments_mean": 2.0,
+        "infrastructure_failures": 0,
+        "errors": 0
+      },
+      "rc_highpass|r1_increased": {
+        "cases": 2,
+        "completed": 2,
+        "correct": 2,
+        "incorrect": 0,
+        "abstained": 0,
+        "not_submitted": 0,
+        "unsupported_certainty": 0,
+        "restored": 2,
+        "not_restored": 0,
+        "not_attempted": 0,
+        "not_needed": 0,
+        "experiments_mean": 2.0,
+        "infrastructure_failures": 0,
+        "errors": 0
+      },
+      "rc_highpass|r1_decreased": {
+        "cases": 2,
+        "completed": 2,
+        "correct": 2,
+        "incorrect": 0,
+        "abstained": 0,
+        "not_submitted": 0,
+        "unsupported_certainty": 0,
+        "restored": 2,
+        "not_restored": 0,
+        "not_attempted": 0,
+        "not_needed": 0,
+        "experiments_mean": 2.0,
+        "infrastructure_failures": 0,
+        "errors": 0
+      },
+      "rc_highpass|c1_increased": {
+        "cases": 2,
+        "completed": 2,
+        "correct": 2,
+        "incorrect": 0,
+        "abstained": 0,
+        "not_submitted": 0,
+        "unsupported_certainty": 0,
+        "restored": 2,
+        "not_restored": 0,
+        "not_attempted": 0,
+        "not_needed": 0,
+        "experiments_mean": 2.0,
+        "infrastructure_failures": 0,
+        "errors": 0
+      },
+      "rc_highpass|c1_decreased": {
+        "cases": 2,
+        "completed": 2,
+        "correct": 2,
+        "incorrect": 0,
+        "abstained": 0,
+        "not_submitted": 0,
+        "unsupported_certainty": 0,
+        "restored": 2,
+        "not_restored": 0,
+        "not_attempted": 0,
+        "not_needed": 0,
+        "experiments_mean": 2.0,
+        "infrastructure_failures": 0,
+        "errors": 0
+      },
+      "rc_highpass|c1_disconnected": {
+        "cases": 2,
+        "completed": 2,
+        "correct": 2,
+        "incorrect": 0,
+        "abstained": 0,
+        "not_submitted": 0,
+        "unsupported_certainty": 0,
+        "restored": 2,
+        "not_restored": 0,
+        "not_attempted": 0,
+        "not_needed": 0,
+        "experiments_mean": 2.0,
+        "infrastructure_failures": 0,
+        "errors": 0
+      },
+      "rc_lowpass|no_fault": {
+        "cases": 2,
+        "completed": 2,
+        "correct": 2,
+        "incorrect": 0,
+        "abstained": 0,
+        "not_submitted": 0,
+        "unsupported_certainty": 0,
+        "restored": 0,
+        "not_restored": 0,
+        "not_attempted": 0,
+        "not_needed": 2,
+        "experiments_mean": 2.0,
+        "infrastructure_failures": 0,
+        "errors": 0
+      },
+      "rc_lowpass|r1_increased": {
+        "cases": 2,
+        "completed": 2,
+        "correct": 2,
+        "incorrect": 0,
+        "abstained": 0,
+        "not_submitted": 0,
+        "unsupported_certainty": 0,
+        "restored": 2,
+        "not_restored": 0,
+        "not_attempted": 0,
+        "not_needed": 0,
+        "experiments_mean": 2.0,
+        "infrastructure_failures": 0,
+        "errors": 0
+      },
+      "rc_lowpass|r1_decreased": {
+        "cases": 2,
+        "completed": 2,
+        "correct": 2,
+        "incorrect": 0,
+        "abstained": 0,
+        "not_submitted": 0,
+        "unsupported_certainty": 0,
+        "restored": 2,
+        "not_restored": 0,
+        "not_attempted": 0,
+        "not_needed": 0,
+        "experiments_mean": 2.0,
+        "infrastructure_failures": 0,
+        "errors": 0
+      },
+      "rc_lowpass|c1_increased": {
+        "cases": 2,
+        "completed": 2,
+        "correct": 2,
+        "incorrect": 0,
+        "abstained": 0,
+        "not_submitted": 0,
+        "unsupported_certainty": 0,
+        "restored": 2,
+        "not_restored": 0,
+        "not_attempted": 0,
+        "not_needed": 0,
+        "experiments_mean": 2.0,
+        "infrastructure_failures": 0,
+        "errors": 0
+      },
+      "rc_lowpass|c1_decreased": {
+        "cases": 2,
+        "completed": 2,
+        "correct": 2,
+        "incorrect": 0,
+        "abstained": 0,
+        "not_submitted": 0,
+        "unsupported_certainty": 0,
+        "restored": 2,
+        "not_restored": 0,
+        "not_attempted": 0,
+        "not_needed": 0,
+        "experiments_mean": 2.0,
+        "infrastructure_failures": 0,
+        "errors": 0
+      },
+      "rc_lowpass|c1_disconnected": {
+        "cases": 2,
+        "completed": 2,
+        "correct": 2,
+        "incorrect": 0,
+        "abstained": 0,
+        "not_submitted": 0,
+        "unsupported_certainty": 0,
+        "restored": 2,
+        "not_restored": 0,
+        "not_attempted": 0,
+        "not_needed": 0,
+        "experiments_mean": 2.0,
+        "infrastructure_failures": 0,
+        "errors": 0
+      }
+    },
+    "latency": {
+      "close": {
+        "n": 24,
+        "mean_s": 0.032,
+        "median_s": 0.033,
+        "p90_s": 0.036,
+        "max_s": 0.043
+      },
+      "diagnosis": {
+        "n": 24,
+        "mean_s": 0.057,
+        "median_s": 0.056,
+        "p90_s": 0.063,
+        "max_s": 0.073
+      },
+      "output_voltage_sweep": {
+        "n": 24,
+        "mean_s": 0.326,
+        "median_s": 0.217,
+        "p90_s": 0.7,
+        "max_s": 1.232
+      },
+      "source_current_sweep": {
+        "n": 24,
+        "mean_s": 0.321,
+        "median_s": 0.231,
+        "p90_s": 0.702,
+        "max_s": 0.848
+      },
+      "symptom": {
+        "n": 24,
+        "mean_s": 1.976,
+        "median_s": 1.821,
+        "p90_s": 2.703,
+        "max_s": 4.058
+      },
+      "total": {
+        "n": 24,
+        "mean_s": 4.285,
+        "median_s": 3.877,
+        "p90_s": 6.644,
+        "max_s": 8.504
+      },
+      "verify_repair": {
+        "n": 20,
+        "mean_s": 1.845,
+        "median_s": 1.679,
+        "p90_s": 2.709,
+        "max_s": 2.766
+      }
+    }
+  },
+  "notes": [
+    "Milestone-2 cases are solvable with the standardized symptom plus ONE current measurement: the symptom separates every condition except the two voltage-equivalent pairs (R1\u00d72 vs C1\u00d72 and R1\u00d70.5 vs C1\u00d70.5, identical output voltage), and either current instrument separates those. A perfect score shows that the evidence pipeline, the budget and the repair verification work end to end on these cases; it is not evidence of diagnostic skill and 100 % identification is not an achievement by itself.",
+    "Small sample (one frozen held-out set). No statistical comparison or superiority claim is made between runners.",
+    "Circuits are simulated with ngspice (ideal source, ideal R and C, no load, parasitics or component tolerances). Results are simulations, not physical measurements.",
+    "Latencies are wall-clock times on the machine that ran the evaluation, including the ngspice subprocesses; they are not a service-level benchmark."
+  ]
+}
