@@ -81,15 +81,18 @@ FAULT_MULTIPLIERS = (0.5, 2.0)
 CASE_NOMINAL_CUTOFF_RANGE_HZ = (40.0, 5000.0)
 # Case family (public, shown in the intended design) when the learner does not pick one:
 CASE_FAMILY_PRIOR = {"rc_lowpass": 0.5, "rc_highpass": 0.5}
-# Hosted cases draw nominal design and fault independently and i.i.d.; published priors.
-# Once c1_disconnected is proven simulatable and identifiable for both families, the priors
-# become 1/6 each including "c1_disconnected" (owner: investigation).
+# Hosted cases draw nominal design and condition independently and i.i.d.; published priors.
+# c1_disconnected is proven simulatable (real ngspice: low-pass 0 dB / 0 mA, high-pass no output
+# / 0 mA) and identifiable from the standardized symptom for every drawable design of both
+# families (tests/challenges/test_case_open_capacitor.py, test_case_families_ngspice.py), so
+# all six conditions have prior 1/6 (owner: investigation).
 FAULT_PRIOR = {
-    "no_fault": 0.2,
-    "r1_increased": 0.2,
-    "r1_decreased": 0.2,
-    "c1_increased": 0.2,
-    "c1_decreased": 0.2,
+    "no_fault": 1 / 6,
+    "r1_increased": 1 / 6,
+    "r1_decreased": 1 / 6,
+    "c1_increased": 1 / 6,
+    "c1_decreased": 1 / 6,
+    "c1_disconnected": 1 / 6,
 }
 CASE_SEED_BYTES = 16  # secrets.token_hex(16): ≥128-bit seeds, never reused in hosted mode
 CASE_CLOSE_AGENT_WAIT_S = 10.0
