@@ -1,0 +1,350 @@
+{
+  "name": "heldout_v1",
+  "generator_version": "rc-m2-v1",
+  "built_by": "evals/build_cases.py",
+  "description": "Private evaluation cases (harness ground truth). Each seed reproduces its case through CaseService.harness_create_case(session, seed, template_id) with this generator version.",
+  "designs": {
+    "rc_lowpass": [
+      [
+        6800.0,
+        2.2e-07
+      ],
+      [
+        4700.0,
+        1.5e-07
+      ],
+      [
+        680.0,
+        6.8e-07
+      ],
+      [
+        1500.0,
+        1.5e-07
+      ],
+      [
+        4700.0,
+        2.2e-08
+      ],
+      [
+        3300.0,
+        1.5e-08
+      ]
+    ],
+    "rc_highpass": [
+      [
+        4700.0,
+        6.8e-07
+      ],
+      [
+        10000.0,
+        2.2e-07
+      ],
+      [
+        2200.0,
+        3.3e-07
+      ],
+      [
+        10000.0,
+        3.3e-08
+      ],
+      [
+        680.0,
+        3.3e-07
+      ],
+      [
+        6800.0,
+        1.5e-08
+      ]
+    ]
+  },
+  "cases": [
+    {
+      "key": "heldout_v1-lp-01",
+      "template_id": "rc_lowpass",
+      "seed": "ab35be81bee8d6cee4e24ab3ddf53cb6",
+      "expected": {
+        "hypothesis_id": "no_fault",
+        "nominal": {
+          "R1": 6800.0,
+          "C1": 2.2e-07
+        }
+      }
+    },
+    {
+      "key": "heldout_v1-lp-02",
+      "template_id": "rc_lowpass",
+      "seed": "cc8057e33f0aed4d639c7794d8ebc71f",
+      "expected": {
+        "hypothesis_id": "r1_increased",
+        "nominal": {
+          "R1": 4700.0,
+          "C1": 1.5e-07
+        }
+      }
+    },
+    {
+      "key": "heldout_v1-lp-03",
+      "template_id": "rc_lowpass",
+      "seed": "e67e2bdfccd9e91473ccf93c89e51f3d",
+      "expected": {
+        "hypothesis_id": "r1_decreased",
+        "nominal": {
+          "R1": 680.0,
+          "C1": 6.8e-07
+        }
+      }
+    },
+    {
+      "key": "heldout_v1-lp-04",
+      "template_id": "rc_lowpass",
+      "seed": "6caaa23a2eb4fd1976085a76f27ac5b3",
+      "expected": {
+        "hypothesis_id": "c1_increased",
+        "nominal": {
+          "R1": 1500.0,
+          "C1": 1.5e-07
+        }
+      }
+    },
+    {
+      "key": "heldout_v1-lp-05",
+      "template_id": "rc_lowpass",
+      "seed": "ca66f79616b41f02ec13a42fb3d9fa3d",
+      "expected": {
+        "hypothesis_id": "c1_decreased",
+        "nominal": {
+          "R1": 4700.0,
+          "C1": 2.2e-08
+        }
+      }
+    },
+    {
+      "key": "heldout_v1-lp-06",
+      "template_id": "rc_lowpass",
+      "seed": "af0db7348b0c9dd01d72629e7fb53d14",
+      "expected": {
+        "hypothesis_id": "c1_disconnected",
+        "nominal": {
+          "R1": 3300.0,
+          "C1": 1.5e-08
+        }
+      }
+    },
+    {
+      "key": "heldout_v1-lp-07",
+      "template_id": "rc_lowpass",
+      "seed": "e6a5267c93236fdeac6c602fec904639",
+      "expected": {
+        "hypothesis_id": "no_fault",
+        "nominal": {
+          "R1": 1500.0,
+          "C1": 1.5e-07
+        }
+      }
+    },
+    {
+      "key": "heldout_v1-lp-08",
+      "template_id": "rc_lowpass",
+      "seed": "49c19101121d977cef5ec03fd11007cd",
+      "expected": {
+        "hypothesis_id": "r1_increased",
+        "nominal": {
+          "R1": 4700.0,
+          "C1": 2.2e-08
+        }
+      }
+    },
+    {
+      "key": "heldout_v1-lp-09",
+      "template_id": "rc_lowpass",
+      "seed": "b8bda0351c64985a34359954802abf39",
+      "expected": {
+        "hypothesis_id": "r1_decreased",
+        "nominal": {
+          "R1": 3300.0,
+          "C1": 1.5e-08
+        }
+      }
+    },
+    {
+      "key": "heldout_v1-lp-10",
+      "template_id": "rc_lowpass",
+      "seed": "f51b19e4c272242c842103216357f472",
+      "expected": {
+        "hypothesis_id": "c1_increased",
+        "nominal": {
+          "R1": 6800.0,
+          "C1": 2.2e-07
+        }
+      }
+    },
+    {
+      "key": "heldout_v1-lp-11",
+      "template_id": "rc_lowpass",
+      "seed": "24b637e2226a18b60b6d15abc588b12f",
+      "expected": {
+        "hypothesis_id": "c1_decreased",
+        "nominal": {
+          "R1": 4700.0,
+          "C1": 1.5e-07
+        }
+      }
+    },
+    {
+      "key": "heldout_v1-lp-12",
+      "template_id": "rc_lowpass",
+      "seed": "baf26ce4ccff07335d59b073022bfe92",
+      "expected": {
+        "hypothesis_id": "c1_disconnected",
+        "nominal": {
+          "R1": 680.0,
+          "C1": 6.8e-07
+        }
+      }
+    },
+    {
+      "key": "heldout_v1-hp-01",
+      "template_id": "rc_highpass",
+      "seed": "8e721d67e9b195ec3aa629f45727266e",
+      "expected": {
+        "hypothesis_id": "no_fault",
+        "nominal": {
+          "R1": 4700.0,
+          "C1": 6.8e-07
+        }
+      }
+    },
+    {
+      "key": "heldout_v1-hp-02",
+      "template_id": "rc_highpass",
+      "seed": "65f2844931e2a92f216dd5d8703bcebb",
+      "expected": {
+        "hypothesis_id": "r1_increased",
+        "nominal": {
+          "R1": 10000.0,
+          "C1": 2.2e-07
+        }
+      }
+    },
+    {
+      "key": "heldout_v1-hp-03",
+      "template_id": "rc_highpass",
+      "seed": "a284a8d4d2779ff0d1d48aed9549f8b8",
+      "expected": {
+        "hypothesis_id": "r1_decreased",
+        "nominal": {
+          "R1": 2200.0,
+          "C1": 3.3e-07
+        }
+      }
+    },
+    {
+      "key": "heldout_v1-hp-04",
+      "template_id": "rc_highpass",
+      "seed": "cab79a516fcb234f57aa3df67cf770d8",
+      "expected": {
+        "hypothesis_id": "c1_increased",
+        "nominal": {
+          "R1": 10000.0,
+          "C1": 3.3e-08
+        }
+      }
+    },
+    {
+      "key": "heldout_v1-hp-05",
+      "template_id": "rc_highpass",
+      "seed": "3c8a3022cb7f601a32c05cf2d2743361",
+      "expected": {
+        "hypothesis_id": "c1_decreased",
+        "nominal": {
+          "R1": 680.0,
+          "C1": 3.3e-07
+        }
+      }
+    },
+    {
+      "key": "heldout_v1-hp-06",
+      "template_id": "rc_highpass",
+      "seed": "c684fc682a62c77fc82fd2b989f98080",
+      "expected": {
+        "hypothesis_id": "c1_disconnected",
+        "nominal": {
+          "R1": 6800.0,
+          "C1": 1.5e-08
+        }
+      }
+    },
+    {
+      "key": "heldout_v1-hp-07",
+      "template_id": "rc_highpass",
+      "seed": "832bc38c30b467b119fcab89c19ed3ec",
+      "expected": {
+        "hypothesis_id": "no_fault",
+        "nominal": {
+          "R1": 10000.0,
+          "C1": 3.3e-08
+        }
+      }
+    },
+    {
+      "key": "heldout_v1-hp-08",
+      "template_id": "rc_highpass",
+      "seed": "f923aa291251381663a9454ffb135d6b",
+      "expected": {
+        "hypothesis_id": "r1_increased",
+        "nominal": {
+          "R1": 680.0,
+          "C1": 3.3e-07
+        }
+      }
+    },
+    {
+      "key": "heldout_v1-hp-09",
+      "template_id": "rc_highpass",
+      "seed": "3c7a1f023b4f01340c94071c84d873fd",
+      "expected": {
+        "hypothesis_id": "r1_decreased",
+        "nominal": {
+          "R1": 6800.0,
+          "C1": 1.5e-08
+        }
+      }
+    },
+    {
+      "key": "heldout_v1-hp-10",
+      "template_id": "rc_highpass",
+      "seed": "f90c9cd71e9f9ff865855fe58ea70f0b",
+      "expected": {
+        "hypothesis_id": "c1_increased",
+        "nominal": {
+          "R1": 4700.0,
+          "C1": 6.8e-07
+        }
+      }
+    },
+    {
+      "key": "heldout_v1-hp-11",
+      "template_id": "rc_highpass",
+      "seed": "18a4a46c39bdee40b8e54200598ae439",
+      "expected": {
+        "hypothesis_id": "c1_decreased",
+        "nominal": {
+          "R1": 10000.0,
+          "C1": 2.2e-07
+        }
+      }
+    },
+    {
+      "key": "heldout_v1-hp-12",
+      "template_id": "rc_highpass",
+      "seed": "e1e298118203436828be2d313d2e976d",
+      "expected": {
+        "hypothesis_id": "c1_disconnected",
+        "nominal": {
+          "R1": 2200.0,
+          "C1": 3.3e-07
+        }
+      }
+    }
+  ]
+}

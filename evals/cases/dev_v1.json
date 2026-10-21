@@ -1,0 +1,174 @@
+{
+  "name": "dev_v1",
+  "generator_version": "rc-m2-v1",
+  "built_by": "evals/build_cases.py",
+  "description": "Private evaluation cases (harness ground truth). Each seed reproduces its case through CaseService.harness_create_case(session, seed, template_id) with this generator version.",
+  "designs": {
+    "rc_lowpass": [
+      [
+        2200.0,
+        4.7e-08
+      ],
+      [
+        1000.0,
+        1e-07
+      ]
+    ],
+    "rc_highpass": [
+      [
+        2200.0,
+        4.7e-08
+      ],
+      [
+        1000.0,
+        1e-07
+      ]
+    ]
+  },
+  "cases": [
+    {
+      "key": "dev_v1-lp-01",
+      "template_id": "rc_lowpass",
+      "seed": "1c9f79c593ffb66afd7af1ed51ade573",
+      "expected": {
+        "hypothesis_id": "no_fault",
+        "nominal": {
+          "R1": 2200.0,
+          "C1": 4.7e-08
+        }
+      }
+    },
+    {
+      "key": "dev_v1-lp-02",
+      "template_id": "rc_lowpass",
+      "seed": "c5745148be992122d8e5c93da729cdd2",
+      "expected": {
+        "hypothesis_id": "r1_increased",
+        "nominal": {
+          "R1": 1000.0,
+          "C1": 1e-07
+        }
+      }
+    },
+    {
+      "key": "dev_v1-lp-03",
+      "template_id": "rc_lowpass",
+      "seed": "f136a2c12f13b6d9fe39da05493a4157",
+      "expected": {
+        "hypothesis_id": "r1_decreased",
+        "nominal": {
+          "R1": 2200.0,
+          "C1": 4.7e-08
+        }
+      }
+    },
+    {
+      "key": "dev_v1-lp-04",
+      "template_id": "rc_lowpass",
+      "seed": "1c3a35b9651b83f38fa1590a8f557f0c",
+      "expected": {
+        "hypothesis_id": "c1_increased",
+        "nominal": {
+          "R1": 1000.0,
+          "C1": 1e-07
+        }
+      }
+    },
+    {
+      "key": "dev_v1-lp-05",
+      "template_id": "rc_lowpass",
+      "seed": "e87521ea550e9d07b9434230c34060bf",
+      "expected": {
+        "hypothesis_id": "c1_decreased",
+        "nominal": {
+          "R1": 2200.0,
+          "C1": 4.7e-08
+        }
+      }
+    },
+    {
+      "key": "dev_v1-lp-06",
+      "template_id": "rc_lowpass",
+      "seed": "c2dfddffcba1beb61d87d1b536e6b315",
+      "expected": {
+        "hypothesis_id": "c1_disconnected",
+        "nominal": {
+          "R1": 1000.0,
+          "C1": 1e-07
+        }
+      }
+    },
+    {
+      "key": "dev_v1-hp-01",
+      "template_id": "rc_highpass",
+      "seed": "269d2586e5eb27c949097c0f8cd4d461",
+      "expected": {
+        "hypothesis_id": "no_fault",
+        "nominal": {
+          "R1": 2200.0,
+          "C1": 4.7e-08
+        }
+      }
+    },
+    {
+      "key": "dev_v1-hp-02",
+      "template_id": "rc_highpass",
+      "seed": "fe09a49f1826226ece62c91d69efb0bf",
+      "expected": {
+        "hypothesis_id": "r1_increased",
+        "nominal": {
+          "R1": 1000.0,
+          "C1": 1e-07
+        }
+      }
+    },
+    {
+      "key": "dev_v1-hp-03",
+      "template_id": "rc_highpass",
+      "seed": "a317585bf8f38281e4d2cd7ca55be578",
+      "expected": {
+        "hypothesis_id": "r1_decreased",
+        "nominal": {
+          "R1": 2200.0,
+          "C1": 4.7e-08
+        }
+      }
+    },
+    {
+      "key": "dev_v1-hp-04",
+      "template_id": "rc_highpass",
+      "seed": "11aecd8038f2a2d0b4e007d114620b94",
+      "expected": {
+        "hypothesis_id": "c1_increased",
+        "nominal": {
+          "R1": 1000.0,
+          "C1": 1e-07
+        }
+      }
+    },
+    {
+      "key": "dev_v1-hp-05",
+      "template_id": "rc_highpass",
+      "seed": "6d67a983104ef20f5c4633f193cdb9a7",
+      "expected": {
+        "hypothesis_id": "c1_decreased",
+        "nominal": {
+          "R1": 2200.0,
+          "C1": 4.7e-08
+        }
+      }
+    },
+    {
+      "key": "dev_v1-hp-06",
+      "template_id": "rc_highpass",
+      "seed": "46ee651396dd41ec21cff42611c2ccf9",
+      "expected": {
+        "hypothesis_id": "c1_disconnected",
+        "nominal": {
+          "R1": 1000.0,
+          "C1": 1e-07
+        }
+      }
+    }
+  ]
+}
