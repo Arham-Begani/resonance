@@ -105,6 +105,7 @@ async def test_r_vs_c_identifiability_ambiguity_and_repair(ngspice_rig: Rig) -> 
         "r1_decreased": "contradicted",
         "c1_increased": "contradicted",
         "c1_decreased": "contradicted",
+        "c1_disconnected": "contradicted",
     }
     assert_true_hypothesis_well_inside_tolerance(a_cur.case, "r1_increased")
     a_case = await svc.submit_diagnosis(

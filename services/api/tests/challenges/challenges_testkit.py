@@ -1,9 +1,10 @@
 """Test-only helpers for the investigation tests (never imported by application code).
 
 ``AnalyticTestSimulator`` is a clearly named TEST DOUBLE of the ``Simulator`` protocol: it
-evaluates the exact first-order RC solution (AC: transfer function and input admittance;
-transient: steady state plus the exact decaying term for zero initial capacitor voltage) on a
-uniform time grid. It exists so lifecycle/budget/isolation tests run fast and deterministically;
+evaluates the exact first-order RC solution of either family (AC: transfer function and input
+admittance; transient: steady state plus the exact decaying term for zero initial capacitor
+voltage; an open capacitor gives the exact constant transfer and zero current) on a uniform
+time grid. It exists so lifecycle/budget/isolation tests run fast and deterministically;
 the physics and identifiability claims are tested against real ngspice (``@pytest.mark.ngspice``).
 """
 
@@ -24,7 +25,7 @@ from resonance.challenges.instruments import CASE_FREQUENCY_GRID_HZ
 from resonance.challenges.service import CaseService
 from resonance.circuits.units import format_value
 from resonance.config import Settings
-from resonance.contracts.circuits import ValueUnit
+from resonance.contracts.circuits import TemplateId, ValueUnit
 from resonance.contracts.common import SimulatorInfo
 from resonance.contracts.internal import (
     AcData,
@@ -40,7 +41,7 @@ from resonance.contracts.internal import (
     TransientRequest,
 )
 from resonance.contracts.investigation import HypothesisId
-from resonance.contracts.policy import DEFAULT_TONES
+from resonance.contracts.policy import TEMPLATE_TONES
 from resonance.simulation import analytic
 from resonance.store.artifacts import ArtifactStore
 from resonance.store.db import DocumentStore
@@ -108,8 +109,10 @@ class AnalyticTestSimulator:
             f = np.geomspace(sweep.start_hz, sweep.stop_hz, n + 1)
         else:
             f = np.asarray(sweep.frequencies_hz, dtype=np.float64)
-        h = analytic.transfer(circuit.template_id, f, circuit.values)
-        i = analytic.source_current(circuit.template_id, f, circuit.values)
+        h = analytic.transfer(circuit.template_id, f, circuit.values, circuit.disconnected)
+        i = analytic.source_current(
+            circuit.template_id, f, circuit.values, 1.0, circuit.disconnected
+        )
         probes = sweep.probes
         return AcData(
             frequency_hz=f,
@@ -126,30 +129,48 @@ class AnalyticTestSimulator:
         self._maybe_fail()
         r, c = circuit.values["R1"], circuit.values["C1"]
         tau = r * c
+        open_c = "C1" in circuit.disconnected
         t = np.arange(0.0, request.stop_s + request.max_step_s / 2, request.max_step_s)
         v_in = np.zeros_like(t)
         v_out = np.zeros_like(t)
         for tone in circuit.source.tones:
             w = 2.0 * math.pi * tone.frequency_hz
-            h = complex(analytic.transfer(circuit.template_id, tone.frequency_hz, circuit.values))
+            h = complex(
+                analytic.transfer(
+                    circuit.template_id, tone.frequency_hz, circuit.values, circuit.disconnected
+                )
+            )
             mag, ph = abs(h), math.atan2(h.imag, h.real)
             v_in += tone.amplitude_v * np.sin(w * t)
-            # steady state + homogeneous term so that v_out(0) = 0 (uncharged capacitor)
-            v_out += tone.amplitude_v * mag * (np.sin(w * t + ph) - math.sin(ph) * np.exp(-t / tau))
+            # Steady state + homogeneous term so that v_out(0) = 0 (uncharged capacitor; the same
+            # e^(-t/RC) term for both families). An open capacitor has no dynamics.
+            decay = 0.0 if open_c else math.sin(ph) * np.exp(-t / tau)
+            v_out += tone.amplitude_v * mag * (np.sin(w * t + ph) - decay)
+        if open_c:
+            current = np.zeros_like(t)  # the series path through C1 is open
+        elif circuit.template_id == "rc_lowpass":
+            current = (v_in - v_out) / r  # through R1 (in → out)
+        else:
+            current = v_out / r  # through R1 (out → ground) = through C1 = from the source
         probes = request.probes
         return TransientData(
             time_s=t,
             v_in=v_in if "v(in)" in probes else None,
             v_out=v_out if "v(out)" in probes else None,
-            i_source=(v_in - v_out) / r if "i(V1)" in probes else None,
+            i_source=current if "i(V1)" in probes else None,
         )
 
 
-def seed_for(fault: HypothesisId, nominal: tuple[float, float] | None = None) -> str:
-    """Deterministically find a seed whose generated case has this fault (and nominal)."""
-    for i in range(200_000):
+def seed_for(
+    fault: HypothesisId,
+    nominal: tuple[float, float] | None = None,
+    template_id: TemplateId = "rc_lowpass",
+) -> str:
+    """Deterministically find a seed whose generated case (of this family) has this fault (and
+    nominal design)."""
+    for i in range(400_000):
         seed = f"test-{fault}-{i}"
-        design = faults.generate(seed)
+        design = faults.generate(seed, template_id)
         if design.fault.hypothesis_id != fault:
             continue
         if nominal is None or (design.nominal["R1"], design.nominal["C1"]) == nominal:
@@ -228,7 +249,9 @@ MEASURED_PATH = re.compile(
 )
 FREQUENCY_KEY = re.compile(r"(frequency_hz(\[\d+\])?|_hz)$")
 PUBLIC_FREQUENCIES = (
-    list(CASE_FREQUENCY_GRID_HZ) + [t.frequency_hz for t in DEFAULT_TONES] + [20.0, 20_000.0]
+    list(CASE_FREQUENCY_GRID_HZ)
+    + [t.frequency_hz for tones in TEMPLATE_TONES.values() for t in tones]
+    + [20.0, 20_000.0]
 )
 
 
@@ -239,8 +262,13 @@ class Secrets:
     label_strings: tuple[str, ...]  # the true hypothesis id/label (allowed only on catalog paths)
 
 
-def secrets_for(seed: str, fault: HypothesisId, nominal: dict[str, float]) -> Secrets:
-    design = faults.generate(seed)
+def secrets_for(
+    seed: str,
+    fault: HypothesisId,
+    nominal: dict[str, float],
+    template_id: TemplateId = "rc_lowpass",
+) -> Secrets:
+    design = faults.generate(seed, template_id)
     assert design.fault.hypothesis_id == fault
     numbers: list[float] = []
     strings: list[str] = [seed]

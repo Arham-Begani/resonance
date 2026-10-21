@@ -1,7 +1,8 @@
 """Hidden-state isolation across every public surface (V-01/V-04/V-06 checks).
 
-For one nominal design, a full investigation runs over HTTP through the real app under EVERY
-hidden condition (four drift faults and the no-fault control). Every response body, error body,
+For one nominal design of one circuit family (RC low-pass or RC high-pass), a full
+investigation runs over HTTP through the real app under EVERY hidden condition (four drift
+faults, the open capacitor, and the no-fault control). Every response body, error body,
 artifact header, app log record, and public database document produced BEFORE close is scanned
 structurally for the hidden values (raw floats, scientific and SI-prefixed spellings), the seed,
 and the true-cause label outside public catalog/evidence/submission paths.
@@ -12,13 +13,14 @@ Deterministic by construction (no false positives from randomness, no weakened c
   scan and checked more strongly instead: exact ``new_id`` format, never shared between flows
   (so not derived from content), and challenge code never builds IDs itself.
 - A numeric/string coincidence with a hidden value is a leak unless the leaf is a declared
-  measurement, a public frequency, or IDENTICAL in all five fault variants of the same nominal
+  measurement, a public frequency, or IDENTICAL in all six variants of the same nominal
   design (a value that does not change with the hidden fault carries no information about it).
-- Families: fixed nominal designs, plus one family drawn from a fresh random seed per run
-  (``RESONANCE_ISOLATION_SEED`` reproduces it); failures report seed, fault, payload, and field.
+- Families: fixed nominal designs of both circuit families, plus one family drawn from a fresh
+  random seed and a random circuit family per run (``RESONANCE_ISOLATION_SEED`` and
+  ``RESONANCE_ISOLATION_FAMILY`` reproduce it); failures report seed, fault, payload, and field.
 
 A positive control proves the scanner finds the same values in the reveal after close, and a
-differential test requires the five payload streams to be identical once declared
+differential test requires the six payload streams to be identical once declared
 measurements, IDs, and timestamps are masked.
 """
 
@@ -51,23 +53,26 @@ from fastapi.testclient import TestClient
 
 from resonance.challenges import hypotheses
 from resonance.challenges.evaluator import Evaluator, EvaluatorStore, faults
+from resonance.challenges.families import draw_family
 from resonance.config import Settings
+from resonance.contracts.circuits import TemplateId, Tone
 from resonance.contracts.internal import Simulator
 from resonance.contracts.investigation import HypothesisId, Observation
 from resonance.simulation import create_simulator
 
-FAULTS: tuple[HypothesisId, ...] = (
-    "no_fault",
-    "r1_increased",
-    "r1_decreased",
-    "c1_increased",
-    "c1_decreased",
-)
+FAULTS: tuple[HypothesisId, ...] = hypotheses.HYPOTHESIS_IDS  # all six conditions
+assert "c1_disconnected" in FAULTS and "no_fault" in FAULTS
 # 10 kΩ/10 nF: R1×2 = 20 000 equals the public 20 kHz grid endpoint; R1×0.5 → "5k", C1×0.5 →
-# "5n" (short spellings). 1 kΩ/100 nF: R1×2 = 2000 equals a grid point; C1×2 = 2e-7.
-NOMINALS: list[tuple[float, float]] = [(10_000.0, 10e-9), (1000.0, 100e-9)]
+# "5n" (short spellings). 1 kΩ/100 nF: R1×2 = 2000 equals a grid point; C1×2 = 2e-7. Both are
+# drawable in both families.
+NOMINALS: dict[str, tuple[TemplateId, tuple[float, float]]] = {
+    "lowpass-10k-10n": ("rc_lowpass", (10_000.0, 10e-9)),
+    "highpass-1k-100n": ("rc_highpass", (1000.0, 100e-9)),
+    "highpass-10k-10n": ("rc_highpass", (10_000.0, 10e-9)),
+}
 UNKNOWN_CASE = "case_unknownXXXXXXXX"
 SEED_ENV = "RESONANCE_ISOLATION_SEED"
+FAMILY_ENV = "RESONANCE_ISOLATION_FAMILY"
 
 
 @dataclass
@@ -75,6 +80,7 @@ class Flow:
     fault: HypothesisId
     seed: str
     session: str
+    template_id: TemplateId
     case_id: str = ""
     payloads: list[tuple[str, Any]] = field(default_factory=list)  # (label, JSON)
     artifact_meta: list[tuple[str, str, int, bytes]] = field(default_factory=list)
@@ -91,14 +97,19 @@ def _use(client: TestClient, session: str) -> None:
 
 
 def family(
-    nominal: tuple[float, float], override: tuple[HypothesisId, str] | None = None
+    template_id: TemplateId,
+    nominal: tuple[float, float],
+    override: tuple[HypothesisId, str] | None = None,
 ) -> list[Flow]:
-    """One flow per hidden condition for the same nominal design (optionally with one seed
-    supplied, e.g. a fresh random seed)."""
+    """One flow per hidden condition for the same circuit family and nominal design
+    (optionally with one seed supplied, e.g. a fresh random seed)."""
     flows = []
     for i, fault in enumerate(FAULTS):
-        seed = override[1] if override and override[0] == fault else seed_for(fault, nominal)
-        flows.append(Flow(fault=fault, seed=seed, session=_session(i)))
+        if override and override[0] == fault:
+            seed = override[1]
+        else:
+            seed = seed_for(fault, nominal, template_id)
+        flows.append(Flow(fault=fault, seed=seed, session=_session(i), template_id=template_id))
     return flows
 
 
@@ -119,7 +130,10 @@ def run_flow(
         flow.payloads.append((label, body))
         return body
 
-    case = record("create", client.post("/api/cases", json={}), 201)
+    case = record(
+        "create", client.post("/api/cases", json={"template_id": flow.template_id}), 201
+    )
+    assert case["intended_revision"]["template_id"] == flow.template_id
     cid = flow.case_id = case["id"]
     base = f"/api/cases/{cid}"
     record("mode", client.post(f"{base}/mode", json={"mode": "guide"}), 200)
@@ -287,13 +301,14 @@ def _check_family(
     seeds = {f.fault: f.seed for f in flows}
     for flow in flows:
         run_flow(client, monkeypatch, flow, calls)
+    intended = dict(flows[0].payloads)["create"]["intended_revision"]
+    template_id: TemplateId = intended["template_id"]
+    tones = [Tone.model_validate(t) for t in intended["source"]["tones"]]
     nominal_values = {
-        c["id"]: c["value_si"]
-        for c in dict(flows[0].payloads)["create"]["intended_revision"]["components"]
-        if c["id"] in ("R1", "C1")
+        c["id"]: c["value_si"] for c in intended["components"] if c["id"] in ("R1", "C1")
     }
     secrets: dict[str, Secrets] = {
-        f.fault: secrets_for(f.seed, f.fault, nominal_values) for f in flows
+        f.fault: secrets_for(f.seed, f.fault, nominal_values, template_id) for f in flows
     }
     labels = [label for label, _ in flows[0].payloads]
     for flow in flows:
@@ -315,7 +330,7 @@ def _check_family(
         final = dict(flow.payloads)["get"]
         observations = [Observation.model_validate(o) for o in final["observations"]]
         recomputed = hypotheses.assess(
-            "rc_lowpass", nominal_values, observations, publish_distinguishing=True
+            template_id, nominal_values, observations, publish_distinguishing=True, tones=tones
         )
         assert recomputed.model_dump(mode="json") == final["evidence"]
 
@@ -399,13 +414,14 @@ def _check_family(
 
 
 def _random_family() -> list[Flow]:
+    template_id: TemplateId = os.environ.get(FAMILY_ENV) or draw_family()  # type: ignore[assignment]
     seed = os.environ.get(SEED_ENV) or faults.new_seed()
-    design = faults.generate(seed)
+    design = faults.generate(seed, template_id)
     nominal = (design.nominal["R1"], design.nominal["C1"])
-    return family(nominal, override=(design.fault.hypothesis_id, seed))
+    return family(template_id, nominal, override=(design.fault.hypothesis_id, seed))
 
 
-@pytest.mark.parametrize("which", ["fixed-10k-10n", "fixed-1k-100n", "random-seed"])
+@pytest.mark.parametrize("which", [*NOMINALS, "random-seed"])
 def test_no_hidden_state_reaches_any_public_surface(
     app_client_factory: Callable[[Simulator], TestClient],
     double: AnalyticTestSimulator,
@@ -414,21 +430,19 @@ def test_no_hidden_state_reaches_any_public_surface(
     caplog: pytest.LogCaptureFixture,
     which: str,
 ) -> None:
-    flows = (
-        _random_family()
-        if which == "random-seed"
-        else family(NOMINALS[0] if which == "fixed-10k-10n" else NOMINALS[1])
-    )
+    flows = _random_family() if which == "random-seed" else family(*NOMINALS[which])
     client = app_client_factory(double)
     _check_family(client, settings, monkeypatch, caplog, flows, lambda: len(double.calls))
 
 
 @pytest.mark.ngspice
+@pytest.mark.parametrize("which", ["lowpass-10k-10n", "highpass-10k-10n"])
 def test_no_hidden_state_reaches_any_public_surface_ngspice(
     app_client_factory: Callable[[Simulator], TestClient],
     settings: Settings,
     monkeypatch: pytest.MonkeyPatch,
     caplog: pytest.LogCaptureFixture,
+    which: str,
 ) -> None:
     simulator = create_simulator(settings)
     counter = {"n": 0}
@@ -445,7 +459,8 @@ def test_no_hidden_state_reaches_any_public_surface_ngspice(
     simulator.ac = ac  # type: ignore[method-assign]
     simulator.transient = transient  # type: ignore[method-assign]
     client = app_client_factory(simulator)
-    _check_family(client, settings, monkeypatch, caplog, family(NOMINALS[0]), lambda: counter["n"])
+    flows = family(*NOMINALS[which])
+    _check_family(client, settings, monkeypatch, caplog, flows, lambda: counter["n"])
 
 
 def test_scanner_ignores_random_ids_but_not_spelled_values() -> None:
