@@ -1,10 +1,15 @@
 """Interfaces the agent consumes from other feature packages (structural, so tests can use
-doubles). The agent never imports the evaluator or any hidden-state module."""
+doubles). The agent never imports the evaluator or any hidden-state module at runtime.
+
+``CaseServicePort`` must match ``resonance.challenges.service.CaseService`` exactly; mypy checks
+that conformance statically (``_case_service_conforms`` below, type-checking only, so nothing
+from the challenges service is imported at runtime).
+"""
 
 from __future__ import annotations
 
 from collections.abc import Awaitable, Callable
-from typing import Literal, Protocol
+from typing import TYPE_CHECKING, Literal, Protocol
 
 from ..contracts.experiments import ExperimentComparison, ExperimentRecord
 from ..contracts.internal import CancelToken
@@ -21,6 +26,9 @@ from ..contracts.investigation import (
 
 RunCanceller = Callable[[str], Awaitable[None]]
 RunLiveness = Callable[[str], bool]
+
+CaseRunKind = Literal["investigate", "hint"]
+"""Run kinds that may own a case. Explore runs never claim a case (they have no case tools)."""
 
 
 class CaseServicePort(Protocol):
@@ -78,7 +86,7 @@ class CaseServicePort(Protocol):
         session_id: str,
         case_id: str,
         run_id: str,
-        kind: Literal["investigate", "hint", "explore"] | None = None,
+        kind: CaseRunKind | None = None,
     ) -> None: ...
 
     def release_agent(self, session_id: str, case_id: str, run_id: str) -> None: ...
@@ -104,3 +112,10 @@ class ExplorePort(Protocol):
     ) -> ExperimentRecord: ...
 
     async def compare(self, session_id: str, a_id: str, b_id: str) -> ExperimentComparison: ...
+
+
+if TYPE_CHECKING:  # static conformance check only; no runtime import of the case service
+    from ..challenges.service import CaseService
+
+    def _case_service_conforms(service: CaseService) -> CaseServicePort:
+        return service

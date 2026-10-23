@@ -197,13 +197,18 @@ class AgentService:
         ctx = CaseRunContext(
             session_id=session_id, case_id=case_id, run_id=run_id, cases=cases, cancel=stop.token
         )
+        # Public, trusted case facts only (family/topology of the frozen intended design and
+        # the hypothesis catalog): identical for every hidden condition of the family.
+        context = prompts.case_context(
+            case.intended_revision.template_id, [(h.id, h.label) for h in case.hypotheses]
+        )
         if body.kind == "investigate":
             toolset = investigate_toolset(ctx)
-            system = prompts.investigate_prompt(CASE_EXPERIMENT_BUDGET)
+            system = prompts.investigate_prompt(CASE_EXPERIMENT_BUDGET, context)
             turn = prompts.learner_turn(body.message, prompts.DEFAULT_INVESTIGATE_TURN)
         else:
             toolset = hint_toolset(ctx)
-            system = prompts.hint_prompt()
+            system = prompts.hint_prompt(context)
             turn = prompts.learner_turn(body.message, prompts.DEFAULT_HINT_TURN)
 
         def release() -> None:
@@ -262,7 +267,7 @@ class AgentService:
             handle,
             client,
             explore_toolset(ctx),
-            prompts.explore_prompt(revision.id),
+            prompts.explore_prompt(revision.id, revision.template_id),
             prompts.learner_turn(body.message, ""),
             ExploreCitations(ctx),
         )
