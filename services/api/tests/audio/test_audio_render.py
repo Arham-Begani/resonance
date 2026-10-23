@@ -17,6 +17,7 @@ from resonance.audio.render import (
     ClipSource,
     fade_envelope,
     fade_samples,
+    low_tone_note,
     plan_shared_gain,
     render_comparison,
 )
@@ -27,6 +28,7 @@ from resonance.contracts.policy import (
     AUDIO_FADE_MS,
     AUDIO_SAMPLE_RATE_HZ,
     PLAYBACK_GAIN_FS_PER_V,
+    TEMPLATE_TONES,
 )
 from resonance.store.artifacts import ArtifactStore
 from resonance.store.db import DocumentStore
@@ -182,3 +184,17 @@ def test_invalid_clips_are_rejected(artifacts: ArtifactStore) -> None:
     bad[3] = np.inf
     with pytest.raises(SignalError):
         render_comparison([ClipSource("input", "x", bad, None)], artifacts, SESSION)
+
+
+def test_low_hum_is_disclosed_as_possibly_inaudible_only_when_present(
+    artifacts: ArtifactStore,
+) -> None:
+    assert low_tone_note(TEMPLATE_TONES["rc_lowpass"]) is None
+    note = low_tone_note(TEMPLATE_TONES["rc_highpass"])
+    assert note is not None and "Mains hum (50 Hz)" in note and "inaudible" in note
+    clip = ClipSource("output", "Output", _two_tone(0.5))
+    with_hum = render_comparison([clip], artifacts, SESSION, tones=TEMPLATE_TONES["rc_highpass"])
+    assert with_hum.note.endswith(note)
+    without = render_comparison([clip], artifacts, SESSION, tones=TEMPLATE_TONES["rc_lowpass"])
+    assert "inaudible" not in without.note
+    assert with_hum.note.startswith(without.note)  # the disclosure only adds text

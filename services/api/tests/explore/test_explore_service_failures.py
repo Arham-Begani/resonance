@@ -162,7 +162,7 @@ async def test_client_disconnect_trips_the_cancel_token(monkeypatch: pytest.Monk
     token = CancelToken()
     request = _RequestDouble()
     await asyncio.wait_for(
-        routes_experiments._cancel_on_disconnect(request, token),  # type: ignore[arg-type]
+        routes_experiments.cancel_on_disconnect(request, token),  # type: ignore[arg-type]
         timeout=2.0,
     )
     assert token.cancelled and request.polls == 3

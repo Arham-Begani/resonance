@@ -23,6 +23,7 @@ from resonance.contracts.policy import (
     AUDIO_CLIP_S,
     AUDIO_SAMPLE_RATE_HZ,
     DEFAULT_TONES,
+    TEMPLATE_TONES,
     TRANSIENT_MAX_STEP_S,
     TRANSIENT_SETTLE_S,
 )
@@ -40,6 +41,12 @@ def test_default_signal_common_period_is_25_ms() -> None:
         ideal_waveform(DEFAULT_TONES, t + signal.common_period_s),
         atol=1e-9,
     )
+
+
+def test_highpass_signal_common_period_is_100_ms() -> None:
+    signal = multi_tone_signal(TEMPLATE_TONES["rc_highpass"])  # 50 Hz hum + 440 Hz tone
+    assert signal.common_period_s == pytest.approx(0.1, abs=1e-15)
+    assert signal.lowest_hz == 50.0
 
 
 def test_common_period_examples_and_rejections() -> None:

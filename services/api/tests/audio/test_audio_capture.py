@@ -15,6 +15,7 @@ from audio_helpers import AnalyticRcTestDouble, make_circuit
 from resonance.audio.capture import (
     WAVEFORM_WINDOW_S,
     clip_source,
+    default_waveform_window_s,
     run_two_tone_capture,
     transient_settings,
     waveform_window,
@@ -26,6 +27,7 @@ from resonance.contracts.policy import (
     AUDIO_FADE_MS,
     AUDIO_SAMPLE_RATE_HZ,
     DEFAULT_TONES,
+    TEMPLATE_TONES,
     TRANSIENT_MAX_STEP_S,
     TRANSIENT_SETTLE_S,
     WAVEFORM_WINDOW_MAX_SAMPLES,
@@ -40,14 +42,22 @@ def _analytic_gain_db(f: float, r: float, c: float, template: str) -> tuple[floa
 
 @pytest.mark.parametrize(
     ("template", "r", "c"),
-    [("rc_lowpass", 1e3, 100e-9), ("rc_lowpass", 4.7e3, 470e-9), ("rc_highpass", 1e3, 100e-9)],
+    [
+        ("rc_lowpass", 1e3, 100e-9),
+        ("rc_lowpass", 4.7e3, 470e-9),
+        ("rc_highpass", 1e3, 100e-9),
+        ("rc_highpass", 10e3, 100e-9),
+    ],
 )
 async def test_capture_matches_closed_form_response(
     analytic_double: AnalyticRcTestDouble, template: str, r: float, c: float
 ) -> None:
-    circuit = make_circuit(r, c, template)
+    """Each family with its OWN two-tone signal (high-pass: 50 Hz hum + 440 Hz tone)."""
+    tones = TEMPLATE_TONES[template]
+    circuit = make_circuit(r, c, template, tones=tones)
     cap = await run_two_tone_capture(analytic_double, circuit, nodes=("in", "out"))
-    for k, tone in enumerate(DEFAULT_TONES):
+    assert cap.tones == tones
+    for k, tone in enumerate(tones):
         g, p = _analytic_gain_db(tone.frequency_hz, r, c, template)
         assert cap.tone_gain_db("out", k) == pytest.approx(g, abs=0.01)
         assert cap.tone_phase_deg("out", k) == pytest.approx(p, abs=0.05)
@@ -134,3 +144,25 @@ async def test_waveform_window_is_capped(analytic_double: AnalyticRcTestDouble) 
     assert len(values) == WAVEFORM_WINDOW_MAX_SAMPLES
     with pytest.raises(SignalError):
         waveform_window(cap, "out", duration_s=2 * longest)
+
+
+async def test_highpass_signal_sets_period_window_and_oscilloscope_length(
+    analytic_double: AnalyticRcTestDouble,
+) -> None:
+    """50 Hz + 440 Hz repeat every 100 ms; the scope shows one whole 50 Hz cycle (20 ms)."""
+    tones = TEMPLATE_TONES["rc_highpass"]
+    cap = await run_two_tone_capture(
+        analytic_double, make_circuit(10e3, 100e-9, "rc_highpass", tones=tones), nodes=("out",)
+    )
+    assert cap.signal.common_period_s == pytest.approx(0.1, abs=1e-15)
+    assert cap.window.periods == 11  # (1.2 s − 2 × 15 ms fades) / 100 ms
+    assert cap.window.start_index == round(AUDIO_FADE_MS * AUDIO_SAMPLE_RATE_HZ / 1000)
+    assert default_waveform_window_s(cap.signal, AUDIO_SAMPLE_RATE_HZ) == pytest.approx(0.02)
+    start_s, values = waveform_window(cap, "in")
+    assert start_s == pytest.approx(0.1)  # first whole 100 ms period after the fade
+    assert len(values) == 960
+    t = uniform_times(TRANSIENT_SETTLE_S + start_s, len(values), AUDIO_SAMPLE_RATE_HZ)
+    np.testing.assert_allclose(values, ideal_waveform(tones, t), atol=2e-4)
+    # The low-pass signal keeps the 10 ms window (its lowest tone, 440 Hz, is shorter).
+    low = await run_two_tone_capture(analytic_double, make_circuit(), nodes=("out",))
+    assert default_waveform_window_s(low.signal, AUDIO_SAMPLE_RATE_HZ) == WAVEFORM_WINDOW_S

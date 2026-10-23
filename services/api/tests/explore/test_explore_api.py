@@ -1,7 +1,9 @@
 """Explore bundle end to end through FastAPI with real ngspice.
 
-One module-scoped app runs two experiments (1 kΩ/100 nF and 1.6 kΩ/100 nF, both against the
-default goal) that every test below inspects.
+One module-scoped app runs two low-pass experiments (1 kΩ/100 nF and 1.6 kΩ/100 nF, both
+against the default goal) and, after a family switch, one high-pass experiment (template
+defaults 10 kΩ/100 nF against the high-pass default goal, 50 Hz hum + 440 Hz tone) that every
+test below inspects.
 """
 
 from __future__ import annotations
@@ -46,10 +48,13 @@ class Bundle:
     exp_a: dict[str, Any]
     exp_b: dict[str, Any]
     wall_s: tuple[float, float]
+    hp_goal: dict[str, Any]
+    hp_rev: dict[str, Any]
+    hp_exp: dict[str, Any]
 
 
 def _settings(root: Path) -> Settings:
-    return Settings(  # type: ignore[call-arg]
+    return Settings(
         _env_file=None,
         resonance_data_dir=root / "data",
         web_dist_dir=root / "no-web",
@@ -81,11 +86,22 @@ def bundle(tmp_path_factory: pytest.TempPathFactory) -> Iterator[Bundle]:
         ).json()
         exp_a, wall_a = _run(client, rev_a["id"], goal["id"])
         exp_b, wall_b = _run(client, rev_b["id"], goal["id"])
+        # Family switch, as the workbench does it: new template revision + its default goal.
+        hp_rev = client.post(
+            "/api/revisions", json={"parent_id": rev_b["id"], "template_id": "rc_highpass"}
+        ).json()
+        templates = client.get("/api/templates").json()
+        hp_default = next(t for t in templates if t["id"] == "rc_highpass")["default_goal"]
+        hp_goal = client.put("/api/workbench/goal", json=hp_default).json()["goal"]
+        hp_exp, wall_hp = _run(client, hp_rev["id"], hp_goal["id"])
         print(
-            f"\nexplore bundle wall time: {wall_a:.2f} s and {wall_b:.2f} s "
-            f"(duration_ms {exp_a['duration_ms']} / {exp_b['duration_ms']})"
+            f"\nexplore bundle wall time: {wall_a:.2f} s, {wall_b:.2f} s, high-pass "
+            f"{wall_hp:.2f} s (duration_ms {exp_a['duration_ms']} / {exp_b['duration_ms']} / "
+            f"{hp_exp['duration_ms']})"
         )
-        yield Bundle(client, goal, rev_a, rev_b, exp_a, exp_b, (wall_a, wall_b))
+        yield Bundle(
+            client, goal, rev_a, rev_b, exp_a, exp_b, (wall_a, wall_b), hp_goal, hp_rev, hp_exp
+        )
 
 
 def _wav(client: TestClient, url: str) -> tuple[wave._wave_params, np.ndarray]:
@@ -254,3 +270,60 @@ def test_request_errors(bundle: Bundle) -> None:
     refused = client.post("/api/experiments", json={"revision_id": frozen.id})
     assert refused.status_code == 409
     assert refused.json()["error"]["code"] == "stale_revision"
+
+
+def test_highpass_bundle_uses_its_own_tones_end_to_end(bundle: Bundle) -> None:
+    rec = bundle.hp_exp
+    assert rec["status"] == "succeeded" and bundle.hp_rev["template_id"] == "rc_highpass"
+    assert [(t["frequency_hz"], t["label"], t["role"]) for t in rec["tones"]] == [
+        (50.0, "Mains hum", "interference"),
+        (440.0, "Musical tone", "wanted"),
+    ]
+    assert rec["settings"]["transient"]["tones"] == bundle.hp_rev["source"]["tones"]
+    checks = {c["name"]: c for c in rec["checks"]}
+    assert all(c["passed"] for c in checks.values()), checks
+    for tone in rec["tones"]:
+        assert abs(tone["agreement_db"]) <= 0.1  # target; the declared tolerance is 0.5 dB
+    hum, _music = rec["tones"]
+    # Analytical cross-check of the measured AC gains (10 kΩ, 100 nF: fc = 159.15 Hz).
+    fc = 1 / (2 * math.pi * 10e3 * 100e-9)
+    for tone in rec["tones"]:
+        expected = -10 * math.log10(1 + (fc / tone["frequency_hz"]) ** 2)
+        assert tone["ac_gain_db"] == pytest.approx(expected, abs=0.01)
+    # The oscilloscope shows one whole 50 Hz cycle, aligned to the 100 ms common period.
+    wf = rec["waveform"]
+    assert len(wf["input_v"]) == len(wf["output_v"]) == 960
+    assert wf["start_s"] == pytest.approx(0.1)
+    # The spectrum resolves the hum on its own bin at the fitted level.
+    spec = rec["spectrum"]
+    for tone in rec["tones"]:
+        k = spec["frequency_hz"].index(tone["frequency_hz"])
+        rms_dbv = 20 * math.log10(tone["output_amplitude_v"] / math.sqrt(2))
+        assert spec["output_dbv"][k] == pytest.approx(rms_dbv, abs=0.01)
+    note = rec["audio"]["note"]
+    assert "Mains hum (50 Hz)" in note and "inaudible on small speakers" in note
+    # Goal judged on the measured gain: the teaching default keeps the tone, misses the hum.
+    goal = rec["goal"]
+    assert goal["goal_id"] == bundle.hp_goal["id"]
+    preserve, attenuate = goal["results"]
+    assert preserve["constraint"]["frequency_hz"] == 440.0 and preserve["passed"]
+    assert attenuate["constraint"]["frequency_hz"] == 50.0 and not attenuate["passed"]
+    assert attenuate["measured_gain_db"] == pytest.approx(hum["ac_gain_db"])
+    assert goal["feasibility"]["template_id"] == "rc_highpass"
+
+
+def test_cross_family_comparison_reports_both_designs_not_component_diffs(
+    bundle: Bundle,
+) -> None:
+    cmp = bundle.client.get(
+        "/api/experiments/compare", params={"a": bundle.exp_b["id"], "b": bundle.hp_exp["id"]}
+    )
+    assert cmp.status_code == 200, cmp.text
+    data = cmp.json()
+    assert data["changes"] == []  # different topologies: per-component diffs would mislead
+    assert data["summary"].startswith(
+        "Circuit changed from RC low-pass (R1 = 1.6 kΩ, C1 = 100 nF) to RC high-pass "
+        "(C1 = 100 nF, R1 = 10 kΩ)"  # each in its own signal-path order
+    )
+    assert [t["frequency_hz"] for t in data["tones"]] == [440.0]  # the only shared tone
+    assert "Mains hum (50 Hz)" in data["audio"]["note"]
