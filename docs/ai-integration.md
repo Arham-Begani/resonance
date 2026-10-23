@@ -3,13 +3,15 @@
 Owner: investigation & AI engineer. Code: `services/api/resonance/agent/`,
 `services/api/resonance/api/routes_agent.py`. Tests: `services/api/tests/agent/`.
 
-## Status (2026-10-15)
+## Status (2026-10-23)
 
 | Item | Status |
 |---|---|
 | Bounded tool loop, three separated tool sets, event stream, cancellation, AI-unavailable path | Implemented and tested with scripted provider responses (TEST-ONLY `httpx.MockTransport`) |
-| Integration with the real CaseService, evaluator and ngspice (provider scripted) | Tested (`tests/agent/test_agent_integration.py`) |
-| Live Nebius call, model-ID confirmation, real tool-call round trip, latency, usage | **Pending: `NEBIUS_API_KEY` and `NEBIUS_MODEL` are not set in the project `.env`.** No live result is claimed anywhere in this document. |
+| Integration with the real CaseService, evaluator and ngspice (provider scripted) | Tested (`tests/agent/test_agent_integration.py`, `tests/agent/test_agent_families.py`) |
+| Milestone 2: both circuit families (low-pass, high-pass) and all six conditions incl. `c1_disconnected` in case views and prompts; honest rendering of readings at the measurement floor | Implemented; tested with the scripted provider, including one real-ngspice open-capacitor high-pass case |
+| Milestone 2 explore tools: `suggest_design`, family-switch `propose_values(template_id)`, `read_learn_attempt` | Implemented; tested with the scripted provider |
+| Live Nebius call, model-ID confirmation, real tool-call round trip, latency, usage; Nemotron evaluation run | **Pending: `NEBIUS_API_KEY` and `NEBIUS_MODEL` are not set in the project `.env`.** No live result, and no Nemotron evaluation result, is claimed anywhere in this document. |
 
 Without credentials the API reports `AiStatus.state = "missing_key"` (`GET /api/health`) and
 every agent-run endpoint returns `503 ai_unavailable` with setup instructions. No run is created
@@ -72,7 +74,7 @@ A tool name outside the run's own set is refused and never executed.
 |---|---|---|
 | `investigate` (Investigate for me) | `POST /api/cases/{id}/agent-runs {kind:"investigate", message?}` | `get_case`, `assess_evidence`, `run_experiment(instrument, probe?)`, `read_observation(observation_id)`, `submit_diagnosis(DiagnosisSubmission)`, `propose_repair(component_id, rationale)` |
 | `hint` (Guide me) | `POST /api/cases/{id}/agent-runs {kind:"hint", message?}` | `get_case`, `read_observation` (read-only) |
-| `explore` | `POST /api/explore/agent-runs {revision_id, message, goal_id?}` | `inspect_circuit(revision_id)`, `set_goal(GoalInput)`, `propose_values(changes, rationale)`, `run_experiment(revision_id)`, `compare_experiments(a_id, b_id)` |
+| `explore` | `POST /api/explore/agent-runs {revision_id, message, goal_id?}` | `inspect_circuit(revision_id)`, `set_goal(GoalInput)`, `suggest_design(vary: R1 or C1)`, `propose_values(changes, rationale, template_id?)`, `run_experiment(revision_id)`, `compare_experiments(a_id, b_id)`, `read_learn_attempt(attempt_id?)` |
 
 No tool gives file, shell, code-execution, HTTP, database or hidden-state access. Case tools call
 only the public CaseService interface (`agent/ports.CaseServicePort`). Explore tools touch only
@@ -111,10 +113,19 @@ Loop rules:
 
 Prompts (`agent/prompts.py`) state the role, the tools, and honesty rules: cite result IDs,
 label predictions, no certainty while more than one explanation fits, no likelihood percentages,
-simulation is not a physical measurement, short answers. They do **not** contain an
-investigative strategy, such as which instrument separates R from C. The model has to choose
-from the instrument descriptions, so the comparison against the fixed-experiment baseline stays
-valid. The learner's optional `message` is the user turn. Defaults are "Investigate this case."
+simulation is not a physical measurement, short answers. Case prompts (investigate and hint)
+also carry public facts from trusted data, identical for every hidden condition of a family:
+the intended design's family and topology (`views.family_text`, built from the template graph,
+e.g. "RC high-pass filter: a capacitor (C1) from Input to Output and a resistor (R1) from Output
+to Ground. …"), the hypothesis catalog from `PublicCase.hypotheses` (`id: label`, including
+`c1_disconnected: C1 is disconnected (open)`), and how to read floored values (below). The
+explore prompt describes both families from the same template data plus the current revision's
+family, and tells the model to explain an infeasible goal with the numbers the tools returned
+(predictions from `set_goal`/`suggest_design`, or a cited measured experiment), never invented
+ones. Prompts do **not** contain an investigative strategy, such as which instrument separates
+R from C: a test asserts that no instrument kind or instrument phrase appears in either case
+prompt. The model has to choose from the instrument descriptions, so the comparison against the
+fixed-experiment baseline stays valid. The learner's optional `message` is the user turn. Defaults are "Investigate this case."
 and "Give me one useful hint." It is treated as untrusted text and cannot change tools, budget
 or caps.
 
@@ -123,7 +134,8 @@ or caps.
 `agent/views.py` is an explicit allow-list, and its module docstring documents the exact schema.
 In summary:
 - `get_case` returns status, mode, hints used, budget, and the intended design (IDs, kinds,
-  nominal values, trusted topology text, test tones, labeled analytical cutoff). It also returns
+  nominal values, trusted topology text, the family summary in its `label`, the family's own
+  test tones, labeled analytical cutoff). It also returns
   instruments (kind, title, description, returns, grid summary, probes), the hypothesis catalog,
   the tolerances, observations (briefs, plus the symptom's tone levels), and summaries of the
   diagnosis and repair. Its `available_actions` (and those in the `submit_diagnosis` result)
@@ -132,6 +144,17 @@ In summary:
   learner's options and are empty while a run owns the case (verification B-04).
 - `read_observation` and `run_experiment` return sweeps (31 rows, at most 4 significant figures,
   with intended-design reference columns) and tone levels including expected values.
+- **Measurement floors.** A magnitude at or below the declared floor (gain ≤ −120 dB, current
+  ≤ 1e-6 mA; `challenges.instruments`) is rendered as the string `"below floor"` and its phase as
+  `"undefined"`, in measured and reference cells alike. The model never sees the −200 dB clamp
+  or the published 0° of a zero phasor as a number. Every sweep `reference` and transient `note`
+  explains the markers in constant text. This happens with an open capacitor: a high-pass
+  outputs nothing and draws no current; a low-pass passes the input (0 dB and 0° are real
+  readings and stay numbers) but draws no current. A floored reading changes only measured cell
+  values, never keys or list lengths, so it adds no structural side channel (tested; the
+  verification differential masks exactly those cells). A repair verification without
+  measurable output reports `max_gain_deviation_db` as "not defined: …" instead of a deviation
+  from the clamp.
 - `assess_evidence` (INVESTIGATE only) returns hypothesis statuses, `remaining`, and the
   deterministic statement. Because these come only from this tool, the event log and the
   evaluation can see that they were used.
@@ -194,16 +217,36 @@ explore experiments. Unknown IDs are replaced in the text by "unverified citatio
   the case is released. Failed, cancelled or limit-stopped hint runs are not counted. Runs on
   closed cases are refused (409).
 
-## Explore proposals
+## Explore proposals, suggestions and Learn attempts
 
 `propose_values` parses values with `circuits.templates.parse_component_value`. It validates
 bounds and the joint cutoff by building, but not storing, a preview revision. It then stores an
 `EditProposal` (kind `"proposal"`, status `pending`). Its `PredictedToneGain`s are analytical
 (`simulation.analytic`, basis `analytical_first_order_rc`) for the test tones and goal
-frequencies. `predicted_goal_pass` is computed against the session goal. The agent never applies
-a proposal. The learner applies it through `POST /api/revisions` with `proposal_id`
+frequencies. `predicted_goal_pass` is computed against the session goal at proposal time (the
+tool result names that goal). The agent never applies a proposal. The learner applies it through `POST /api/revisions` with `proposal_id`
 (`circuits.revisions`), or dismisses it with `POST /api/proposals/{id}/dismiss`. Dismiss is
 idempotent and returns 409 if the proposal was already applied.
+
+Family switch: `propose_values(template_id="rc_highpass", …)` on a low-pass revision (or the
+reverse) must list both R1 and C1; otherwise the tool returns a validation error and stores
+nothing. The preview is a revision of the target template linked to the base, so predictions use
+the target family's equations and its own test tones (50 Hz hum + 440 Hz tone for the
+high-pass). The stored `EditProposal.template_id` names the target; each change's "from" value is
+the base revision's part with the same designator. Applying it creates a revision of the target
+template whose `parent_id` is the base (undo). A `template_id` equal to the current family is an
+ordinary proposal (`template_id = null`).
+
+`suggest_design(vary)` calls `explore.suggest.suggest_design(current revision, session goal,
+vary=…)`: target cutoff, the nearest E12 part for the varied component (the other unchanged),
+predicted gains and margins, and, when the goal is infeasible or rounding misses, the predicted
+tradeoff text. The result is labeled an analytical prediction with `applied: false`; it creates
+no proposal or revision. To offer it, the model calls `propose_values` with the suggested values.
+
+`read_learn_attempt(attempt_id?)` reads a recorded Learn attempt of this session (the latest if
+no ID is given) from the document store: the change, the learner's predictions and own
+reasoning text, the measured per-tone deltas, both experiment IDs (citable), the score, and the
+deterministic explanation and tradeoff. Its audio comparison is never included.
 
 ## Tests
 
@@ -223,14 +266,17 @@ What the tests cover:
 | Caps | model calls, tool calls, measured tokens, experiments, wall time; missing usage fails closed |
 | Retries | transient errors only; 400/401/404 are never retried |
 | Tool calls | invalid arguments never executed (a 422 does not use the diagnosis); one tool call per reply |
-| Tool-set separation | hint cannot experiment or submit; explore cannot touch the case service; schemas are disjoint |
+| Tool-set separation | exact tool names per kind; hint cannot experiment or submit; explore cannot touch the case service; schemas are disjoint |
 | Cancellation | mid-inference and mid-simulation (uncounted); close before reveal with sealed events; refusal while closing; 409 on closed cases |
 | Text hygiene | reasoning never in events or later prompts; citation validation |
 | Streaming | SSE framing, Last-Event-ID replay and keep-alives; session-scoped 404s |
 | Unavailability | AI unavailable gives 503 with no run created; placeholder key treated as missing |
 | Secrets | no secret in events, records, HTTP payloads or logs |
-| Views | allow-list contents and rounding |
-| Explore | previewed (never applied) proposals; `set_goal`; experiments only on the learner's revisions |
+| Views | allow-list contents and rounding; family/topology text and the six-hypothesis catalog for both families; floors for open-capacitor sweeps and tone captures (high-pass and low-pass); no structural side channel; repair without measurable output |
+| Prompts | family, topology and catalog from trusted data for both families and both case kinds; no instrument names (no embedded strategy) |
+| Port typing | `CaseServicePort` matches `CaseService` (names, kinds, defaults, async-ness, resolved type hints; `claim_for_agent(kind)` is `investigate`/`hint` only); mypy also checks it statically via `ports._case_service_conforms` |
+| Explore | previewed (never applied) proposals; `set_goal`; experiments only on the learner's revisions; `suggest_design` (feasible and infeasible goals, numbers checked against an independent formula); family-switch proposals (both components required, target-family predictions checked independently, applicable by the learner with an undo link); `read_learn_attempt` (latest, by ID, unknown; no audio; cited experiment) |
+| Real open capacitor | real CaseService + evaluator + ngspice, high-pass `c1_disconnected`: only floor markers reach the model, no −200 dB anywhere in the requests |
 | Integration | real CaseService, evaluator and ngspice: nothing hidden in model requests; close cancels the run before the reveal |
 | Verification findings | B-04 (agent sees the actions its own run may take), B-05 (failed or cancelled hint runs not counted), B-02 (case of a lost run released; liveness predicate) |
 
@@ -253,4 +299,10 @@ What the tests cover:
    switch, or decide `low_effort`, in `NebiusChatClient(extra_body=...)`, and pin the model ID
    in deployment configuration.
 
-Results: **none yet**. No key was available when this was written.
+5. Then run the Nemotron evaluation from `services/api` (real inference and cost): the small
+   development smoke run first, then the held-out set:
+   `uv run python ../../evals/run_nemotron.py --set dev_v1 --limit 2`, then
+   `uv run python ../../evals/run_nemotron.py`. See `evals/README.md` for reporting.
+
+Results: **none yet**. No key was available when this was written; no live call, tool-call
+round trip, latency, usage or Nemotron evaluation result exists.

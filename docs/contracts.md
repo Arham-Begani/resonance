@@ -191,8 +191,9 @@ closed and attach the reveal. No agent event may be emitted after the reveal.
 
 ## Agent rules
 
-- Tool sets: EXPLORE (inspect circuit, set goal, propose values, run experiment on an applied
-  session revision, compare experiments) ≠ INVESTIGATE (get case, run allowed experiment, read
+- Tool sets: EXPLORE (inspect circuit, set goal, suggest design (analytical preview), propose
+  values (optionally a family switch listing both R1 and C1), run experiment on an applied
+  session revision, compare experiments, read a Learn attempt) ≠ INVESTIGATE (get case, run allowed experiment, read
   observation, assess evidence, submit diagnosis, propose repair) ≠ HINT (get case, read
   observation). The user applies proposals and repair verifications. The loop executes at
   most one tool call per model reply; extra calls in the same reply get an error result.
