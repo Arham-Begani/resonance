@@ -695,7 +695,9 @@ def test_agent_mode_flow_leaks_nothing_and_is_identical_across_hidden_conditions
             monkeypatch.setattr(faults, "new_seed", lambda s=flow.seed: s)
 
             def create(flow: Flow = flow) -> dict[str, Any]:
-                return _expect(lab.client.post("/api/cases", json={}), 201, "create")  # type: ignore[no-any-return]
+                return _expect(
+                    lab.client.post("/api/cases", json={"template_id": "rc_lowpass"}), 201, "create"
+                )  # type: ignore[no-any-return]
         else:
 
             def create(flow: Flow = flow) -> dict[str, Any]:
@@ -1260,11 +1262,16 @@ def test_simulator_failures_in_hidden_runs_never_echo_values_netlists_or_paths(
         # Symptom fails twice at creation: no case, hidden state discarded, generic error.
         rows = _hidden_rows(lab.settings)
         leaky.mode = "failed"
-        rec.append(("create_failed", _expect(c.post("/api/cases", json={}), 502, "create")))
+        rec.append(
+            (
+                "create_failed",
+                _expect(c.post("/api/cases", json={"template_id": "rc_lowpass"}), 502, "create"),
+            )
+        )
         assert _hidden_rows(lab.settings) == rows, "hidden state of a failed creation remains"
         assert c.get("/api/workbench").json()["active_case_id"] is None
         leaky.mode = None
-        case = _expect(c.post("/api/cases", json={}), 201, "create")
+        case = _expect(c.post("/api/cases", json={"template_id": "rc_lowpass"}), 201, "create")
         rec.append(("create", case))
         base = f"/api/cases/{case['id']}"
         rec.append(("mode", _expect(c.post(f"{base}/mode", json={"mode": "guide"}), 200, "m")))
@@ -1291,7 +1298,7 @@ def test_simulator_failures_in_hidden_runs_never_echo_values_netlists_or_paths(
         _expect(c.post(f"{base}/close"), 200, "close")
 
         # Repair verification failures.
-        case2 = _expect(c.post("/api/cases", json={}), 201, "create2")
+        case2 = _expect(c.post("/api/cases", json={"template_id": "rc_lowpass"}), 201, "create2")
         rec.append(("create2", case2))
         base2 = f"/api/cases/{case2['id']}"
         # A no_fault conclusion (the other conclusions are covered by the agent-mode and
@@ -1514,7 +1521,7 @@ def test_case_creation_accepts_no_hidden_input(lab_factory: Callable[..., Lab]) 
         {"hypothesis_id": "no_fault"},
         {"nominal": {"R1": 1000.0, "C1": 1e-7}},
         {"values": [{"component_id": "R1", "value": "1k"}]},
-        {"template_id": "rc_highpass"},
+        {"template_id": "rc_bandpass"},  # rc_highpass is now a valid public family
         {"template_id": "rc_lowpass", "multiplier": 2.0},
     ):
         r = c.post("/api/cases", json=body)

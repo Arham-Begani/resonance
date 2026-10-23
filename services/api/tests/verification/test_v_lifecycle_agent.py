@@ -245,7 +245,9 @@ async def lab_factory(
 
 
 async def create_case(c: httpx.AsyncClient) -> dict[str, Any]:
-    r = await c.post("/api/cases", json={})
+    # Pinned: these M1 tests cite the low-pass whistle (4 kHz). High-pass cases are covered by
+    # tests/challenges (families, open capacitor, isolation across six conditions).
+    r = await c.post("/api/cases", json={"template_id": "rc_lowpass"})
     assert r.status_code == 201, r.text
     case: dict[str, Any] = r.json()
     return case
@@ -501,7 +503,7 @@ async def perform(c: httpx.AsyncClient, case: dict[str, Any], action: str) -> ht
     if action == "close":
         return await c.post(f"/api/cases/{cid}/close")
     assert action == "new_case"
-    return await c.post("/api/cases", json={})
+    return await c.post("/api/cases", json={"template_id": "rc_lowpass"})
 
 
 def snapshot(case: dict[str, Any]) -> dict[str, Any]:
