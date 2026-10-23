@@ -79,6 +79,7 @@ def test_observation_view_rounds_sweeps_to_four_significant_figures() -> None:
     assert len(rows) == 31
     for row in rows:
         for value in row:
+            assert isinstance(value, float), "nothing here is below the measurement floor"
             digits = f"{abs(value):.15g}".replace(".", "").lstrip("0").rstrip("0")
             assert len(digits) <= 4, value
 
@@ -122,12 +123,30 @@ def test_tool_schemas_are_self_contained_and_sets_are_disjoint() -> None:
     assert set(sets["explore"].names) == {
         "inspect_circuit",
         "set_goal",
+        "suggest_design",
         "propose_values",
         "run_experiment",
         "compare_experiments",
+        "read_learn_attempt",
     }
-    assert "assess_evidence" in sets["investigate"].names
-    assert not set(sets["explore"].names) & {"get_case", "submit_diagnosis", "propose_repair"}
+    assert set(sets["investigate"].names) == {
+        "get_case",
+        "assess_evidence",
+        "run_experiment",
+        "read_observation",
+        "submit_diagnosis",
+        "propose_repair",
+    }
+    case_only = {"get_case", "assess_evidence", "read_observation", "submit_diagnosis"}
+    assert not set(sets["explore"].names) & (case_only | {"propose_repair"})
+    assert not set(sets["investigate"].names) & {
+        "inspect_circuit",
+        "set_goal",
+        "suggest_design",
+        "propose_values",
+        "compare_experiments",
+        "read_learn_attempt",
+    }
     for toolset in sets.values():
         for schema in toolset.schemas():
             text = json.dumps(schema)

@@ -1333,12 +1333,15 @@ async def test_explore_run_cannot_touch_investigations(lab_factory: LabFactory) 
     run = await wait_run(c, r.json()["id"])
     evs = await events(c, run["id"])
     assert lab.provider is not None
+    # Milestone 2 added two read/preview explore tools (still no case access).
     assert lab.provider.tool_names(0) == {
         "inspect_circuit",
         "set_goal",
+        "suggest_design",
         "propose_values",
         "run_experiment",
         "compare_experiments",
+        "read_learn_attempt",
     }
     assert run["status"] == "completed" and run["kind"] == "explore"
     oks = [(r["tool"], r["ok"], (r["error"] or {}).get("code")) for r in results(evs)]

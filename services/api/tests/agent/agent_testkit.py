@@ -24,9 +24,11 @@ import pytest
 from resonance.agent.client import ChatClient, create_chat_client
 from resonance.agent.service import AgentService, limits_for
 from resonance.api.errors import ApiException, not_found
+from resonance.challenges.hypotheses import hypothesis_catalog
 from resonance.circuits.revisions import build_revision
 from resonance.config import Settings
 from resonance.contracts.agent import AgentLimits, AgentRunKind
+from resonance.contracts.circuits import TemplateId
 from resonance.contracts.common import ErrorCode, SimulatorInfo, new_id
 from resonance.contracts.experiments import AudioClip, AudioComparison
 from resonance.contracts.internal import CancelToken
@@ -43,7 +45,6 @@ from resonance.contracts.investigation import (
     EvidencePolicy,
     EvidenceState,
     FaultReveal,
-    Hypothesis,
     HypothesisAssessment,
     InstrumentKind,
     InstrumentSpec,
@@ -59,6 +60,7 @@ from resonance.contracts.investigation import (
     SweepObservation,
     TransientObservation,
 )
+from resonance.contracts.policy import TEMPLATE_TONES
 from resonance.simulation import analytic
 from resonance.store.db import DocumentStore
 
@@ -69,7 +71,8 @@ WAVEFORM_MARKER = 0.123456789  # appears only in raw waveform arrays
 GRID = [20.0 * 10 ** (k / 10) for k in range(31)]
 NOMINAL = {"R1": 1000.0, "C1": 1e-7}
 HIDDEN = {"R1": 2000.0, "C1": 1e-7}  # the fake's hidden fault: R1 doubled
-HYPOTHESIS_IDS = ["no_fault", "r1_increased", "r1_decreased", "c1_increased", "c1_decreased"]
+# The real PUBLIC hypothesis catalog (both families, incl. the open capacitor).
+HYPOTHESIS_IDS = [h.id for h in hypothesis_catalog()]
 
 
 # --------------------------------------------------------------------------------------
@@ -224,11 +227,17 @@ class FakeCaseService:
     """TEST-ONLY in-memory double of the CaseService interface (public models only)."""
 
     def __init__(
-        self, session_id: str, *, mode: InvestigationMode | None = None, budget: int = 3
+        self,
+        session_id: str,
+        *,
+        mode: InvestigationMode | None = None,
+        budget: int = 3,
+        template_id: TemplateId = "rc_lowpass",
     ) -> None:
         self.session_id = session_id
         self.case_id = new_id("case")
-        self.revision = build_revision("rc_lowpass", NOMINAL, origin="case_intended", frozen=True)
+        self.template_id: TemplateId = template_id
+        self.revision = build_revision(template_id, NOMINAL, origin="case_intended", frozen=True)
         self.status = CaseStatus.OBSERVING if mode else CaseStatus.READY
         self.mode: InvestigationMode | None = mode
         self.budget_total = budget
@@ -256,17 +265,15 @@ class FakeCaseService:
     def _symptom(self) -> Observation:
         obs_id = new_id("obs")
         tones = []
-        for f, label, role, amp in (
-            (440.0, "Musical tone", "wanted", 0.6),
-            (4000.0, "Whistle", "interference", 0.3),
-        ):
-            h = analytic.lowpass_transfer(f, HIDDEN["R1"], HIDDEN["C1"])
-            e = analytic.lowpass_transfer(f, NOMINAL["R1"], NOMINAL["C1"])
+        for tone in TEMPLATE_TONES[self.template_id]:
+            f, amp = tone.frequency_hz, tone.amplitude_v
+            h = analytic.transfer(self.template_id, f, HIDDEN)
+            e = analytic.transfer(self.template_id, f, NOMINAL)
             tones.append(
                 ObservedTone(
                     frequency_hz=f,
-                    label=label,
-                    role=role,  # type: ignore[arg-type]
+                    label=tone.label,
+                    role=tone.role,
                     amplitude=float(abs(h)) * amp,
                     amplitude_unit="V",
                     gain_db=float(analytic.gain_db(h)),
@@ -306,8 +313,8 @@ class FakeCaseService:
 
     def _sweep(self, kind: InstrumentKind, run_id: str | None, requested_by: str) -> Observation:
         if kind == InstrumentKind.OUTPUT_VOLTAGE_SWEEP:
-            h = analytic.lowpass_transfer(GRID, HIDDEN["R1"], HIDDEN["C1"])
-            e = analytic.lowpass_transfer(GRID, NOMINAL["R1"], NOMINAL["C1"])
+            h = analytic.transfer(self.template_id, GRID, HIDDEN)
+            e = analytic.transfer(self.template_id, GRID, NOMINAL)
             sweep = SweepObservation(
                 quantity="output_gain",
                 frequency_hz=GRID,
@@ -318,8 +325,8 @@ class FakeCaseService:
                 expected_phase_deg=[float(x) for x in analytic.phase_deg(e)],
             )
         else:
-            i = analytic.series_rc_source_current(GRID, HIDDEN["R1"], HIDDEN["C1"])
-            e = analytic.series_rc_source_current(GRID, NOMINAL["R1"], NOMINAL["C1"])
+            i = analytic.source_current(self.template_id, GRID, HIDDEN)
+            e = analytic.source_current(self.template_id, GRID, NOMINAL)
             sweep = SweepObservation(
                 quantity="source_current",
                 frequency_hz=GRID,
@@ -398,7 +405,7 @@ class FakeCaseService:
                     probes=["output_voltage", "source_current"],
                 ),
             ],
-            hypotheses=[Hypothesis(id=h, label=h.replace("_", " ")) for h in HYPOTHESIS_IDS],  # type: ignore[arg-type]
+            hypotheses=hypothesis_catalog(),
             policy=EvidencePolicy(
                 gain_tolerance_db=0.5,
                 phase_tolerance_deg=3.0,
@@ -419,10 +426,10 @@ class FakeCaseService:
             observations=list(self.observations),
             evidence=EvidenceState(
                 assessments=[
-                    HypothesisAssessment(hypothesis_id=h, status="unresolved", checks=[])  # type: ignore[arg-type]
+                    HypothesisAssessment(hypothesis_id=h, status="unresolved", checks=[])
                     for h in HYPOTHESIS_IDS
                 ],
-                remaining=list(HYPOTHESIS_IDS),  # type: ignore[arg-type]
+                remaining=list(HYPOTHESIS_IDS),
                 statement="STATEMENT-MARKER: several explanations fit.",
                 distinguishing_instruments=[InstrumentKind.SOURCE_CURRENT_SWEEP],
             ),
