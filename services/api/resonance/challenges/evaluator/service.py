@@ -496,6 +496,9 @@ class Evaluator:
                 ],
                 self._artifacts,
                 session_id,
+                # Public tones (identical for the intended and hidden circuits) so low-hum
+                # disclosures appear on high-pass case audio too.
+                tones=intended.source.tones,
             )
         return TransientObservation(
             probe=probe,
