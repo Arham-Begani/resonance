@@ -9,6 +9,13 @@ artifact IDs or URLs, no settings echo, no seeds, files, logs or simulator detai
 Numbers: every measured value is rounded to at most 4 significant figures (well inside the
 declared evidence tolerances: 0.5 dB, 3°, 3 %); non-finite values become ``null``.
 
+Measurement floors (``challenges.instruments``): a magnitude at or below the declared floor
+(gain ≤ −120 dB, current ≤ 1e-6 mA) is rendered as the string ``"below floor"`` and its phase
+as ``"undefined"`` — never as a number such as the −200 dB clamp or the published 0° — so the
+model cannot quote a non-measurement as a level or a phase. The ``reference``/``note`` text of
+every sweep and transient view explains the markers (constant text, identical for every hidden
+condition). The same rule applies to the intended-design reference columns.
+
 INVESTIGATE / HINT schemas
 --------------------------
 case_view (tool ``get_case``)::
@@ -21,6 +28,8 @@ case_view (tool ``get_case``)::
                       description}],            # description = trusted topology text
         source: {description, test_tones: [{label, role, frequency_hz, amplitude_v}]},
         analytical_prediction: {note, cutoff_hz, time_constant_s}},
+        # label = view label + the template's trusted family/topology summary
+        # (``family_text``), e.g. "… RC high-pass filter: a capacitor (C1) from Input to …"
     instruments: [{kind, title, description, returns,
                    frequency_grid: {points, start_hz, stop_hz} | null, probes, cost}],
     hypotheses: [{id, label}],
@@ -49,6 +58,7 @@ observation_view (tools ``read_observation``, ``run_experiment``) = observation_
                           amplitude_unit, phase_deg, expected_phase_deg, gain_db?,
                           expected_gain_db?}]},
     error?: learner-safe message
+    # magnitude/amplitude/gain cells may be "below floor" and phase cells "undefined"
 
 evidence_view (INVESTIGATE tool ``assess_evidence`` only)::
 
@@ -56,7 +66,10 @@ evidence_view (INVESTIGATE tool ``assess_evidence`` only)::
 
 EXPLORE schemas (public session data only): ``revision_view``, ``experiment_view``
 (tone gains, a ≤17-point subset of the measured AC sweep, goal evaluation, consistency check
-names), ``comparison_view`` and ``feasibility_view``.
+names), ``comparison_view``, ``feasibility_view``, ``suggestion_view`` (an analytical
+``DesignSuggestion``, labeled as a prediction) and ``learn_attempt_view`` (a recorded Learn
+attempt: change, graded predictions with measured tone deltas, cited experiment IDs, and the
+deterministic explanation/tradeoff; never its audio).
 """
 
 from __future__ import annotations
@@ -65,15 +78,40 @@ import math
 from collections.abc import Sequence
 from typing import Any
 
+from ..challenges.hypotheses import current_measurable, gain_measurable
+from ..challenges.instruments import CURRENT_FLOOR_MA, MEASUREMENT_FLOOR_DB
+from ..circuits.templates import get_template
 from ..contracts.circuits import Revision
 from ..contracts.common import QuantityName
-from ..contracts.experiments import ExperimentComparison, ExperimentRecord, FeasibilityAnalysis
+from ..contracts.experiments import (
+    DesignSuggestion,
+    ExperimentComparison,
+    ExperimentRecord,
+    FeasibilityAnalysis,
+    Goal,
+)
 from ..contracts.investigation import CaseStatus, Observation, ObservedTone, PublicCase
+from ..contracts.learn import LearnAttempt
 
 AGENT_CASE_ACTIONS = ("run_experiment", "submit_diagnosis", "propose_repair")
 
 # Primary quantity of a cited result (EvidenceRef.quantity uses a closed vocabulary).
 EXPERIMENT_QUANTITY: QuantityName = "output_gain_db"
+
+BELOW_FLOOR = "below floor"
+"""Rendered in place of a magnitude at or below the declared measurement floor."""
+
+UNDEFINED_PHASE = "undefined"
+"""Rendered in place of the phase of a reading without a measurable magnitude."""
+
+FLOOR_NOTE = (
+    f'"{BELOW_FLOOR}" means no measurable signal (a gain at or below '
+    f"{MEASUREMENT_FLOOR_DB:g} dB, or a current at or below {CURRENT_FLOOR_MA:g} mA); it is not "
+    f'a level to quote. The phase of such a reading is "{UNDEFINED_PHASE}" and is never used '
+    "as evidence."
+)
+
+Cell = float | str | None
 
 
 class ClosedCaseError(ValueError):
@@ -103,10 +141,19 @@ def sig(value: float | None, digits: int = 4) -> float | None:
 # --------------------------------------------------------------------------------------
 
 
+def family_text(template_id: str) -> str:
+    """Trusted family and topology text from the template graph (public), e.g. "RC high-pass
+    filter: a capacitor (C1) from Input to Output and a resistor (R1) from Output to Ground.
+    High frequencies pass; …". Identical for every hidden condition of a family."""
+    template = get_template(template_id)
+    summary = template.summary
+    return f"{template.title}: {summary[:1].lower()}{summary[1:]}"
+
+
 def revision_view(revision: Revision, *, label: str) -> dict[str, Any]:
     return {
         "revision_id": revision.id,
-        "label": label,
+        "label": f"{label} {family_text(revision.template_id)}",
         "template_id": revision.template_id,
         "title": revision.title,
         "nodes": [{"id": n.id, "label": n.label, "role": n.role.value} for n in revision.nodes],
@@ -159,21 +206,38 @@ def observation_brief(obs: Observation) -> dict[str, Any]:
     return brief
 
 
+def _measured(value: float, measurable: bool) -> Cell:
+    """A magnitude cell: the rounded number, or the floor marker (never the −200 dB clamp)."""
+    return sig(value) if measurable else BELOW_FLOOR
+
+
+def _phase(value: float, measurable: bool) -> Cell:
+    """A phase cell: only meaningful where its magnitude was measurable."""
+    return sig(value) if measurable else UNDEFINED_PHASE
+
+
+def _tone_measurable(amplitude: float, gain_db: float | None) -> bool:
+    """Output-voltage tones carry a gain (dB); source-current tones an amplitude in mA."""
+    return gain_measurable(gain_db) if gain_db is not None else current_measurable(amplitude)
+
+
 def _tone_view(tone: ObservedTone) -> dict[str, Any]:
+    seen = _tone_measurable(tone.amplitude, tone.gain_db)
+    expected = _tone_measurable(tone.expected_amplitude, tone.expected_gain_db)
     view: dict[str, Any] = {
         "label": tone.label,
         "role": tone.role,
         "frequency_hz": sig(tone.frequency_hz),
-        "amplitude": sig(tone.amplitude),
-        "expected_amplitude": sig(tone.expected_amplitude),
+        "amplitude": _measured(tone.amplitude, seen),
+        "expected_amplitude": _measured(tone.expected_amplitude, expected),
         "amplitude_unit": tone.amplitude_unit,
-        "phase_deg": sig(tone.phase_deg),
-        "expected_phase_deg": sig(tone.expected_phase_deg),
+        "phase_deg": _phase(tone.phase_deg, seen),
+        "expected_phase_deg": _phase(tone.expected_phase_deg, expected),
     }
     if tone.gain_db is not None:
-        view["gain_db"] = sig(tone.gain_db)
+        view["gain_db"] = _measured(tone.gain_db, seen)
     if tone.expected_gain_db is not None:
-        view["expected_gain_db"] = sig(tone.expected_gain_db)
+        view["expected_gain_db"] = _measured(tone.expected_gain_db, expected)
     return view
 
 
@@ -181,10 +245,31 @@ def observation_view(obs: Observation) -> dict[str, Any]:
     view = observation_brief(obs)
     if obs.sweep is not None:
         s = obs.sweep
+        measurable = gain_measurable if s.quantity == "output_gain" else current_measurable
+        rows: list[list[Cell]] = []
+        for f, m, em, p, ep in zip(
+            s.frequency_hz,
+            s.magnitude,
+            s.expected_magnitude,
+            s.phase_deg,
+            s.expected_phase_deg,
+            strict=True,
+        ):
+            seen, expected = measurable(m), measurable(em)
+            rows.append(
+                [
+                    sig(f),
+                    _measured(m, seen),
+                    _measured(em, expected),
+                    _phase(p, seen),
+                    _phase(ep, expected),
+                ]
+            )
         view["sweep"] = {
             "quantity": s.quantity,
             "magnitude_unit": s.magnitude_unit,
-            "reference": "expected_* columns are the same measurement of the intended design",
+            "reference": "expected_* columns are the same measurement of the intended design. "
+            + FLOOR_NOTE,
             "columns": [
                 "frequency_hz",
                 "magnitude",
@@ -192,17 +277,7 @@ def observation_view(obs: Observation) -> dict[str, Any]:
                 "phase_deg",
                 "expected_phase_deg",
             ],
-            "rows": [
-                [sig(f), sig(m), sig(em), sig(p), sig(ep)]
-                for f, m, em, p, ep in zip(
-                    s.frequency_hz,
-                    s.magnitude,
-                    s.expected_magnitude,
-                    s.phase_deg,
-                    s.expected_phase_deg,
-                    strict=True,
-                )
-            ],
+            "rows": rows,
         }
     if obs.transient is not None:
         t = obs.transient
@@ -211,7 +286,7 @@ def observation_view(obs: Observation) -> dict[str, Any]:
             "reference": "expected_* fields are the same measurement of the intended design",
             "tones": [_tone_view(tone) for tone in t.tones],
             "note": "The waveform window and any audio clips are shown to the learner and "
-            "omitted here.",
+            f"omitted here. {FLOOR_NOTE}",
         }
     if obs.error is not None:
         view["error"] = obs.error.message
@@ -318,10 +393,16 @@ def case_view(case: PublicCase, *, run_actions: Sequence[str] = ()) -> dict[str,
         }
     if case.repair is not None:
         rv = case.repair
+        silent = sum(1 for p in rv.points if not gain_measurable(p.repaired_gain_db))
         view["repair_verification"] = {
             "status": rv.status,
             "functional_recovery": rv.functional_recovery,
-            "max_gain_deviation_db": sig(rv.max_gain_deviation_db),
+            # A deviation from a clamped non-measurement is not a number to quote.
+            "max_gain_deviation_db": (
+                f"not defined: no measurable output at {silent} of {len(rv.points)} frequencies"
+                if silent
+                else sig(rv.max_gain_deviation_db)
+            ),
             "max_phase_deviation_deg": sig(rv.max_phase_deviation_deg),
             "worst_frequency_hz": sig(rv.worst_frequency_hz),
             "summary": rv.summary,
@@ -429,4 +510,81 @@ def comparison_view(cmp: ExperimentComparison) -> dict[str, Any]:
             for t in cmp.tones
         ],
         "summary": cmp.summary,
+    }
+
+
+def suggestion_view(suggestion: DesignSuggestion, goal: Goal) -> dict[str, Any]:
+    """An analytical goal-to-design preview (``explore.suggest``), labeled as a prediction."""
+    s = suggestion
+    return {
+        "basis": "analytical prediction (first-order RC), not a measurement",
+        "applied": False,
+        "revision_id": s.revision_id,
+        "template_id": s.template_id,
+        "goal": {"goal_id": goal.id, "title": goal.title},
+        "feasible": s.feasible,
+        "target_cutoff_hz": sig(s.target_cutoff_hz),
+        "values": [
+            {
+                "component_id": v.component_id,
+                "value": v.display,
+                "value_si": sig(v.value_si, 6),
+                "series": v.series,
+            }
+            for v in s.values
+        ],
+        "predicted_cutoff_hz": sig(s.predicted_cutoff_hz),
+        "predicted": [
+            {
+                "label": p.constraint_label,
+                "frequency_hz": sig(p.frequency_hz),
+                "predicted_gain_db": sig(p.predicted_gain_db),
+                "passes": p.passes,
+                "margin_db": sig(p.margin_db),
+            }
+            for p in s.predicted
+        ],
+        "predicted_goal_pass": s.predicted_goal_pass,
+        "explanation": s.explanation,
+        "tradeoff": s.tradeoff,
+        "note": "Prediction only; nothing was changed. To offer these values to the learner, "
+        "call propose_values with them; the learner applies a proposal and an experiment "
+        "measures it.",
+    }
+
+
+def learn_attempt_view(attempt: LearnAttempt) -> dict[str, Any]:
+    """A recorded Learn attempt: graded from MEASURED tone gains (experiment IDs cited)."""
+    a = attempt
+    return {
+        "attempt_id": a.id,
+        "template_id": a.template_id,
+        # The learner's chosen change (public), e.g. C1 × 2; named "factor" so it is never
+        # confused with a hidden fault's multiplier, which no agent view contains.
+        "change": {"component_id": a.change.component_id, "factor": a.change.multiplier},
+        "base_revision_id": a.base_revision_id,
+        "new_revision_id": a.new_revision_id,
+        "base_experiment_id": a.base_experiment_id,
+        "new_experiment_id": a.new_experiment_id,
+        "learner_reasoning": a.reasoning,
+        "graded": [
+            {
+                "label": g.label,
+                "role": g.role,
+                "frequency_hz": sig(g.frequency_hz),
+                "predicted": g.predicted,
+                "observed": g.observed,
+                "measured_delta_db": sig(g.delta_db),
+                "correct": g.correct,
+            }
+            for g in a.graded
+        ],
+        "score": a.score,
+        "total": a.total,
+        "comparison_summary": a.comparison.summary,
+        "explanation": a.explanation,
+        "tradeoff": a.tradeoff,
+        "note": "measured_delta_db is the measured tone gain of the new experiment minus the "
+        "base experiment (ngspice, exact tone frequency). learner_reasoning is the learner's "
+        "own text. Audio clips are shown to the learner and omitted here.",
     }
