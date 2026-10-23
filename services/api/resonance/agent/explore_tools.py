@@ -1,9 +1,14 @@
-"""EXPLORE tool set: inspect public session revisions, set a goal, preview value proposals,
-simulate revisions already in the learner's history, and compare recorded experiments.
+"""EXPLORE tool set: inspect public session revisions, set a goal, suggest standard part
+values for the goal, preview value proposals (optionally switching the circuit family),
+simulate revisions already in the learner's history, compare recorded experiments, and read
+recorded Learn attempts.
 
 Proposals are never applied by the agent: the learner applies one through ``POST
-/api/revisions`` with its ``proposal_id``. Case revisions (``origin="case_intended"``) are not
-reachable from these tools, so Explore can never touch an investigation.
+/api/revisions`` with its ``proposal_id``. A family-switch proposal (``template_id`` differs
+from the base revision's) lists both R1 and C1; its analytical predictions use the TARGET
+family's equations and test tones. Suggestions (``explore.suggest``) are analytical previews
+and change nothing. Case revisions (``origin="case_intended"``) are not reachable from these
+tools, so Explore can never touch an investigation.
 """
 
 from __future__ import annotations
@@ -11,21 +16,22 @@ from __future__ import annotations
 import asyncio
 from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import Field, model_validator
 
 from ..api.errors import ApiException
 from ..circuits import revisions as circuit_revisions
-from ..circuits.templates import parse_component_value
-from ..circuits.units import ValueParseError
+from ..circuits.templates import get_template, parse_component_value
+from ..circuits.units import ValueParseError, format_value
 from ..contracts.agent import EditProposal, PredictedToneGain, ProposedChange
-from ..contracts.circuits import EditableComponentId, Revision
+from ..contracts.circuits import EditableComponentId, Revision, TemplateId
 from ..contracts.common import (
     ApiError,
     Contract,
     ErrorCode,
     ExperimentId,
+    LearnAttemptId,
     QuantityName,
     RevisionId,
     new_id,
@@ -38,7 +44,9 @@ from ..contracts.experiments import (
     GoalInput,
 )
 from ..contracts.internal import CancelToken
+from ..contracts.learn import LearnAttempt
 from ..explore import goals as explore_goals
+from ..explore import suggest as explore_suggest
 from ..simulation import analytic
 from ..store.db import DocumentStore, utcnow
 from ..store.session_state import load_session_state, save_session_state
@@ -61,6 +69,11 @@ class ValueChange(Contract):
 class ProposeValuesArgs(Contract):
     changes: list[ValueChange] = Field(min_length=1, max_length=2)
     rationale: str = Field(max_length=600)
+    template_id: TemplateId | None = Field(
+        default=None,
+        description="Only to switch the circuit family (e.g. 'rc_highpass'): the target "
+        "template. A switch must list both R1 and C1. Omit to keep the current family.",
+    )
 
     @model_validator(mode="after")
     def _unique(self) -> ProposeValuesArgs:
@@ -68,6 +81,19 @@ class ProposeValuesArgs(Contract):
         if len(set(ids)) != len(ids):
             raise ValueError("each component may appear only once")
         return self
+
+
+class SuggestDesignArgs(Contract):
+    vary: Literal["R1", "C1"] = Field(
+        description="The component to choose (nearest standard E12 value); the other keeps its "
+        "current value."
+    )
+
+
+class ReadLearnAttemptArgs(Contract):
+    attempt_id: LearnAttemptId | None = Field(
+        default=None, description="A Learn attempt ID; omit for the learner's latest attempt."
+    )
 
 
 class RunExploreExperimentArgs(Contract):
@@ -217,42 +243,66 @@ def _constraint_met(c: GoalConstraint, attenuation_db: float) -> bool:
     return attenuation_db <= c.limit_db if c.kind == "preserve" else attenuation_db >= c.limit_db
 
 
+def _validation_failure(message: str) -> ToolOutcome:
+    return ToolOutcome.failure(ApiError(code=ErrorCode.VALIDATION_ERROR, message=message))
+
+
+def _switch_changes(base: Revision, preview: Revision) -> list[ProposedChange]:
+    """A family switch has no per-component diff in its revision (the topology differs), but a
+    proposal lists every value: "from" is the base revision's part with the same designator."""
+    old = circuit_revisions.revision_values(base)
+    new = circuit_revisions.revision_values(preview)
+    changes: list[ProposedChange] = []
+    for comp in preview.components:
+        if not comp.editable or comp.unit is None:
+            continue
+        changes.append(
+            ProposedChange(
+                component_id=comp.id,
+                from_value_si=old[comp.id],
+                to_value_si=new[comp.id],
+                from_display=format_value(old[comp.id], comp.unit),
+                to_display=format_value(new[comp.id], comp.unit),
+            )
+        )
+    return changes
+
+
 def _propose_tool(ctx: ExploreRunContext) -> Tool:
     async def run(args: ProposeValuesArgs) -> ToolOutcome:
         try:
             base = load_session_revision(ctx.store, ctx.session_id, ctx.revision_id)
         except ApiException:
             return _not_found("Revision")
+        target: TemplateId = args.template_id or base.template_id
+        switching = target != base.template_id
+        target_def = get_template(target)
+        listed = {c.component_id for c in args.changes}
+        if switching and listed != set(target_def.editable_ids):
+            return _validation_failure(
+                f"Switching to the {target_def.title} must list both R1 and C1 with their new "
+                "values."
+            )
         values: dict[str, float] = {}
         try:
             for change in args.changes:
-                value_si, _unit = parse_component_value(
-                    base.template_id, change.component_id, change.value
-                )
+                value_si, _unit = parse_component_value(target, change.component_id, change.value)
                 values[change.component_id] = value_si
-            # Validates bounds and the joint cutoff constraint without storing anything.
+            # Validates bounds and the joint cutoff constraint without storing anything. For a
+            # family switch this is a revision of the target template linked to the base.
             preview = circuit_revisions.build_revision(
-                base.template_id,
+                target,
                 values,
                 origin="agent_proposal_applied",
                 parent=base,
                 edited=tuple(values),
             )
         except ValueParseError as exc:
-            return ToolOutcome.failure(ApiError(code=ErrorCode.VALIDATION_ERROR, message=str(exc)))
-        if not preview.changes:
-            return ToolOutcome.failure(
-                ApiError(
-                    code=ErrorCode.VALIDATION_ERROR,
-                    message="The proposed values equal the current values; nothing would change.",
-                )
-            )
-        goal = load_session_state(ctx.store, ctx.session_id).goal
-        predicted = _predicted_gains(base, circuit_revisions.revision_values(preview), goal)
-        proposal = EditProposal(
-            id=new_id("prop"),
-            base_revision_id=base.id,
-            changes=[
+            return _validation_failure(str(exc))
+        if switching:
+            changes = _switch_changes(base, preview)
+        else:
+            changes = [
                 ProposedChange(
                     component_id=ch.component_id,
                     from_value_si=ch.from_value_si,
@@ -261,7 +311,19 @@ def _propose_tool(ctx: ExploreRunContext) -> Tool:
                     to_display=ch.to_display,
                 )
                 for ch in preview.changes
-            ],
+            ]
+        if not changes:
+            return _validation_failure(
+                "The proposed values equal the current values; nothing would change."
+            )
+        goal = load_session_state(ctx.store, ctx.session_id).goal
+        # The preview carries the target family's equations and test tones.
+        predicted = _predicted_gains(preview, circuit_revisions.revision_values(preview), goal)
+        proposal = EditProposal(
+            id=new_id("prop"),
+            base_revision_id=base.id,
+            template_id=target if switching else None,
+            changes=changes,
             rationale=args.rationale,
             predicted=predicted,
             predicted_goal_pass=_goal_pass(goal, predicted),
@@ -272,12 +334,28 @@ def _propose_tool(ctx: ExploreRunContext) -> Tool:
         change_text = ", ".join(
             f"{c.component_id} {c.from_display} → {c.to_display}" for c in proposal.changes
         )
+        if switching:
+            note = (
+                f"Analytical predictions for the {target_def.title}, not measurements. "
+                f"Applying this proposal would create a {target_def.title} revision linked to "
+                "the current one (undo returns to it). The learner decides whether to apply it; "
+                "it must then be simulated to measure it."
+            )
+            summary = f"Proposed switching to the {target_def.title}: {change_text} (not applied)."
+        else:
+            note = (
+                "Analytical predictions, not measurements. The learner decides whether to apply "
+                "this proposal; it must then be simulated to measure it."
+            )
+            summary = f"Proposed {change_text} (not applied)."
         return ToolOutcome(
             ok=True,
             content={
                 "ok": True,
                 "proposal_id": proposal.id,
                 "applied": False,
+                "template_id": target,
+                "family_switch": switching,
                 "changes": [
                     {"component_id": c.component_id, "from": c.from_display, "to": c.to_display}
                     for c in proposal.changes
@@ -291,22 +369,86 @@ def _propose_tool(ctx: ExploreRunContext) -> Tool:
                     }
                     for p in predicted
                 ],
+                "goal": {"goal_id": goal.id, "title": goal.title},
                 "predicted_goal_pass": proposal.predicted_goal_pass,
-                "note": "Analytical predictions, not measurements. The learner decides whether "
-                "to apply this proposal; it must then be simulated to measure it.",
+                "note": note,
             },
-            summary=f"Proposed {change_text} (not applied).",
+            summary=summary,
             proposal_id=proposal.id,
             proposal=proposal,
         )
 
     return Tool(
         name="propose_values",
-        description="Preview new values for R1 and/or C1 on the current revision. Returns "
-        "analytical predictions. The proposal is NOT applied; the learner decides.",
+        description="Preview new values for R1 and/or C1 on the current revision, or switch the "
+        "circuit family by giving template_id and both R1 and C1. Returns analytical "
+        "predictions. The proposal is NOT applied; the learner decides.",
         args_model=ProposeValuesArgs,
         run=run,
         status_text=lambda _: "Preparing a proposal",
+    )
+
+
+def _suggest_tool(ctx: ExploreRunContext) -> Tool:
+    async def run(args: SuggestDesignArgs) -> ToolOutcome:
+        try:
+            base = load_session_revision(ctx.store, ctx.session_id, ctx.revision_id)
+        except ApiException:
+            return _not_found("Revision")
+        goal = load_session_state(ctx.store, ctx.session_id).goal
+        try:
+            suggestion = explore_suggest.suggest_design(base, goal, vary=args.vary)
+        except ApiException as exc:
+            return ToolOutcome.failure(exc.error)
+        except ValueParseError as exc:
+            return _validation_failure(str(exc))
+        chosen = ", ".join(f"{v.component_id} = {v.display}" for v in suggestion.values)
+        verdict = "meets" if suggestion.predicted_goal_pass else "does not meet"
+        return ToolOutcome(
+            ok=True,
+            content=views.suggestion_view(suggestion, goal),
+            summary=f"Suggested {chosen}. Prediction: {verdict} the goal (not applied).",
+        )
+
+    return Tool(
+        name="suggest_design",
+        description="Analytical suggestion for the learner's current goal on the current "
+        "revision's circuit family: the nearest standard (E12) value for R1 or C1 (the other "
+        "keeps its value), the target cutoff, predicted gains, and the predicted tradeoff when "
+        "the goal cannot be fully met. A prediction only; nothing is changed or applied.",
+        args_model=SuggestDesignArgs,
+        run=run,
+        status_text=lambda _: "Working out standard part values",
+    )
+
+
+def _read_learn_attempt_tool(ctx: ExploreRunContext) -> Tool:
+    async def run(args: ReadLearnAttemptArgs) -> ToolOutcome:
+        attempt: LearnAttempt | None
+        if args.attempt_id is not None:
+            attempt = ctx.store.get("learn_attempt", args.attempt_id, ctx.session_id, LearnAttempt)
+        else:
+            latest = ctx.store.list_docs(
+                "learn_attempt", ctx.session_id, LearnAttempt, limit=1, newest_first=True
+            )
+            attempt = latest[0] if latest else None
+        if attempt is None:
+            return _not_found("Learn attempt")
+        return ToolOutcome(
+            ok=True,
+            content=views.learn_attempt_view(attempt),
+            summary=f"Read Learn attempt {attempt.id} ({attempt.score} of {attempt.total} "
+            "predictions matched the measurement).",
+        )
+
+    return Tool(
+        name="read_learn_attempt",
+        description="Read a recorded Learn attempt from the learner's session (latest if no ID "
+        "is given): the change, the learner's predictions, the measured tone changes with the "
+        "experiment IDs behind them, and the deterministic explanation and tradeoff.",
+        args_model=ReadLearnAttemptArgs,
+        run=run,
+        status_text=lambda _: "Reading the Learn attempt",
     )
 
 
@@ -377,9 +519,11 @@ def explore_toolset(ctx: ExploreRunContext) -> ToolSet:
         [
             _inspect_tool(ctx),
             _set_goal_tool(ctx),
+            _suggest_tool(ctx),
             _propose_tool(ctx),
             _run_experiment_tool(ctx),
             _compare_tool(ctx),
+            _read_learn_attempt_tool(ctx),
         ],
     )
 
