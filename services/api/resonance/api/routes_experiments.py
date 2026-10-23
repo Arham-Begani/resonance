@@ -45,8 +45,8 @@ router = APIRouter(prefix="/api", tags=["experiments"])
 DISCONNECT_POLL_S = 0.25
 
 
-async def _cancel_on_disconnect(request: Request, token: CancelToken) -> None:
-    """Trip ``token`` when the client goes away so ngspice stops early."""
+async def cancel_on_disconnect(request: Request, token: CancelToken) -> None:
+    """Trip ``token`` when the client goes away so ngspice stops early (shared with Learn)."""
     while not token.cancelled:
         if await request.is_disconnected():
             token.cancel()
@@ -81,7 +81,7 @@ async def run_experiment(
             )
         goal = state.goal
     token = CancelToken()
-    watcher = asyncio.create_task(_cancel_on_disconnect(request, token))
+    watcher = asyncio.create_task(cancel_on_disconnect(request, token))
     try:
         return await service.run_explore_experiment(
             simulator=simulator,

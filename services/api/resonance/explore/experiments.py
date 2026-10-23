@@ -230,7 +230,13 @@ def consistency_checks(
 
 
 def component_changes(a: Revision, b: Revision) -> list[ComponentChange]:
-    """Value differences between two revisions for components present in both."""
+    """Value differences between two revisions of the SAME circuit family.
+
+    Across families the topology differs (C1 is the shunt element of a low-pass but the series
+    element of a high-pass), so per-component diffs would mislead and none are reported, as
+    for family-switch revisions; ``comparison_summary`` states both designs instead."""
+    if a.template_id != b.template_id:
+        return []
     by_id = {c.id: c for c in a.components}
     changes: list[ComponentChange] = []
     for comp in b.components:
@@ -273,6 +279,14 @@ def tone_deltas(a: ExperimentRecord, b: ExperimentRecord) -> list[ToneDelta]:
 _TEMPLATE_NAMES = {"rc_lowpass": "RC low-pass", "rc_highpass": "RC high-pass"}
 
 
+def _design_text(rev: Revision) -> str:
+    values = ", ".join(
+        f"{c.id} = {c.display_value}" for c in rev.components if c.editable and c.display_value
+    )
+    name = _TEMPLATE_NAMES.get(rev.template_id, rev.template_id)
+    return f"{name} ({values})" if values else name
+
+
 def _delta_phrase(delta_db: float) -> str:
     if abs(delta_db) < 0.05:
         return "no measurable change"
@@ -293,8 +307,8 @@ def comparison_summary(
     parts: list[str] = []
     if rev_a.template_id != rev_b.template_id:
         parts.append(
-            f"Circuit changed from {_TEMPLATE_NAMES.get(rev_a.template_id, rev_a.template_id)} "
-            f"to {_TEMPLATE_NAMES.get(rev_b.template_id, rev_b.template_id)}."
+            f"Circuit changed from {_design_text(rev_a)} to {_design_text(rev_b)}; each uses its "
+            "own test signal, so only tones present in both are compared."
         )
     if changes:
         listed = "; ".join(

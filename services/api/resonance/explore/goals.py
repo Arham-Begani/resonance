@@ -13,6 +13,7 @@ from collections.abc import Mapping
 from typing import Literal
 
 from ..circuits.templates import TemplateUnavailableError, get_template
+from ..contracts.circuits import TemplateId
 from ..contracts.common import EvidenceRef, QuantityName, new_id
 from ..contracts.experiments import (
     ConstraintResult,
@@ -22,21 +23,29 @@ from ..contracts.experiments import (
     GoalEvaluation,
     GoalInput,
 )
+from ..contracts.policy import TEMPLATE_DEFAULT_GOALS
 
 # Closed QuantityName vocabulary: gain of V(out)/V(in) from the AC analysis at that frequency.
 MEASURED_GAIN_QUANTITY: QuantityName = "output_gain_db"
 
-DEFAULT_GOAL_TITLE = "Keep the musical tone. Reduce the whistle."
+DEFAULT_GOAL_TITLE = TEMPLATE_DEFAULT_GOALS["rc_lowpass"][0]
 
 
-def default_goal() -> Goal:
+def default_goal(template_id: TemplateId = "rc_lowpass") -> Goal:
+    """The template's opening goal (``policy.TEMPLATE_DEFAULT_GOALS``) with a fresh ID."""
+    title, constraints = TEMPLATE_DEFAULT_GOALS[template_id]
     return Goal(
         id=new_id("goal"),
-        title=DEFAULT_GOAL_TITLE,
+        title=title,
         origin="default",
         constraints=[
-            GoalConstraint(kind="preserve", frequency_hz=440.0, limit_db=1.0, label="Musical tone"),
-            GoalConstraint(kind="attenuate", frequency_hz=4000.0, limit_db=12.0, label="Whistle"),
+            GoalConstraint(
+                kind="preserve" if kind == "preserve" else "attenuate",
+                frequency_hz=frequency_hz,
+                limit_db=limit_db,
+                label=label,
+            )
+            for kind, frequency_hz, limit_db, label in constraints
         ],
     )
 
@@ -48,6 +57,43 @@ def goal_from_input(body: GoalInput, origin: Literal["user", "agent"]) -> Goal:
         constraints=list(body.constraints),
         origin=origin,
     )
+
+
+def predicted_attenuation_db(template_id: str, frequency_hz: float, cutoff_hz: float) -> float:
+    """First-order RC attenuation (dB, ≥ 0) at ``frequency_hz`` for a cutoff (a prediction)."""
+    if template_id == "rc_lowpass":
+        ratio = frequency_hz / cutoff_hz
+    elif template_id == "rc_highpass":
+        ratio = cutoff_hz / frequency_hz
+    else:
+        raise ValueError(f"unknown template {template_id}")
+    return 10.0 * math.log10(1.0 + ratio * ratio)
+
+
+def constraint_margin_db(constraint: GoalConstraint, attenuation_db: float) -> float:
+    """Room left (dB) by one constraint at this attenuation; negative = it fails by that much.
+
+    preserve: limit − attenuation; attenuate: attenuation − limit (same rule as measured)."""
+    if constraint.kind == "preserve":
+        return constraint.limit_db - attenuation_db
+    return attenuation_db - constraint.limit_db
+
+
+def margin_rises_with_cutoff(template_id: str, constraint: GoalConstraint) -> bool:
+    """Whether raising the cutoff increases this constraint's margin (it never stays flat
+    for a positive limit): low-pass preserve / high-pass attenuate rise; the others fall."""
+    lowpass = template_id == "rc_lowpass"
+    return (constraint.kind == "preserve") == lowpass
+
+
+def cutoff_interval(template_id: str, c: GoalConstraint) -> tuple[float, float]:
+    """Cutoff range [lo, hi] (Hz, possibly 0 or ∞) for which one constraint holds."""
+    return _cutoff_interval(template_id, c)
+
+
+def supported_cutoffs(template_id: str) -> tuple[float, float]:
+    """The template's supported cutoff range (revision creation enforces it)."""
+    return _supported_cutoffs(template_id)
 
 
 def _cutoff_interval(template_id: str, c: GoalConstraint) -> tuple[float, float]:
@@ -142,10 +188,7 @@ def evaluate_constraint(
 ) -> ConstraintResult:
     """preserve: attenuation ≤ limit. attenuate: attenuation ≥ limit. Margin > 0 = room left."""
     attenuation = -measured_gain_db
-    if constraint.kind == "preserve":
-        margin = constraint.limit_db - attenuation
-    else:
-        margin = attenuation - constraint.limit_db
+    margin = constraint_margin_db(constraint, attenuation)
     return ConstraintResult(
         constraint=constraint,
         measured_gain_db=measured_gain_db,

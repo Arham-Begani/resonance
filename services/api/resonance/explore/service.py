@@ -8,6 +8,12 @@ audio comparison with the shared gain, and an optional goal evaluation on the me
 
 Failures raise the mapped ``ApiException``; nothing is written unless the whole bundle
 succeeded, so earlier valid records are never overwritten or deleted.
+``measure_explore_experiment`` is the same bundle without persisting the record, for callers
+(Learn) that must store several documents only once every measurement has succeeded.
+
+Every frequency-dependent choice follows the revision's own test signal
+(``revision.source.tones``): exact AC points, tone fits, the common analysis period, the
+spectrum bins, the oscilloscope window, and the audio disclosure note.
 """
 
 from __future__ import annotations
@@ -26,10 +32,15 @@ from ..audio.capture import (
     run_two_tone_capture,
     waveform_window,
 )
-from ..audio.render import read_wav_fs, render_comparison, render_faded_comparison
+from ..audio.render import (
+    low_tone_note,
+    read_wav_fs,
+    render_comparison,
+    render_faded_comparison,
+)
 from ..audio.signals import SignalError
 from ..audio.spectrum import compute_spectrum
-from ..contracts.circuits import Revision
+from ..contracts.circuits import Revision, Tone
 from ..contracts.common import ErrorCode, SimulatorInfo, new_id
 from ..contracts.experiments import (
     AcSweepSettings,
@@ -157,6 +168,7 @@ def _assemble(
         ],
         artifacts,
         session_id,
+        tones=capture.tones,
     )
     evaluation = None
     if goal is not None:
@@ -211,6 +223,35 @@ async def run_explore_experiment(
     Refuses a frozen revision (the intended design of an open case) for every caller, so no
     path into explore can measure a case design outside the case instruments.
     """
+    record = await measure_explore_experiment(
+        simulator=simulator,
+        artifacts=artifacts,
+        session_id=session_id,
+        revision=revision,
+        circuit=circuit,
+        goal=goal,
+        cancel=cancel,
+    )
+    store.put("experiment", record.id, session_id, record)
+    return record
+
+
+async def measure_explore_experiment(
+    *,
+    simulator: Simulator,
+    artifacts: ArtifactStore,
+    session_id: str,
+    revision: Revision,
+    circuit: CircuitSpec,
+    goal: Goal | None = None,
+    cancel: CancelToken | None = None,
+) -> ExperimentRecord:
+    """Run and assemble the explore bundle WITHOUT persisting the record.
+
+    The caller must persist the returned record (kind ``"experiment"``) before citing it.
+    Audio artifacts are already written (session-scoped, random IDs). Same refusals and error
+    mapping as ``run_explore_experiment``.
+    """
     if revision.frozen:
         raise ApiException(
             ErrorCode.STALE_REVISION,
@@ -260,7 +301,6 @@ async def run_explore_experiment(
     if token.cancelled:
         # The client left while results were being assembled: keep nothing half-reported.
         raise simulation_error_to_api(SimulationCancelled("The simulation was cancelled."))
-    store.put("experiment", record.id, session_id, record)
     return record
 
 
@@ -285,6 +325,15 @@ def _output_clip(record: ExperimentRecord) -> AudioClip | None:
     return None
 
 
+def _comparison_tones(a: ExperimentRecord, b: ExperimentRecord) -> list[Tone]:
+    """The test-signal tones of both experiments (they differ across circuit families)."""
+    tones: list[Tone] = []
+    for tone in [*a.settings.transient.tones, *b.settings.transient.tones]:
+        if all(t.frequency_hz != tone.frequency_hz for t in tones):
+            tones.append(tone)
+    return tones
+
+
 def _comparison_audio(
     a: ExperimentRecord,
     b: ExperimentRecord,
@@ -292,6 +341,7 @@ def _comparison_audio(
     session_id: str,
 ) -> AudioComparison | None:
     """Previous (A) vs current (B) output clips at one shared gain."""
+    tones = _comparison_tones(a, b)
     clip_a, clip_b = _output_clip(a), _output_clip(b)
     if clip_a is None or clip_b is None or a.audio is None or b.audio is None:
         return None
@@ -312,6 +362,7 @@ def _comparison_audio(
             "These are the recorded output clips of both experiments, reused unchanged: both "
             "were rendered at the same shared gain with no reduction."
         )
+        low = low_tone_note(tones)
         return AudioComparison(
             id=new_id("cmp"),
             clips=[
@@ -327,6 +378,7 @@ def _comparison_audio(
                 "volume control; no clip is normalized or compressed, so level differences are "
                 f"real. Each clip has {a.audio.fade_ms:g} ms raised-cosine fades at both ends "
                 "to prevent clicks (playback only; measurements use the un-faded steady state)."
+                + (f" {low}" if low else "")
             ),
         )
     # Different gains or a reduction: recover volts from the stored PCM and render both again
@@ -352,6 +404,7 @@ def _comparison_audio(
             "The two experiments' clips were rendered with different gain adjustments, so "
             "both were re-rendered together at one shared gain."
         ),
+        tones=tones,
     )
 
 
