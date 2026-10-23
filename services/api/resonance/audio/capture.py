@@ -9,8 +9,10 @@ STABLE INTERFACE, shared with the investigation evaluator for hidden circuits:
   (``NodeCapture.unit``), so its fitted amplitudes and waveform windows are in mA.
 * ``capture.tone_gain_db(node, k)`` (voltages only) and ``capture.tone_phase_deg(node, k)``
   (any captured quantity; relative to the source voltage tone, wrapped to (−180, 180]).
-* ``waveform_window(capture, node, duration_s=...) -> (start_s, samples)`` (≤
-  ``WAVEFORM_WINDOW_MAX_SAMPLES``).
+* ``waveform_window(capture, node, duration_s=None) -> (start_s, samples)`` (≤
+  ``WAVEFORM_WINDOW_MAX_SAMPLES``). The default length (``default_waveform_window_s``) is
+  ``WAVEFORM_WINDOW_S`` or one full period of the lowest tone if that is longer (50 Hz hum →
+  20 ms), capped by the sample limit; it depends only on the public tone set.
 * ``render_comparison(clips, artifacts, session_id) -> AudioComparison`` with ``ClipSource``
   (voltages only: ``clip_source`` refuses the current, which is never played as audio).
 
@@ -64,6 +66,7 @@ __all__ = [
     "WAVEFORM_WINDOW_S",
     "analyse_transient",
     "clip_source",
+    "default_waveform_window_s",
     "render_comparison",
     "run_two_tone_capture",
     "transient_settings",
@@ -283,17 +286,28 @@ async def run_two_tone_capture(
     )
 
 
+def default_waveform_window_s(signal: MultiToneSignal, sample_rate_hz: int) -> float:
+    """Oscilloscope window length: ``WAVEFORM_WINDOW_S``, or one whole period of the lowest
+    tone when that is longer (so a 50 Hz hum shows a full cycle), at most
+    ``WAVEFORM_WINDOW_MAX_SAMPLES`` samples. Depends only on the public tone set."""
+    longest = WAVEFORM_WINDOW_MAX_SAMPLES / sample_rate_hz
+    return min(max(WAVEFORM_WINDOW_S, 1.0 / signal.lowest_hz), longest)
+
+
 def waveform_window(
-    capture: TwoToneCapture, node: CaptureNode, *, duration_s: float = WAVEFORM_WINDOW_S
+    capture: TwoToneCapture, node: CaptureNode, *, duration_s: float | None = None
 ) -> tuple[float, list[float]]:
     """A short steady-state window for the oscilloscope view (values in the node's unit).
 
     It starts at the first whole common period after the fade-in, so windows from different
     captures (input, output, expected, observed) are time-aligned. ``start_s`` is measured
-    from the start of the clip. At most ``WAVEFORM_WINDOW_MAX_SAMPLES`` samples.
+    from the start of the clip. At most ``WAVEFORM_WINDOW_MAX_SAMPLES`` samples; the default
+    length is ``default_waveform_window_s``.
     """
     settings = capture.settings
     rate = settings.sample_rate_hz
+    if duration_s is None:
+        duration_s = default_waveform_window_s(capture.signal, rate)
     period = capture.signal.common_period_s
     fade_end_abs = settings.settle_s + capture.window.start_index / rate
     start_abs = math.ceil(fade_end_abs / period - 1e-9) * period

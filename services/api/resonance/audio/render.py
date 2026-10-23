@@ -13,6 +13,10 @@ Honesty rules implemented here:
   the analysis window (``tones.analysis_window``) lies strictly between the fades.
 * Clips are 16-bit PCM mono WAV written by the standard library: RIFF/fmt/data chunks only,
   no metadata. Artifact IDs are random (``ArtifactStore.put``).
+* When the comparison's test signal (pass ``tones=``) contains a tone below
+  ``LOW_TONE_NOTE_HZ`` (the high-pass demo's 50 Hz mains hum), the note says that such a tone
+  may be inaudible on small speakers even though it is in the PCM data at its measured level,
+  so a learner who hears nothing is not misled; the charts and numbers still show it.
 """
 
 from __future__ import annotations
@@ -27,6 +31,7 @@ from typing import NamedTuple
 
 import numpy as np
 
+from ..contracts.circuits import Tone
 from ..contracts.common import new_id
 from ..contracts.experiments import AudioClip, AudioComparison, ClipRole
 from ..contracts.internal import FloatArray
@@ -39,6 +44,8 @@ FULL_SCALE_FS = 1.0
 REDUCTION_TARGET_PEAK_FS = 0.95
 PCM_MAX = 32767  # symmetric int16 scaling: +1.0 FS → 32767, −1.0 FS → −32767
 MAX_CLIPS = 4
+# Below about 100 Hz phone, laptop, and small desktop speakers reproduce little or nothing.
+LOW_TONE_NOTE_HZ = 100.0
 
 
 class ClipSource(NamedTuple):
@@ -142,6 +149,22 @@ def _validate_clips(clips: Sequence[ClipSource]) -> list[FloatArray]:
     return arrays
 
 
+def low_tone_note(tones: Sequence[Tone]) -> str | None:
+    """Disclosure for tones that small speakers may not reproduce (None if there are none)."""
+    low = sorted(
+        (t for t in tones if t.frequency_hz < LOW_TONE_NOTE_HZ), key=lambda t: t.frequency_hz
+    )
+    if not low:
+        return None
+    names = " and ".join(f"{t.label} ({t.frequency_hz:g} Hz)" for t in low)
+    verb = "is" if len(low) == 1 else "are"
+    return (
+        f"{names} {verb} in every clip at its measured level, but very low tones may be "
+        "inaudible on small speakers such as phones and laptops; use headphones or the level "
+        "numbers and charts, which show them either way."
+    )
+
+
 def _gain_note(
     plan: GainPlan, clips: Sequence[ClipSource], fade_ms: float, faded_already: bool
 ) -> str:
@@ -166,6 +189,11 @@ def _gain_note(
         f"{fade_text} at both ends to prevent clicks (playback only; measurements use the "
         "un-faded steady state)."
     )
+    return " ".join(parts)
+
+
+def _compose_note(extra_note: str | None, gain_note: str, tones: Sequence[Tone]) -> str:
+    parts = [p for p in (extra_note, gain_note, low_tone_note(tones)) if p]
     return " ".join(parts)
 
 
@@ -216,16 +244,17 @@ def render_comparison(
     sample_rate_hz: int = AUDIO_SAMPLE_RATE_HZ,
     fade_ms: float = AUDIO_FADE_MS,
     extra_note: str | None = None,
+    tones: Sequence[Tone] = (),
 ) -> AudioComparison:
-    """Render un-faded voltage clips with ONE shared gain, matched fades, and WAV artifacts."""
+    """Render un-faded voltage clips with ONE shared gain, matched fades, and WAV artifacts.
+
+    ``tones`` is the comparison's public test signal; it only adds disclosure text."""
     arrays = _validate_clips(clips)
     plan = plan_shared_gain(
         [float(np.max(np.abs(x))) for x in arrays], playback_gain_fs_per_v=playback_gain_fs_per_v
     )
     final = [x * plan.factor * fade_envelope(x.size, sample_rate_hz, fade_ms) for x in arrays]
-    note = _gain_note(plan, clips, fade_ms, faded_already=False)
-    if extra_note:
-        note = f"{extra_note} {note}"
+    note = _compose_note(extra_note, _gain_note(plan, clips, fade_ms, faded_already=False), tones)
     return _store(
         clips,
         final,
@@ -247,6 +276,7 @@ def render_faded_comparison(
     sample_rate_hz: int,
     fade_ms: float,
     extra_note: str | None = None,
+    tones: Sequence[Tone] = (),
 ) -> AudioComparison:
     """Like ``render_comparison`` for clips recovered from earlier faded playback copies.
 
@@ -259,9 +289,7 @@ def render_faded_comparison(
         [float(np.max(np.abs(x))) for x in arrays], playback_gain_fs_per_v=playback_gain_fs_per_v
     )
     final = [x * plan.factor for x in arrays]
-    note = _gain_note(plan, clips, fade_ms, faded_already=True)
-    if extra_note:
-        note = f"{extra_note} {note}"
+    note = _compose_note(extra_note, _gain_note(plan, clips, fade_ms, faded_already=True), tones)
     return _store(
         clips,
         final,

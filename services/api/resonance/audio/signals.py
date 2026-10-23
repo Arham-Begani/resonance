@@ -6,9 +6,12 @@ The demo input is a sum of sines that all start at t = 0 with zero phase (see
     v_in(t) = Σ_k A_k · sin(2π f_k t)
 
 Because every tone frequency is an integer multiple of their greatest common divisor, the sum
-repeats exactly every *common period* ``1 / gcd(f_k)`` (440 Hz + 4 kHz → 40 Hz → 25 ms).
-Analysing an integer number of common periods makes the tones exactly orthogonal, so tone fits
-and rectangular-window spectra have no leakage.
+repeats exactly every *common period* ``1 / gcd(f_k)``: 440 Hz + 4 kHz (low-pass demo) → 40 Hz →
+25 ms; 50 Hz + 440 Hz (high-pass demo) → 10 Hz → 100 ms. Analysing an integer number of common
+periods makes the tones exactly orthogonal, so tone fits and rectangular-window spectra have no
+leakage. Nothing in the audio pipeline assumes a particular tone set: every capture uses the
+tones of the circuit's own source (``Revision.source.tones``, one set per template in
+``policy.TEMPLATE_TONES``).
 
 Supported signal bandwidth
 --------------------------
@@ -36,14 +39,16 @@ import numpy as np
 
 from ..contracts.circuits import Tone
 from ..contracts.internal import FloatArray
-from ..contracts.policy import DEFAULT_TONES, TRANSIENT_MAX_STEP_S
+from ..contracts.policy import TRANSIENT_MAX_STEP_S
 
 MIN_TONE_HZ = 20.0
 MIN_POINTS_PER_PERIOD = 20
 MAX_TONE_HZ = 1.0 / (MIN_POINTS_PER_PERIOD * TRANSIENT_MAX_STEP_S)
 # Frequencies are resolved on a 1 mHz grid to compute an exact common period.
 _FREQ_RESOLUTION_HZ = 1e-3
-# The analysis window must hold several whole common periods (gcd ≥ 10 Hz).
+# The analysis window must hold several whole common periods (gcd ≥ 10 Hz): the 1.2 s clip
+# minus its two 15 ms fades then holds ≥ 11 whole periods (the high-pass 50 Hz + 440 Hz signal
+# sits exactly at this limit).
 MAX_COMMON_PERIOD_S = 0.1
 
 
@@ -63,6 +68,10 @@ class MultiToneSignal:
     @property
     def amplitudes_v(self) -> tuple[float, ...]:
         return tuple(t.amplitude_v for t in self.tones)
+
+    @property
+    def lowest_hz(self) -> float:
+        return min(self.frequencies_hz)
 
     @property
     def peak_v(self) -> float:
@@ -87,8 +96,10 @@ def common_period_s(frequencies_hz: Sequence[float]) -> float:
     return 1.0 / (g * _FREQ_RESOLUTION_HZ)
 
 
-def multi_tone_signal(tones: Sequence[Tone] = DEFAULT_TONES) -> MultiToneSignal:
-    """Validate a tone set against the supported bandwidth and compute its common period."""
+def multi_tone_signal(tones: Sequence[Tone]) -> MultiToneSignal:
+    """Validate a tone set against the supported bandwidth and compute its common period.
+
+    There is deliberately no default tone set: callers pass the circuit's own source tones."""
     if not 1 <= len(tones) <= 4:
         raise SignalError("A test signal has between one and four tones.")
     freqs = [t.frequency_hz for t in tones]
