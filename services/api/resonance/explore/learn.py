@@ -216,9 +216,12 @@ def plan_attempt(revision: Revision, body: LearnAttemptRequest) -> PlannedAttemp
 
 
 def observed_change(delta_db: float) -> TonePredictionChoice:
-    if abs(delta_db) < LEARN_SAME_THRESHOLD_DB:
+    # Grade on the same 0.01 dB resolution the explanation prints, so the grade can never
+    # contradict the numbers on screen at the threshold (verification finding M2-01).
+    shown = round(delta_db, 2)
+    if abs(shown) < LEARN_SAME_THRESHOLD_DB:
         return "about_the_same"
-    return "louder" if delta_db > 0 else "quieter"
+    return "louder" if shown > 0 else "quieter"
 
 
 def _tone_level(record: ExperimentRecord, frequency_hz: float) -> ToneLevel:

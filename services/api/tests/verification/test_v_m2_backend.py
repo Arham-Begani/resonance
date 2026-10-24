@@ -1287,12 +1287,6 @@ def test_learn_just_beyond_one_db_is_quieter(learn_boundary: dict[float, dict[st
 
 
 @pytest.mark.ngspice
-@pytest.mark.xfail(
-    strict=True,
-    reason="M2-01: a measured change of -0.997 dB is graded 'about the same' while the "
-    "explanation and tradeoff show '1.00 dB quieter', so a learner who predicted quieter is "
-    "marked wrong against the numbers on screen",
-)
 def test_learn_text_and_grade_agree_just_below_one_db(
     learn_boundary: dict[float, dict[str, Any]],
 ) -> None:

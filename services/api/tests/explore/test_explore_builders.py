@@ -89,8 +89,8 @@ def test_comparison_lists_changes_and_measured_tone_deltas() -> None:
     summary = comparison_summary(a, b, rev_a, rev_b, changes, deltas)
     assert summary == (
         "Changed R1 from 1 kΩ to 1.6 kΩ. Measured AC gain: Musical tone (440 Hz) -0.32 dB → "
-        "-0.78 dB (0.5 dB more attenuation); Whistle (4 kHz) -8.64 dB → -12.35 dB "
-        "(3.7 dB more attenuation)."
+        "-0.78 dB (0.46 dB more attenuation); Whistle (4 kHz) -8.64 dB → -12.35 dB "
+        "(3.71 dB more attenuation)."
     )
     same = comparison_summary(a, a, rev_a, rev_a, [], tone_deltas(a, a))
     assert same.startswith("Both experiments used the same component values.")

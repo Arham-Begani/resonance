@@ -133,10 +133,14 @@ def test_frozen_case_designs_are_refused() -> None:
         assert info.value.error.code == ErrorCode.STALE_REVISION and info.value.status == 409
 
 
-def test_observed_change_threshold_is_strict() -> None:
+def test_observed_change_threshold_is_strict_at_the_shown_resolution() -> None:
+    # Grading uses the 0.01 dB resolution the explanation prints (finding M2-01): a change
+    # shown as "1.00 dB" is never graded "about the same".
     t = LEARN_SAME_THRESHOLD_DB
     assert observed_change(0.0) == "about_the_same"
-    assert observed_change(-(t - 1e-9)) == "about_the_same"
-    assert observed_change(t - 1e-9) == "about_the_same"
-    assert observed_change(-t) == "quieter"  # |Δ| < threshold is "about the same"; = is not
+    assert observed_change(-(t - 0.006)) == "about_the_same"  # shown as 0.99 dB
+    assert observed_change(t - 0.006) == "about_the_same"
+    assert observed_change(-(t - 0.004)) == "quieter"  # shown as 1.00 dB
+    assert observed_change(t - 0.004) == "louder"
+    assert observed_change(-t) == "quieter"  # |shown| < threshold is "about the same"; = is not
     assert observed_change(t) == "louder"

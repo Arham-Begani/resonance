@@ -288,11 +288,12 @@ def _design_text(rev: Revision) -> str:
 
 
 def _delta_phrase(delta_db: float) -> str:
-    if abs(delta_db) < 0.05:
+    # Two decimals, matching Learn's explanation and grading resolution (finding M2-01).
+    if abs(delta_db) < 0.005:
         return "no measurable change"
     if delta_db < 0:
-        return f"{-delta_db:.1f} dB more attenuation"
-    return f"{delta_db:.1f} dB less attenuation"
+        return f"{-delta_db:.2f} dB more attenuation"
+    return f"{delta_db:.2f} dB less attenuation"
 
 
 def comparison_summary(
