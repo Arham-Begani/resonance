@@ -87,7 +87,7 @@ def case_transient_settings(tones: Sequence[Tone] = DEFAULT_TONES) -> TransientS
 _FLOOR_TEXT = (
     f"A gain at or below {MEASUREMENT_FLOOR_DB:g} dB (or a current at or below "
     f"{CURRENT_FLOOR_MA * 1e6:g} nA) means no measurable signal: it is reported as "
-    f"{MEASUREMENT_FLOOR_DB:g} dB (an amplitude or current of 0), its phase is undefined, is "
+    f"{MEASUREMENT_FLOOR_DB:g} dB (an amplitude or current of 0), its phase has no meaning, is "
     "reported as 0°, and is never used as evidence."
 )
 
