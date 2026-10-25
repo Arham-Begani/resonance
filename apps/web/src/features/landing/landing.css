@@ -1,0 +1,977 @@
+/*
+ * Landing page. House style matches the workbench (Linear/Vercel developer-dark, one cyan accent)
+ * but uses marketing density: 64–96px between sections, application rhythm inside them.
+ * Every color comes from src/styles/tokens.css; no new color pairs are introduced here, so the
+ * contrast figures in tokens.css (checked by scripts/contrast.mjs) cover this page.
+ * Landing-only scale additions are scoped to .landing:
+ *   --l-display  hero headline, 40 → 48 → 56px
+ *   --l-lead     subhead, 18px
+ *   --l-space-16 / --l-space-24  64 / 96px section rhythm (the 4px scale continued)
+ * All selectors are prefixed (l-*) so nothing here can leak into the workbench.
+ */
+.landing {
+  --l-display: 40px;
+  --l-lead: 18px;
+  --l-space-16: 64px;
+  --l-space-24: 96px;
+  --l-section: var(--l-space-16);
+  --l-gutter: var(--space-4);
+  --l-max: 1120px;
+
+  min-height: 100%;
+  background: var(--color-bg);
+  font-size: var(--text-md);
+}
+
+@media (min-width: 720px) {
+  .landing {
+    --l-display: 48px;
+    --l-gutter: var(--space-6);
+    --l-section: var(--l-space-24);
+  }
+}
+
+@media (min-width: 1080px) {
+  .landing {
+    --l-display: 56px;
+    --l-gutter: var(--space-8);
+  }
+}
+
+.landing main:focus {
+  outline: none;
+}
+
+.l-container {
+  width: 100%;
+  max-width: calc(var(--l-max) + 2 * var(--l-gutter));
+  margin: 0 auto;
+  padding: 0 var(--l-gutter);
+}
+
+/* ---------- Skip link ---------- */
+
+.l-skip {
+  position: absolute;
+  top: var(--space-2);
+  left: var(--space-2);
+  z-index: 20;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+  font-weight: var(--weight-strong);
+  text-decoration: none;
+  transform: translateY(-200%);
+}
+
+.l-skip:focus {
+  transform: none;
+}
+
+/* ---------- Wordmark ---------- */
+
+.l-mark {
+  display: inline-block;
+  flex: none;
+  width: 20px;
+  height: 20px;
+  border: 2px solid var(--color-accent);
+  border-radius: 50%;
+  box-shadow:
+    inset 0 0 0 4px var(--color-bg),
+    inset 0 0 0 6px var(--color-accent);
+}
+
+.l-wordmark {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 44px;
+  border-radius: var(--radius-sm);
+  color: var(--color-text);
+  font-size: var(--text-md);
+  font-weight: var(--weight-strong);
+  letter-spacing: -0.01em;
+  text-decoration: none;
+}
+
+/* ---------- Navigation ---------- */
+
+.l-nav {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-bg);
+}
+
+.l-nav__inner {
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+  min-height: 56px;
+}
+
+.l-nav__links {
+  margin-left: auto;
+}
+
+.l-nav__links ul {
+  display: flex;
+  gap: var(--space-1);
+  list-style: none;
+}
+
+.l-nav__links a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-md);
+  color: var(--color-text-secondary);
+  font-size: var(--text-sm);
+  text-decoration: none;
+  transition: color var(--motion-fast) var(--ease-out);
+}
+
+.l-nav__links a:hover {
+  color: var(--color-text);
+}
+
+.l-nav__cta {
+  margin-left: 0;
+}
+
+/* On narrow screens the in-page links are dropped; every section is still reached by scrolling,
+   the skip link, or headings navigation. GitHub stays reachable in the footer. */
+@media (max-width: 719px) {
+  .l-nav__links {
+    display: none;
+  }
+
+  .l-nav__cta {
+    margin-left: auto;
+  }
+}
+
+/* ---------- Shared type ---------- */
+
+.landing .eyebrow {
+  color: var(--color-text-tertiary);
+}
+
+.l-lead {
+  max-width: 58ch;
+  text-wrap: pretty;
+  color: var(--color-text-secondary);
+  font-size: var(--l-lead);
+  line-height: 1.55;
+}
+
+.l-body {
+  max-width: 62ch;
+  color: var(--color-text-secondary);
+  font-size: var(--text-md);
+  line-height: 1.6;
+}
+
+.l-section__head {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin-bottom: var(--space-12);
+}
+
+.l-section__title {
+  max-width: 34ch;
+  font-size: var(--text-lg);
+  letter-spacing: var(--tracking-display);
+  line-height: 1.15;
+}
+
+@media (min-width: 720px) {
+  .l-section__title {
+    font-size: var(--text-xl);
+  }
+}
+
+/* ---------- Buttons (refines the shared .btn) ---------- */
+
+.l-btn {
+  min-height: 44px;
+  padding: 0 var(--space-4);
+  font-size: var(--text-md);
+  text-decoration: none;
+}
+
+.landing a.btn,
+.l-boot a.btn {
+  text-decoration: none;
+}
+
+.l-btn svg {
+  transition: transform var(--motion-fast) var(--ease-out);
+}
+
+.l-btn:hover svg {
+  transform: translateX(2px);
+}
+
+.l-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+/* ---------- Hero ---------- */
+
+.l-hero {
+  padding: var(--l-space-16) 0 var(--l-section);
+}
+
+.l-hero__eyebrow {
+  margin-bottom: var(--space-4);
+}
+
+.l-hero__title {
+  margin-bottom: var(--space-8);
+  font-size: var(--l-display);
+  font-weight: var(--weight-strong);
+  letter-spacing: -0.035em;
+  line-height: 1.06;
+}
+
+.l-hero__line {
+  display: block;
+  text-wrap: balance;
+}
+
+.l-hero__line--second {
+  color: var(--color-text-secondary);
+}
+
+.l-hero__grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-12);
+  align-items: start;
+}
+
+@media (min-width: 1080px) {
+  .l-hero__grid {
+    grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
+    gap: var(--l-space-16);
+  }
+}
+
+.l-hero__copy {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.l-hero__copy .l-lead {
+  margin-bottom: var(--space-8);
+}
+
+.l-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-4);
+  margin-top: var(--space-6);
+  list-style: none;
+  color: var(--color-text-tertiary);
+  font-size: var(--text-sm);
+}
+
+.l-facts li {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.l-facts li::before {
+  content: "";
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--color-accent);
+}
+
+/* ---------- Instrument figures (hero + insight) ---------- */
+
+.l-instrument,
+.l-insight-figure {
+  min-width: 0;
+  margin: 0;
+  border: 1px solid var(--color-border-soft);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+}
+
+.l-instrument__bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  min-height: 44px;
+  padding: 0 var(--space-4);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.l-instrument__title {
+  color: var(--color-text);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-strong);
+  letter-spacing: 0;
+}
+
+.l-tag {
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  padding: 0 var(--space-2);
+  border: 1px solid var(--color-border-soft);
+  border-radius: var(--radius-sm);
+  background: var(--color-raised);
+  color: var(--color-text-secondary);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-strong);
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+}
+
+.l-instrument__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-6) var(--space-4) var(--space-2);
+}
+
+.l-instrument__caption {
+  padding: var(--space-3) var(--space-4) var(--space-4);
+  border-top: 1px solid var(--color-border);
+  color: var(--color-text-tertiary);
+  font-size: var(--text-xs);
+  line-height: 1.5;
+}
+
+/* Schematic */
+
+.l-sch {
+  display: block;
+  width: 100%;
+  max-width: 400px;
+  height: auto;
+  margin: 0 auto;
+  overflow: visible;
+}
+
+.l-sch__wire path {
+  fill: none;
+  stroke: var(--color-text-secondary);
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.l-sch__out path {
+  fill: none;
+  stroke: var(--color-accent);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.l-sch__node {
+  fill: var(--color-accent);
+}
+
+.l-sch__term {
+  fill: var(--color-surface);
+  stroke: var(--color-accent);
+  stroke-width: 2;
+}
+
+.l-sch__body circle,
+.l-sch__body path {
+  fill: none;
+  stroke: var(--color-text);
+  stroke-width: 1.75;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.l-sch__body circle {
+  fill: var(--color-surface);
+}
+
+.l-sch__body .l-sch__glyph {
+  stroke: var(--color-text-secondary);
+  stroke-width: 1.5;
+}
+
+.l-sch__text text {
+  fill: var(--color-text);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: var(--weight-strong);
+}
+
+.l-sch__text .l-sch__value {
+  fill: var(--color-text-secondary);
+  font-family: var(--font-mono);
+  font-weight: var(--weight-regular);
+}
+
+.l-sch__text .l-sch__outlabel {
+  fill: var(--color-accent);
+}
+
+/* Plot */
+
+.l-plot {
+  width: 100%;
+  min-width: 0;
+}
+
+/* The SVG fills its container; ResizeObserver then redraws it at that exact width (1:1). */
+.l-plot svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+.l-plot__grid line {
+  stroke: var(--chart-grid);
+  stroke-width: 1;
+}
+
+.l-plot__ticks text {
+  fill: var(--color-text-tertiary);
+  font-family: var(--font-sans);
+  font-size: var(--text-xs);
+  font-variant-numeric: tabular-nums;
+}
+
+.l-plot__cutoff line {
+  stroke: var(--color-text-tertiary);
+  stroke-width: 1;
+  stroke-dasharray: 2 4;
+}
+
+.l-plot__cutoff text,
+.l-plot__label {
+  fill: var(--color-text-secondary);
+  font-family: var(--font-sans);
+  font-size: var(--text-xs);
+  font-variant-numeric: tabular-nums;
+}
+
+.l-plot__label {
+  fill: var(--color-text);
+  white-space: pre;
+}
+
+.l-plot__line {
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.l-plot__line--primary {
+  stroke: var(--trace-primary);
+}
+
+.l-plot__line--reference {
+  stroke: var(--trace-reference);
+  stroke-dasharray: 6 5;
+}
+
+.l-plot__marker {
+  fill: var(--color-text);
+  stroke: var(--color-surface);
+  stroke-width: 2;
+}
+
+/* The only animation on the page: the hero curve draws in once. It runs only for viewers who
+   have not asked for reduced motion; everyone else sees the finished curve immediately. */
+@media (prefers-reduced-motion: no-preference) {
+  .l-plot__line--draw {
+    stroke-dasharray: 1;
+    stroke-dashoffset: 1;
+    animation: l-draw 1100ms var(--ease-out) 200ms forwards;
+  }
+
+  .l-plot__marker {
+    animation: l-fade 200ms var(--ease-out) 900ms both;
+  }
+}
+
+@keyframes l-draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes l-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+/* ---------- Mode cards ---------- */
+
+.l-modes {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-4);
+}
+
+@media (min-width: 900px) {
+  .l-modes {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr);
+    grid-template-rows: auto auto;
+  }
+
+  .l-card--featured {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+  }
+}
+
+.l-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-6);
+  border: 1px solid var(--color-border-soft);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  transition:
+    background-color var(--motion-fast) var(--ease-out),
+    border-color var(--motion-fast) var(--ease-out);
+}
+
+.l-card:hover {
+  border-color: var(--color-border-strong);
+  background: var(--color-raised);
+}
+
+.l-card__mode {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--color-text-secondary);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-strong);
+}
+
+.l-card__mode svg {
+  color: var(--color-accent);
+}
+
+.l-card__title {
+  max-width: 22ch;
+  font-size: var(--text-lg);
+  letter-spacing: var(--tracking-display);
+  line-height: 1.2;
+}
+
+.l-card__link {
+  color: var(--color-text);
+  text-decoration: none;
+}
+
+/* The heading link covers the whole card, so the card is one large target. */
+.l-card__link::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: var(--radius-lg);
+}
+
+.l-card__link:focus-visible {
+  outline: none;
+}
+
+.l-card__link:focus-visible::after {
+  outline: var(--focus-ring);
+  outline-offset: 2px;
+}
+
+.l-card__text {
+  max-width: 60ch;
+  color: var(--color-text-secondary);
+  font-size: var(--text-sm);
+  line-height: 1.6;
+}
+
+.l-card--featured .l-card__text {
+  font-size: var(--text-md);
+}
+
+.l-card__go {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin-top: auto;
+  padding-top: var(--space-3);
+  color: var(--color-accent);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-strong);
+}
+
+.l-steps {
+  display: flex;
+  flex-direction: column;
+  margin: var(--space-3) 0 var(--space-2);
+  border-top: 1px solid var(--color-border);
+  list-style: none;
+  counter-reset: l-step;
+}
+
+.l-steps li {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-4);
+  padding: var(--space-3) 0;
+  border-bottom: 1px solid var(--color-border);
+  color: var(--color-text);
+  font-size: var(--text-sm);
+  counter-increment: l-step;
+}
+
+.l-steps li::before {
+  content: counter(l-step, decimal-leading-zero);
+  color: var(--color-text-tertiary);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- Physics ---------- */
+
+.l-section {
+  padding: var(--l-section) 0;
+  border-top: 1px solid var(--color-border);
+}
+
+.l-physics {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-12);
+  align-items: start;
+}
+
+@media (min-width: 1080px) {
+  .l-physics {
+    grid-template-columns: minmax(0, 0.8fr) minmax(0, 1fr);
+    gap: var(--l-space-16);
+  }
+}
+
+.l-physics__copy {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.l-physics__copy .l-section__title {
+  margin-bottom: var(--space-2);
+}
+
+.l-formula {
+  align-self: flex-start;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--color-border-soft);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-family: var(--font-mono);
+  font-size: var(--text-md);
+}
+
+.l-note {
+  max-width: 62ch;
+  margin-top: var(--space-2);
+  padding-left: var(--space-4);
+  border-left: 2px solid var(--color-accent);
+  color: var(--color-text);
+  font-size: var(--text-md);
+  line-height: 1.6;
+}
+
+.l-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-6);
+  padding: var(--space-4) var(--space-4) 0;
+  list-style: none;
+  color: var(--color-text);
+  font-size: var(--text-sm);
+}
+
+.l-legend li {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.l-legend .muted {
+  font-size: var(--text-xs);
+}
+
+.l-insight-figure__plots {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-6);
+  padding: var(--space-4);
+}
+
+@media (min-width: 720px) {
+  .l-insight-figure__plots {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+}
+
+.l-plot-title {
+  margin-bottom: var(--space-2);
+  color: var(--color-text-secondary);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-strong);
+}
+
+.l-values {
+  padding: 0 var(--space-4) var(--space-3);
+}
+
+.l-values > summary {
+  min-height: 44px;
+}
+
+.l-values__scroll {
+  overflow-x: auto;
+  border-radius: var(--radius-sm);
+}
+
+/* ---------- Honesty ---------- */
+
+.l-principles {
+  display: grid;
+  gap: 0 var(--space-12);
+  margin: 0;
+}
+
+@media (min-width: 720px) {
+  .l-principles {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.l-principle {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-6) 0;
+  border-top: 1px solid var(--color-border-soft);
+}
+
+.l-principle dt {
+  color: var(--color-text);
+  font-size: var(--text-md);
+  font-weight: var(--weight-strong);
+}
+
+.l-principle dd {
+  max-width: 56ch;
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: var(--text-sm);
+  line-height: 1.6;
+}
+
+/* ---------- Built with ---------- */
+
+.l-stack {
+  display: grid;
+  gap: 1px;
+  overflow: hidden;
+  border: 1px solid var(--color-border-soft);
+  border-radius: var(--radius-lg);
+  background: var(--color-border-soft);
+  list-style: none;
+}
+
+@media (min-width: 720px) {
+  .l-stack {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1080px) {
+  .l-stack {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+.l-stack li {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-6);
+  background: var(--color-bg);
+}
+
+.l-stack__name {
+  color: var(--color-text);
+  font-size: var(--text-md);
+  font-weight: var(--weight-strong);
+}
+
+.l-stack__role {
+  color: var(--color-text-secondary);
+  font-size: var(--text-sm);
+  line-height: 1.5;
+}
+
+.l-stack__detail {
+  margin-top: auto;
+  padding-top: var(--space-2);
+  overflow-wrap: anywhere;
+  color: var(--color-text-tertiary);
+  font-size: var(--text-xs);
+}
+
+/* ---------- Final call to action ---------- */
+
+.l-cta {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  padding: var(--space-8) var(--space-6);
+  border: 1px solid var(--color-border-soft);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+}
+
+@media (min-width: 900px) {
+  .l-cta {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--space-12);
+  }
+}
+
+.l-cta__title {
+  margin-bottom: var(--space-2);
+  font-size: var(--text-lg);
+  letter-spacing: var(--tracking-display);
+}
+
+@media (min-width: 720px) {
+  .l-cta__title {
+    font-size: var(--text-xl);
+  }
+}
+
+/* ---------- Footer ---------- */
+
+.l-footer {
+  border-top: 1px solid var(--color-border);
+}
+
+.l-footer__inner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3) var(--space-6);
+  padding-top: var(--space-6);
+  padding-bottom: var(--space-6);
+}
+
+.l-footer__brand {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-weight: var(--weight-strong);
+}
+
+.l-footer__note {
+  color: var(--color-text-tertiary);
+  font-size: var(--text-sm);
+}
+
+.l-footer__links {
+  display: flex;
+  gap: var(--space-1);
+  margin-left: auto;
+  list-style: none;
+}
+
+.l-footer__links a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-md);
+  color: var(--color-text-secondary);
+  font-size: var(--text-sm);
+}
+
+.l-footer__links a:hover {
+  color: var(--color-text);
+}
+
+@media (max-width: 719px) {
+  .l-footer__links {
+    margin-left: calc(-1 * var(--space-3));
+  }
+}
+
+/* ---------- Not found ---------- */
+
+.l-notfound {
+  border-top: 0;
+}
+
+.l-notfound .l-container {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-4);
+  min-height: 50vh;
+}
+
+/* ---------- Workbench loading / load failure (outside .landing) ---------- */
+
+.l-boot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  min-height: 100%;
+  padding: var(--space-6);
+  background: var(--color-bg);
+  color: var(--color-text-secondary);
+  font-size: var(--text-sm);
+}
+
+.l-boot--error {
+  flex-direction: column;
+  text-align: center;
+}
+
+.l-boot__title {
+  color: var(--color-text);
+  font-size: var(--text-lg);
+}
+
+.l-boot--error .l-actions {
+  justify-content: center;
+}
