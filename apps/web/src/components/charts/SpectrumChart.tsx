@@ -1,6 +1,6 @@
 // Magnitude spectrum of the simulated steady-state clip (input dashed, output solid), with the
 // demo tone peaks labelled directly. Dense spectra are decimated for drawing only.
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import type { Spectrum, Tone } from "../../api/types";
 import { useAnnouncer } from "../../state/announcer";
 import { formatHz, formatHzTick, num } from "../../lib/format";
@@ -14,11 +14,13 @@ interface SpectrumChartProps {
   state: ChartState;
   emptyText?: string;
   stale?: boolean;
+  toolbar?: ReactNode;
+  height?: number;
 }
 
 const FLOOR_DBV = -100;
 
-export function SpectrumChart({ spectrum, tones, state, emptyText, stale }: SpectrumChartProps) {
+export function SpectrumChart({ spectrum, tones, state, emptyText, stale, toolbar, height = 212 }: SpectrumChartProps) {
   const [hover, setHover] = useState<number | null>(null);
   const { announce } = useAnnouncer();
 
@@ -115,20 +117,21 @@ export function SpectrumChart({ spectrum, tones, state, emptyText, stale }: Spec
       state={effectiveState}
       emptyText={emptyText}
       stale={stale}
+      toolbar={toolbar}
       xAxisLabel="Frequency (Hz, log scale)"
     >
       {(width) =>
         data ? (
           <div className="response-panel">
-            <p className="response-panel__title">Level (dBV)</p>
             <LinePlot
+              title="Level (dBV)"
               x={data.f}
               xScale="log"
               xDomain={xDomain}
               yDomain={[FLOOR_DBV, 0]}
               series={series}
               width={width}
-              height={220}
+              height={height}
               showXAxis
               xTickFormat={formatHzTick}
               yTickFormat={(v) => num(v, 0)}

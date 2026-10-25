@@ -67,6 +67,7 @@ export function ChartFigure({
         <h3 className="chart__title" id={`${id}-title`}>
           {title}
         </h3>
+        {stale ? <span className="chart__stale">Updating…</span> : null}
         {toolbar}
         {legend.length > 1 && state === "ready" ? (
           <ul className="chart__legend" aria-label={`${title} legend`}>

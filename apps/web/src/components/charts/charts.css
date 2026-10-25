@@ -3,13 +3,18 @@
   flex-direction: column;
   gap: var(--space-2);
   min-width: 0;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
 }
 
 .chart__header {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-2) var(--space-4);
+  gap: var(--space-2) var(--space-3);
+  min-height: 28px;
 }
 
 .chart__title {
@@ -36,26 +41,49 @@
 .chart__body {
   position: relative;
   min-width: 0;
+}
+
+/* Refreshing: only the data marks fade (text keeps full contrast); the header says "Updating…". */
+.plot__traces,
+.plot__points,
+.plot__limits {
   transition: opacity var(--motion-base) var(--ease-out);
 }
 
-.chart__body.is-stale {
-  opacity: 0.5;
+.chart__body.is-stale .plot__traces,
+.chart__body.is-stale .plot__points,
+.chart__body.is-stale .plot__limits {
+  opacity: 0.4;
 }
 
-.chart__readout {
-  min-height: 18px;
+.chart__stale {
   color: var(--color-text-secondary);
   font-size: var(--text-xs);
+}
+
+/* The crosshair readout floats over the plot's top margin, so it costs no height. */
+.chart__readout {
+  position: absolute;
+  top: 0;
+  right: 0;
+  z-index: 1;
+  max-width: calc(100% - 120px);
+  padding: 0 var(--space-1);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-size: var(--text-xs);
+  line-height: 18px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  pointer-events: none;
 }
 
 .chart__axis-label {
-  margin-top: 2px;
   color: var(--color-text-tertiary);
   font-size: var(--text-xs);
+  line-height: 16px;
   text-align: right;
 }
 
@@ -63,7 +91,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: 200px;
+  min-height: 236px;
   padding: var(--space-4);
   border: 1px dashed var(--color-border-soft);
   border-radius: var(--radius-md);
@@ -78,7 +106,7 @@
 
 .chart__skeleton {
   width: 100%;
-  height: 180px;
+  height: 204px;
 }
 
 .chart__summary {
@@ -141,10 +169,27 @@
   shape-rendering: crispEdges;
 }
 
+.plot__title {
+  fill: var(--color-text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+}
+
 .plot__ticks text {
   fill: var(--color-text-secondary);
   font-size: 12px;
   font-variant-numeric: tabular-nums;
+}
+
+.plot__floor line {
+  stroke: var(--color-text-tertiary);
+  stroke-width: 1;
+  shape-rendering: crispEdges;
+}
+
+.plot__floor text {
+  fill: var(--color-text-secondary);
+  font-size: 12px;
 }
 
 .plot__markers line {
@@ -242,25 +287,56 @@
   flex: none;
 }
 
-/* ---------- Tone level summaries ---------- */
+/* ---------- Tone level readouts ---------- */
 
 .tone-levels {
   list-style: none;
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   gap: var(--space-2);
+  min-width: 0;
+  transition: opacity var(--motion-base) var(--ease-out);
 }
 
+
 .tone-level {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
   padding: var(--space-2) var(--space-3);
-  border: 1px solid var(--color-border);
+  border: 1px solid var(--color-border-soft);
   border-radius: var(--radius-md);
-  background: var(--color-surface);
+  background: var(--color-raised);
 }
 
 .tone-level__label {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 var(--space-1);
   color: var(--color-text-secondary);
   font-size: var(--text-xs);
+}
+
+.tone-level__name {
+  color: var(--color-text);
+  font-weight: var(--weight-strong);
+}
+
+.tone-level__main {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+}
+
+.tone-level__role {
+  margin-left: auto;
+  font-size: var(--text-xs);
+  color: var(--color-text-tertiary);
+  font-weight: var(--weight-strong);
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
 }
 
 .tone-level__value {
@@ -270,15 +346,29 @@
   line-height: var(--leading-tight);
 }
 
+.tone-level__value--empty {
+  color: var(--color-text-tertiary);
+  font-size: var(--text-md);
+  line-height: 29px;
+}
+
+.tone-level__skeleton {
+  width: 96px;
+  height: 29px;
+}
+
 .tone-level__detail {
+  overflow: hidden;
   color: var(--color-text-secondary);
   font-size: var(--text-xs);
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 .response-panels {
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
+  gap: 0;
 }
 
 .response-panel__title {

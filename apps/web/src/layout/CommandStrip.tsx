@@ -14,7 +14,7 @@ import { useCase } from "../features/investigate/caseStore";
 function useLevels(): string | null {
   const { state } = useWorkbench();
   const cs = useCase();
-  if (state.mode === "explore") {
+  if (state.mode !== "investigate") {
     const record = shownRecord(state);
     if (!record?.tones?.length) return null;
     return record.tones.map((t) => `${formatHz(t.frequency_hz)} ${formatDb(t.transient_gain_db)}`).join(" · ");
@@ -60,7 +60,8 @@ export function CommandStrip() {
   const levels = useLevels();
   const emptyPlayback = useCaseEmptyPlayback();
   const ai = state.health?.ai;
-  const explore = state.mode === "explore";
+  // Explore and Learn share the workbench assistant; Investigate asks for hints on the case.
+  const explore = state.mode !== "investigate";
   const scope = explore ? "explore" : "case";
   const view = runs.views[scope];
   const active = isRunActive(view);
@@ -99,11 +100,11 @@ export function CommandStrip() {
     <section className="strip" aria-label="Playback and commands">
       <PlaybackControls levels={levels} empty={emptyPlayback} />
       <form className="command" onSubmit={(e) => void submit(e)}>
-        <label className="command__label" htmlFor={`${id}-cmd`}>
-          <Icon name="ai" size={14} />
-          {label}
-        </label>
         <div className="command__row">
+          <label className="command__label" htmlFor={`${id}-cmd`}>
+            <Icon name="ai" size={14} />
+            {label}
+          </label>
           <input
             id={`${id}-cmd`}
             className="input command__input"

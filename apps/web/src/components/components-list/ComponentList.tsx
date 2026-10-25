@@ -38,7 +38,8 @@ function endpointsText(revision: Revision, c: Component): string {
 
 function componentProbe(c: Component): { probe: Probe; label: string } | null {
   if (c.kind === "voltage_source") return { probe: { kind: "current", component: "V1" }, label: "Probe current" };
-  if (c.kind === "capacitor" && c.nodes.includes("out")) return { probe: { kind: "node", node: "out" }, label: "Probe voltage" };
+  // The shunt part (Output to Ground) carries the output voltage in both RC families.
+  if (c.nodes.includes("out") && c.nodes.includes("gnd")) return { probe: { kind: "node", node: "out" }, label: "Probe voltage" };
   return null;
 }
 
@@ -108,7 +109,8 @@ export function ComponentList(props: ComponentListProps) {
 
   return (
     <div className="component-list">
-      <h3 className="eyebrow" id="components-heading">
+      {/* The rows are self-evidently the parts; the heading stays for screen-reader navigation. */}
+      <h3 className="visually-hidden" id="components-heading">
         Components
       </h3>
       <ul className="component-list__items" aria-labelledby="components-heading">
@@ -191,8 +193,9 @@ export function ComponentList(props: ComponentListProps) {
         </p>
       ) : null}
 
-      <h3 className="eyebrow" id="nodes-heading">
-        Probe points
+      <div className="probe-row">
+      <h3 className="eyebrow probe-row__label" id="nodes-heading">
+        Probe
       </h3>
       <ul className="node-list" aria-labelledby="nodes-heading">
         {probeNodes.map((n) => {
@@ -224,6 +227,7 @@ export function ComponentList(props: ComponentListProps) {
           </button>
         </li>
       </ul>
+      </div>
 
       {selected ? <Inspector revision={revision} component={selected} /> : null}
     </div>

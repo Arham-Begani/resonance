@@ -15,6 +15,14 @@
   min-height: 0;
 }
 
+/* Chrome never shrinks: only the workspace gives up height (this also keeps the narrow header's
+   goal pill from being clipped behind the tab bar). */
+.app__main > .header,
+.app__main > .tabs,
+.app__main > .strip {
+  flex: none;
+}
+
 .app__main > .workspace {
   flex: 1 1 auto;
 }
@@ -52,6 +60,7 @@
   flex-direction: column;
   align-items: center;
   gap: var(--space-1);
+  padding-bottom: var(--space-2);
   color: var(--color-text-secondary);
   font-size: var(--text-xs);
   font-weight: var(--weight-strong);
@@ -124,7 +133,7 @@
   display: flex;
   align-items: center;
   gap: var(--space-4);
-  min-height: 56px;
+  min-height: var(--header-height);
   padding: var(--space-2) var(--space-6);
   border-bottom: 1px solid var(--color-border);
   background: var(--color-bg);
@@ -133,7 +142,7 @@
 .header__title {
   display: flex;
   align-items: baseline;
-  gap: var(--space-3);
+  gap: var(--space-2);
   min-width: 0;
 }
 
@@ -145,7 +154,6 @@
 
 .header__rev {
   color: var(--color-text-secondary);
-  font-variant-numeric: tabular-nums;
   font-size: var(--text-xs);
   white-space: nowrap;
 }
@@ -155,7 +163,7 @@
   align-items: center;
   gap: var(--space-2);
   min-width: 0;
-  max-width: 420px;
+  max-width: 440px;
   min-height: 28px;
   padding: 0 var(--space-3);
   border: 1px solid var(--color-border-soft);
@@ -178,6 +186,7 @@
 .header__status {
   display: flex;
   flex-wrap: wrap;
+  justify-content: flex-end;
   gap: var(--space-2);
   margin-left: auto;
 }
@@ -193,10 +202,10 @@
   position: relative; /* keeps absolutely positioned (visually-hidden) text inside this scroller */
   display: flex;
   flex-direction: column;
-  gap: var(--space-8);
+  gap: var(--space-6);
   min-width: 0;
   min-height: 0;
-  padding: var(--space-6);
+  padding: var(--space-4) var(--space-6) var(--space-6);
   overflow: auto;
   outline: none;
 }
@@ -204,7 +213,7 @@
 .workspace__section {
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
+  gap: var(--space-3);
   min-width: 0;
 }
 
@@ -214,7 +223,7 @@
   flex-direction: column;
   gap: var(--space-4);
   min-height: 0;
-  padding: var(--space-6) var(--space-4);
+  padding: var(--space-4);
   border-left: 1px solid var(--color-border);
   background: var(--color-bg);
   overflow: auto;
@@ -224,37 +233,61 @@
 .circuit {
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
+  gap: var(--space-2);
 }
 
 .circuit__header {
   display: flex;
   flex-wrap: wrap;
-  align-items: baseline;
+  align-items: center;
   gap: var(--space-2) var(--space-4);
+  min-height: var(--control-height);
 }
 
 .circuit__prediction {
+  margin-left: auto;
+  color: var(--color-text-secondary);
   font-size: var(--text-xs);
 }
 
-.circuit__grid {
+.circuit__basis {
+  color: var(--color-text-tertiary);
+}
+
+.circuit__card {
   display: grid;
-  grid-template-columns: minmax(0, 1.25fr) minmax(280px, 1fr);
-  gap: var(--space-6);
+  grid-template-columns: minmax(0, 1fr) minmax(300px, 1fr);
+  gap: var(--space-4);
   align-items: start;
-  padding: var(--space-4);
+  padding: var(--space-3) var(--space-4);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
   background: var(--color-surface);
 }
 
 .circuit__skeleton {
-  height: 200px;
+  height: 168px;
 }
 
-@media (max-width: 1240px) {
-  .circuit__grid {
+.circuit__skeleton-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.family-switch {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.family-switch__note {
+  color: var(--color-text-secondary);
+  font-size: var(--text-xs);
+}
+
+@media (max-width: 1180px) {
+  .circuit__card {
     grid-template-columns: minmax(0, 1fr);
   }
 }
@@ -264,8 +297,8 @@
   display: grid;
   grid-template-columns: minmax(0, 1.4fr) minmax(280px, 1fr);
   align-items: center;
-  gap: var(--space-3) var(--space-6);
-  padding: var(--space-3) var(--space-6);
+  gap: var(--space-2) var(--space-6);
+  padding: var(--space-2) var(--space-6);
   border-top: 1px solid var(--color-border);
   background: var(--color-surface);
 }
@@ -292,7 +325,12 @@
 
 .command__row {
   display: flex;
+  align-items: center;
   gap: var(--space-2);
+}
+
+.command__label {
+  flex: none;
 }
 
 .command__input {
@@ -312,7 +350,7 @@
 .tabs {
   display: flex;
   gap: var(--space-1);
-  padding: var(--space-2) var(--space-4) 0;
+  padding: 0 var(--space-4);
   border-bottom: 1px solid var(--color-border);
   background: var(--color-bg);
 }
@@ -352,8 +390,8 @@
 .app--narrow .rail {
   flex-direction: row;
   align-items: center;
-  gap: var(--space-3);
-  padding: var(--space-2) var(--space-4);
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-3);
   border-right: 0;
   border-bottom: 1px solid var(--color-border);
 }
@@ -361,6 +399,16 @@
 .app--narrow .rail__brand {
   flex-direction: row;
   gap: var(--space-2);
+  padding-bottom: 0;
+}
+
+.app--narrow .rail__name {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
 }
 
 .app--narrow .rail__list {
@@ -370,7 +418,8 @@
 
 .app--narrow .rail__item {
   flex-direction: row;
-  min-height: 40px;
+  gap: var(--space-2);
+  min-height: 44px;
   padding: 0 var(--space-3);
 }
 
@@ -381,7 +430,7 @@
 
 .app--narrow .header {
   flex-wrap: wrap;
-  gap: var(--space-2);
+  gap: var(--space-1) var(--space-2);
   padding: var(--space-2) var(--space-4);
 }
 
@@ -389,6 +438,11 @@
   order: 3;
   max-width: 100%;
   flex-basis: 100%;
+}
+
+/* The simulator is named in every measurement; on a phone the header keeps only problems. */
+.app--narrow .header__sim {
+  display: none;
 }
 
 .app--narrow .workspace {
@@ -425,6 +479,10 @@
 }
 
 .app--narrow .instruments__actions {
+  margin-left: 0;
+}
+
+.app--narrow .circuit__prediction {
   margin-left: 0;
 }
 

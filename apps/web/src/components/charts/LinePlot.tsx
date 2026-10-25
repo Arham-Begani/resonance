@@ -54,9 +54,13 @@ export interface LinePlotProps {
   ariaLabel: string;
   maxDrawPoints?: number;
   focusable?: boolean;
+  /** Panel title with unit, drawn above the plot area, e.g. "Gain (dB)". */
+  title?: string;
+  /** A labelled horizontal threshold, e.g. the measurement floor (values below it are clipped). */
+  floor?: { y: number; label: string } | null;
 }
 
-export const PLOT_MARGIN = { top: 16, right: 16, left: 52, bottom: 28 };
+export const PLOT_MARGIN = { top: 20, right: 16, left: 52, bottom: 28 };
 
 const DASH: Record<SeriesKind, string | undefined> = {
   reference: "6 4",
@@ -85,6 +89,8 @@ export function LinePlot(props: LinePlotProps) {
     ariaLabel,
     maxDrawPoints = 1200,
     focusable = true,
+    title,
+    floor = null,
   } = props;
   const m = { ...PLOT_MARGIN, bottom: showXAxis ? PLOT_MARGIN.bottom : 6 };
   const innerW = Math.max(40, width - m.left - m.right);
@@ -148,6 +154,37 @@ export function LinePlot(props: LinePlotProps) {
   const hx = hoverIndex !== null && x[hoverIndex] !== undefined ? sx(x[hoverIndex]!) : null;
   const inDomain = (v: number) => v >= Math.min(...xDomain) && v <= Math.max(...xDomain);
 
+  // Goal-limit labels sit beside their marker, below the limit line. Point labels then take the
+  // first nearby position that does not overlap any limit label (12px text ≈ 7px per glyph).
+  const visibleLimits = limits.filter((l) => inDomain(l.x) && l.y >= yDomain[0] && l.y <= yDomain[1]);
+  const limitBoxes = visibleLimits.map((l) => {
+    const cx = sx(l.x);
+    const cy = sy(l.y);
+    const left = cx > 70;
+    const w = l.label.length * 7;
+    const tx = left ? cx - 16 : cx + 16;
+    return { l, cx, cy, left, tx, x0: left ? tx - w : tx, x1: left ? tx : tx + w, y0: cy + 3, y1: cy + 18 };
+  });
+  const placePoint = (px: number, py: number, text: string) => {
+    const w = text.length * 7;
+    const rightOk = px < innerW - 80;
+    const candidates = [
+      { dx: 18, dy: 0, anchor: "start" as const },
+      { dx: 12, dy: -14, anchor: "start" as const },
+      { dx: 12, dy: 16, anchor: "start" as const },
+      { dx: -18, dy: 0, anchor: "end" as const },
+    ].filter((c) => rightOk || c.anchor === "end");
+    const clear = (c: (typeof candidates)[number]) => {
+      const tx0 = c.anchor === "start" ? px + c.dx : px + c.dx - w;
+      const tx1 = tx0 + w;
+      const ty0 = py + c.dy - 7;
+      const ty1 = py + c.dy + 7;
+      return limitBoxes.every((b) => tx1 < b.x0 || tx0 > b.x1 || ty1 < b.y0 || ty0 > b.y1);
+    };
+    return candidates.find(clear) ?? candidates[0]!;
+  };
+
+
   return (
     <svg
       className="plot"
@@ -161,6 +198,11 @@ export function LinePlot(props: LinePlotProps) {
       onBlur={() => onHoverIndex(null, "keyboard")}
     >
       <g transform={`translate(${m.left} ${m.top})`}>
+        {title ? (
+          <text className="plot__title" x={0} y={-8} aria-hidden="true">
+            {title}
+          </text>
+        ) : null}
         {/* Grid */}
         <g className="plot__grid" aria-hidden="true">
           {xTicks.minor.map((v) => (
@@ -195,6 +237,16 @@ export function LinePlot(props: LinePlotProps) {
           </g>
         ) : null}
 
+        {/* Measurement floor: dashed because it is a threshold, not data or grid. */}
+        {floor && floor.y >= yDomain[0] && floor.y <= yDomain[1] ? (
+          <g className="plot__floor" aria-hidden="true">
+            <line x1={0} x2={innerW} y1={sy(floor.y)} y2={sy(floor.y)} strokeDasharray="4 4" />
+            <text x={innerW} y={sy(floor.y) - 4} textAnchor="end">
+              {floor.label}
+            </text>
+          </g>
+        ) : null}
+
         {/* Tone markers */}
         <g className="plot__markers" aria-hidden="true">
           {markers.filter((mk) => inDomain(mk.x)).map((mk) => (
@@ -218,18 +270,13 @@ export function LinePlot(props: LinePlotProps) {
 
         {/* Goal limits */}
         <g className="plot__limits" aria-hidden="true">
-          {limits.filter((l) => inDomain(l.x) && l.y >= yDomain[0] && l.y <= yDomain[1]).map((l) => {
-            const cx = sx(l.x);
-            const cy = sy(l.y);
+          {limitBoxes.map(({ l, cx, cy, left, tx }) => {
             const caret = l.direction === "above" ? `M${cx - 5} ${cy + 7} L${cx} ${cy + 1} L${cx + 5} ${cy + 7}` : `M${cx - 5} ${cy - 7} L${cx} ${cy - 1} L${cx + 5} ${cy - 7}`;
-            // Labels sit left of the marker and below the limit line, away from the direct
-            // value labels (right/above), so the two never collide.
-            const labelLeft = cx > 70;
             return (
               <g key={`lim${l.x}${l.y}`}>
                 <line x1={cx - 14} x2={cx + 14} y1={cy} y2={cy} />
                 <path d={caret} />
-                <text x={labelLeft ? cx - 16 : cx + 16} y={cy + 14} textAnchor={labelLeft ? "end" : "start"}>
+                <text x={tx} y={cy + 14} textAnchor={left ? "end" : "start"}>
                   {l.label}
                 </text>
               </g>
@@ -242,12 +289,12 @@ export function LinePlot(props: LinePlotProps) {
           {pointLabels.filter((p) => inDomain(p.x) && Number.isFinite(p.y)).map((p) => {
             const px = sx(p.x);
             const py = sy(clampY(p.y));
-            // Right of the point, clear of the 14px goal-limit segment drawn at the same x.
-            const right = px < innerW - 80;
+            // Clear of the 14px goal-limit segment at the same x and of every limit label.
+            const at = placePoint(px, py, p.text);
             return (
               <g key={`pt${p.x}`}>
                 <circle cx={px} cy={py} r={4} className="plot__point" />
-                <text x={right ? px + 18 : px - 18} y={py} dy="0.32em" textAnchor={right ? "start" : "end"} className="plot__point-label">
+                <text x={px + at.dx} y={py + at.dy} dy="0.32em" textAnchor={at.anchor} className="plot__point-label">
                   {p.text}
                 </text>
               </g>

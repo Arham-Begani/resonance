@@ -1,23 +1,39 @@
 // The shared circuit view: schematic + semantic component list, both built from one Revision.
-// Explore edits the current session revision; Investigate shows the frozen intended design.
+// Explore and Learn edit the current session revision; Investigate shows the frozen intended design.
 import { Schematic } from "../components/schematic/Schematic";
 import { ComponentList } from "../components/components-list/ComponentList";
-import { Callout } from "../components/ui/primitives";
+import { Badge, Callout, ErrorCallout } from "../components/ui/primitives";
+import { FamilySwitch } from "../features/explore/FamilySwitch";
+import { formatHz } from "../lib/format";
+import { FAMILY_LABEL } from "../lib/family";
 import { currentRevision, revisionOrdinal, useWorkbench } from "../state/workbench";
 import { useCase } from "../features/investigate/caseStore";
 
 export const FROZEN_REASON =
   "Editing is locked during a mystery: the intended design stays frozen so every measurement compares against the same reference.";
 
+function CircuitSkeleton() {
+  return (
+    <div className="circuit__card" aria-hidden="true">
+      <div className="skeleton circuit__skeleton" />
+      <div className="circuit__skeleton-list">
+        <div className="skeleton skeleton--row" />
+        <div className="skeleton skeleton--row" />
+        <div className="skeleton skeleton--row" />
+      </div>
+    </div>
+  );
+}
+
 export function CircuitArea() {
   const wb = useWorkbench();
   const { state } = wb;
   const cs = useCase();
-  const explore = state.mode === "explore";
-  const revision = explore ? currentRevision(state) : (cs.current?.intended_revision ?? null);
+  const investigate = state.mode === "investigate";
+  const revision = !investigate ? currentRevision(state) : (cs.current?.intended_revision ?? null);
 
   if (!revision) {
-    if (explore && state.status === "error") {
+    if (!investigate && state.status === "error") {
       return (
         <section className="circuit" aria-labelledby="circuit-heading">
           <h2 id="circuit-heading" className="section-title">
@@ -30,13 +46,16 @@ export function CircuitArea() {
         </section>
       );
     }
-    if (!explore) {
+    if (investigate) {
       return (
         <section className="circuit" aria-labelledby="circuit-heading">
           <h2 id="circuit-heading" className="section-title">
-            Circuit
+            Intended design
           </h2>
-          <p className="muted">The intended design appears here when a mystery starts.</p>
+          <div className="empty circuit__empty">
+            <p className="empty__title">No mystery open</p>
+            <p>The intended design appears here when a mystery starts. Its actual values stay hidden until the case is closed.</p>
+          </div>
         </section>
       );
     }
@@ -45,17 +64,16 @@ export function CircuitArea() {
         <h2 id="circuit-heading" className="section-title">
           Circuit
         </h2>
-        <div className="circuit__grid">
-          <div className="skeleton circuit__skeleton" />
-          <div className="skeleton circuit__skeleton" />
-        </div>
+        <span className="visually-hidden">Loading the circuit…</span>
+        <CircuitSkeleton />
       </section>
     );
   }
 
   const ordinal = revisionOrdinal(state, revision.id);
   const applyError = state.error?.op === "revision" ? state.error.error.message : null;
-  const caption = explore
+  const templateError = state.error?.op === "template" ? state.error.error : null;
+  const caption = !investigate
     ? `Revision ${ordinal ?? ""}${revision.changes?.length ? ` · changed ${revision.changes.map((c) => `${c.component_id} ${c.from_display} → ${c.to_display}`).join(", ")}` : " · original values"}`
     : "Intended design (frozen) · nominal values";
 
@@ -63,26 +81,29 @@ export function CircuitArea() {
     <section className="circuit" aria-labelledby="circuit-heading">
       <div className="circuit__header">
         <h2 id="circuit-heading" className="section-title">
-          {explore ? "Circuit" : "Intended design"}
+          {investigate ? "Intended design" : "Circuit"}
         </h2>
-        <p className="circuit__prediction muted">
-          Prediction: cutoff ≈ {Math.round(revision.prediction.cutoff_hz).toLocaleString()} Hz (analytical, 1/(2πRC))
+        {investigate ? <Badge icon={null}>{FAMILY_LABEL[revision.template_id]}</Badge> : <FamilySwitch />}
+        <p className="circuit__prediction">
+          Predicted cutoff ≈ <span className="num">{formatHz(revision.prediction.cutoff_hz)}</span>{" "}
+          <span className="circuit__basis">analytical, 1/(2πRC)</span>
         </p>
       </div>
-      {!explore ? (
+      {templateError ? <ErrorCallout error={templateError} /> : null}
+      {investigate ? (
         <Callout tone="accent" icon="lock" title="Actual behaviour may differ">
           This is how the circuit is supposed to be built. The mystery circuit&apos;s actual values are hidden until the case is closed.
         </Callout>
       ) : null}
-      <div className="circuit__grid">
+      <div className="circuit__card">
         <Schematic revision={revision} selectedId={state.selectedComponentId} probe={state.probe} onSelect={(id) => wb.select(id)} caption={caption} />
         <ComponentList
           revision={revision}
           selectedId={state.selectedComponentId}
-          editingId={explore ? state.editingComponentId : null}
+          editingId={!investigate ? state.editingComponentId : null}
           probe={state.probe}
-          editable={explore && !revision.frozen}
-          lockedReason={explore ? "This revision is frozen." : FROZEN_REASON}
+          editable={!investigate && !revision.frozen}
+          lockedReason={!investigate ? "This revision is frozen." : FROZEN_REASON}
           applying={state.pending === "revision"}
           applyError={applyError}
           onSelect={(id) => wb.select(id)}

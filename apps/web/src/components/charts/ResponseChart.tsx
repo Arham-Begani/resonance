@@ -19,6 +19,7 @@ export interface ResponsePanel {
   include?: number[];
   limits?: LimitMarker[];
   pointLabels?: PointLabel[];
+  floor?: { y: number; label: string } | null;
 }
 
 interface ResponseChartProps {
@@ -129,8 +130,9 @@ export function ResponseChart({ title, frequency, panels, markers, summary, stat
         <div className="response-panels">
           {panels.map((p, index) => (
             <div key={p.id} className="response-panel">
-              <p className="response-panel__title">{p.title}</p>
               <LinePlot
+                title={p.title}
+                floor={p.floor ?? null}
                 x={frequency}
                 xScale="log"
                 xDomain={xDomain}

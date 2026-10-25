@@ -10,7 +10,7 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
-  margin-bottom: var(--space-3);
+  margin-bottom: var(--space-2);
 }
 
 .component-row {
@@ -39,9 +39,10 @@
   flex-wrap: wrap;
   align-items: baseline;
   column-gap: var(--space-2);
-  row-gap: 2px;
+  row-gap: 0;
   min-height: 44px;
-  padding: var(--space-2) var(--space-3);
+  padding: var(--space-1) var(--space-3);
+  line-height: 1.35;
   border: 0;
   border-radius: var(--radius-md);
   background: transparent;
@@ -54,6 +55,7 @@
 }
 
 .component-row__id {
+  flex: none;
   font-weight: var(--weight-strong);
 }
 
@@ -62,7 +64,9 @@
 }
 
 .component-row__kind {
+  flex: none;
   color: var(--color-text-secondary);
+  white-space: nowrap;
 }
 
 .component-row__value {
@@ -76,6 +80,7 @@
   color: var(--color-text-secondary);
   font-size: var(--text-xs);
 }
+
 
 .component-row__actions {
   display: flex;
@@ -106,12 +111,18 @@
   margin-top: 2px;
 }
 
+.probe-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+}
+
 .node-list {
   list-style: none;
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-2);
-  margin-bottom: var(--space-3);
 }
 
 .node-chip {

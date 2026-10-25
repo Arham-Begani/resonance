@@ -107,8 +107,9 @@ export function Callout({
 
 /** A failed operation, explained calmly, with an optional retry. */
 export function ErrorCallout({ error, onRetry, retryLabel = "Try again", extra }: { error: unknown; onRetry?: () => void; retryLabel?: string; extra?: ReactNode }) {
-  // A cancellation is the user's own choice, not a failure: present it calmly.
-  const cancelled = error instanceof ApiFailure && error.code === "cancelled";
+  // A cancellation is the user's own choice and a not-yet-built endpoint is not a failure:
+  // present both calmly.
+  const cancelled = error instanceof ApiFailure && (error.code === "cancelled" || error.code === "not_implemented");
   return (
     <Callout
       tone={cancelled ? "neutral" : "danger"}

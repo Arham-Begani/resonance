@@ -11,6 +11,8 @@ import { ExplorePanel } from "../features/explore/ExplorePanel";
 import { CaseInstruments } from "../features/investigate/CaseInstruments";
 import { InvestigatePanel } from "../features/investigate/InvestigatePanel";
 import { useCase } from "../features/investigate/caseStore";
+import { LearnInstruments } from "../features/learn/LearnInstruments";
+import { LearnPanel } from "../features/learn/LearnPanel";
 import { CircuitArea } from "./CircuitArea";
 import { CommandStrip } from "./CommandStrip";
 import { HeaderStrip } from "./HeaderStrip";
@@ -150,9 +152,11 @@ export function Shell() {
   const narrow = useMediaQuery("(max-width: 899px)");
   const [tab, setTab] = useState<TabId>("circuit");
   const explore = state.mode === "explore";
-  const revision = explore ? currentRevision(state) : (cs.current?.intended_revision ?? currentRevision(state));
+  const investigate = state.mode === "investigate";
+  const revision = !investigate ? currentRevision(state) : (cs.current?.intended_revision ?? currentRevision(state));
   const ordinal = revisionOrdinal(state, revision?.id);
-  const revisionText = explore ? (ordinal ? `Revision ${ordinal}` : null) : cs.current ? "Intended design · frozen" : null;
+  const revisionText = !investigate ? (ordinal ? `Revision ${ordinal}` : null) : cs.current ? "Intended design · frozen" : null;
+  const mainLabel = explore ? "Explore workbench" : investigate ? "Investigation workbench" : "Learn workbench";
   const caseOpen = Boolean(cs.current && cs.current.status !== "closed");
 
   // Moving between modes keeps focus predictable: send it to the main heading region.
@@ -182,7 +186,7 @@ export function Shell() {
         />
         {narrow ? <NarrowTabs active={tab} onChange={setTab} /> : null}
         <div className="workspace">
-          <main id="workbench-main" ref={mainRef} tabIndex={-1} hidden={narrow && tab === "notes"} className="workspace__center" aria-label={explore ? "Explore workbench" : "Investigation workbench"}>
+          <main id="workbench-main" ref={mainRef} tabIndex={-1} hidden={narrow && tab === "notes"} className="workspace__center" aria-label={mainLabel}>
             {state.status === "error" && state.error ? (
               <ErrorCallout error={state.error.error} onRetry={() => void wb.reload()} retryLabel="Reload workbench" />
             ) : null}
@@ -191,12 +195,12 @@ export function Shell() {
             </TabPanel>
             <TabPanel id="instruments" narrow={narrow} active={tab} className="workspace__section">
               <SimulatorNotice />
-              {explore ? <ExploreInstruments /> : <CaseInstruments />}
+              {explore ? <ExploreInstruments /> : investigate ? <CaseInstruments /> : <LearnInstruments />}
             </TabPanel>
           </main>
           <TabPanel id="notes" narrow={narrow} active={tab} className="workspace__panel" as="aside" label="Lab notes">
             <AiNotice />
-            {explore ? <ExplorePanel /> : <InvestigatePanel />}
+            {explore ? <ExplorePanel /> : investigate ? <InvestigatePanel /> : <LearnPanel />}
           </TabPanel>
         </div>
         <CommandStrip />

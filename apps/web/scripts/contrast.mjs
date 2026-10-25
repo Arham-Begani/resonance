@@ -1,6 +1,8 @@
 // WCAG 2.x contrast check for the design tokens in src/styles/tokens.css.
 // Run: node scripts/contrast.mjs   (exits 1 if any required pair fails)
 // Text pairs need 4.5:1; UI boundaries, focus rings, and chart marks need 3:1.
+// Translucent tints (badges, callouts, selected rows) are alpha-composited over the surfaces
+// they actually sit on before measuring.
 
 const tokens = {
   bg: "#0B1014",
@@ -20,11 +22,34 @@ const tokens = {
   danger: "#F28B82",
 };
 
-function luminance(hex) {
+// rgba tints from tokens.css: [base color, alpha]
+const tints = {
+  accentSubtle: ["#65C5D4", 0.12],
+  successSubtle: ["#6CCB94", 0.12],
+  warningSubtle: ["#E3B65E", 0.12],
+  dangerSubtle: ["#F28B82", 0.12],
+};
+
+function rgb(hex) {
   const n = hex.replace("#", "");
-  const [r, g, b] = [0, 2, 4].map((i) => parseInt(n.slice(i, i + 2), 16) / 255);
+  return [0, 2, 4].map((i) => parseInt(n.slice(i, i + 2), 16));
+}
+
+function hexOf([r, g, b]) {
+  return `#${[r, g, b].map((v) => Math.round(v).toString(16).padStart(2, "0")).join("")}`;
+}
+
+function over(tint, base) {
+  const [c, a] = tints[tint];
+  const fg = rgb(c);
+  const bg = rgb(tokens[base]);
+  return hexOf(fg.map((v, i) => v * a + bg[i] * (1 - a)));
+}
+
+function luminance(hex) {
   const lin = (c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
-  return 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
+  const [r, g, b] = rgb(hex).map((v) => lin(v / 255));
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
 }
 
 function ratio(a, b) {
@@ -34,21 +59,33 @@ function ratio(a, b) {
 
 const surfaces = ["bg", "surface", "raised", "hover"];
 const checks = [
-  ...["text", "textSecondary", "textTertiary", "accent", "success", "warning", "danger"].flatMap(
-    (fg) => surfaces.map((bg) => [fg, bg, 4.5]),
+  ...["text", "textSecondary", "textTertiary", "accent", "success", "warning", "danger"].flatMap((fg) =>
+    surfaces.map((bg) => [fg, tokens[fg], bg, tokens[bg], 4.5]),
   ),
-  ["onAccent", "accent", 4.5],
-  ["onAccent", "accentStrong", 4.5],
-  ...["borderStrong", "accent", "traceReference"].flatMap((fg) =>
-    surfaces.map((bg) => [fg, bg, 3]),
+  ["onAccent", tokens.onAccent, "accent", tokens.accent, 4.5],
+  ["onAccent", tokens.onAccent, "accentStrong", tokens.accentStrong, 4.5],
+  ...["borderStrong", "accent", "traceReference"].flatMap((fg) => surfaces.map((bg) => [fg, tokens[fg], bg, tokens[bg], 3])),
+  // Semantic badges/callouts: their own text color, and body text, on their tint.
+  ...[
+    ["accent", "accentSubtle"],
+    ["success", "successSubtle"],
+    ["warning", "warningSubtle"],
+    ["danger", "dangerSubtle"],
+  ].flatMap(([fg, tint]) =>
+    ["bg", "surface", "raised"].flatMap((base) => [
+      [fg, tokens[fg], `${tint}/${base}`, over(tint, base), 4.5],
+      ["textSecondary", tokens.textSecondary, `${tint}/${base}`, over(tint, base), 4.5],
+      ["text", tokens.text, `${tint}/${base}`, over(tint, base), 4.5],
+    ]),
   ),
 ];
 
 let failed = 0;
-for (const [fg, bg, min] of checks) {
-  const r = ratio(tokens[fg], tokens[bg]);
+for (const [fgName, fg, bgName, bg, min] of checks) {
+  const r = ratio(fg, bg);
   const ok = r >= min;
   if (!ok) failed += 1;
-  console.log(`${ok ? "ok  " : "FAIL"} ${fg.padEnd(15)} on ${bg.padEnd(8)} ${r.toFixed(2)}:1 (min ${min})`);
+  console.log(`${ok ? "ok  " : "FAIL"} ${fgName.padEnd(14)} on ${bgName.padEnd(22)} ${r.toFixed(2)}:1 (min ${min})`);
 }
+console.log(failed ? `${failed} pair(s) below the minimum` : `all ${checks.length} pairs pass`);
 process.exit(failed ? 1 : 0);

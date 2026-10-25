@@ -606,10 +606,27 @@ a {
   font-weight: var(--weight-strong);
 }
 
+.empty--compact {
+  align-items: flex-start;
+  padding: var(--space-3) 0;
+  text-align: left;
+}
+
 .skeleton {
   border-radius: var(--radius-sm);
   background: var(--color-raised);
   animation: pulse 1.6s ease-in-out infinite;
+}
+
+.skeleton--row {
+  height: 40px;
+  border-radius: var(--radius-md);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton {
+    animation: none;
+  }
 }
 
 @keyframes pulse {

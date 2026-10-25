@@ -8,7 +8,8 @@
 .schematic__svg {
   display: block;
   width: 100%;
-  max-width: 580px;
+  max-width: 520px;
+  max-height: 200px;
   height: auto;
   margin: 0 auto;
   overflow: visible;
@@ -28,6 +29,17 @@
   stroke-width: 1.5;
   stroke-linecap: round;
   stroke-linejoin: round;
+}
+
+.sch-lead {
+  fill: none;
+  stroke: var(--color-text-secondary);
+  stroke-width: 1.5;
+  stroke-linecap: round;
+}
+
+.sch-part.is-selected .sch-lead {
+  stroke: var(--color-accent);
 }
 
 .sch-net.is-probed path {
@@ -142,4 +154,19 @@ circle.sch-body {
   fill: var(--color-accent);
   font-size: 12px;
   font-weight: 600;
+}
+
+/* Phones scale the drawing to ~60 %; larger SVG text keeps labels at least ~9 px on screen.
+   The source tones are listed in the V1 row right below, so they are left out of the drawing. */
+.app--narrow .sch-id {
+  font-size: 18px;
+}
+
+.app--narrow .sch-value,
+.app--narrow .sch-node-label {
+  font-size: 15px;
+}
+
+.app--narrow .sch-source-value {
+  display: none;
 }

@@ -1,9 +1,11 @@
-// Mode navigation for the single workbench shell (Explore, Investigate).
+// Mode navigation for the single workbench shell (Explore, Learn, Investigate share one circuit,
+// instruments, and history; only the lab-notes panel and the allowed actions change).
 import { Icon, type IconName } from "../components/ui/Icon";
 import type { Mode } from "../state/workbench";
 
 const MODES: { id: Mode; label: string; icon: IconName }[] = [
   { id: "explore", label: "Explore", icon: "explore" },
+  { id: "learn", label: "Learn", icon: "learn" },
   { id: "investigate", label: "Investigate", icon: "investigate" },
 ];
 
@@ -12,7 +14,7 @@ export function ModeRail({ mode, onChange, caseOpen }: { mode: Mode; onChange: (
     <nav className="rail" aria-label="Workbench mode">
       <p className="rail__brand" aria-hidden="true">
         <span className="rail__mark" />
-        Resonance
+        <span className="rail__name">Resonance</span>
       </p>
       <ul className="rail__list">
         {MODES.map((m) => (

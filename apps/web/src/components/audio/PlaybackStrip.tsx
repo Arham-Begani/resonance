@@ -71,6 +71,21 @@ export function PlaybackControls({ levels, empty }: { levels?: string | null; em
         <Icon name="repeat" />
       </button>
 
+      {active ? (
+        <details className="playback__note">
+          <summary aria-label="About these clips">
+            <Icon name="info" />
+            {clipped || adjust < 0 ? <span className="playback__flag">{clipped ? "Clipped" : "Gain reduced"}</span> : null}
+          </summary>
+          <div className="playback__note-panel">
+            <p>{active.comparison.note}</p>
+            <p className="muted">
+              Every clip in this comparison uses one shared gain{adjust < 0 ? ` (reduced by ${formatDb(-adjust)} for headroom)` : ""}; clips are never
+              normalized separately.{clipped ? " At least one clip clipped; its level is not trustworthy by ear—use the numbers." : ""}
+            </p>
+          </div>
+        </details>
+      ) : null}
       <div className="playback__volume">
         <button
           type="button"
@@ -114,21 +129,6 @@ export function PlaybackControls({ levels, empty }: { levels?: string | null; em
         </button>
       ) : null}
 
-      {active ? (
-        <details className="playback__note">
-          <summary aria-label="About these clips">
-            <Icon name="info" />
-            {clipped || adjust < 0 ? <span className="playback__flag">{clipped ? "Clipped" : "Gain reduced"}</span> : null}
-          </summary>
-          <div className="playback__note-panel">
-            <p>{active.comparison.note}</p>
-            <p className="muted">
-              Every clip in this comparison uses one shared gain{adjust < 0 ? ` (reduced by ${formatDb(-adjust)} for headroom)` : ""}; clips are never
-              normalized separately.{clipped ? " At least one clip clipped; its level is not trustworthy by ear—use the numbers." : ""}
-            </p>
-          </div>
-        </details>
-      ) : null}
     </div>
   );
 }

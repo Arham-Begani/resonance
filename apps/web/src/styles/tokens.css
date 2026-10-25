@@ -87,6 +87,7 @@
   /* Layout */
   --rail-width: 80px;
   --panel-width: 360px;
+  --header-height: 48px;
   --control-height: 32px;
   --control-height-lg: 40px;
   --focus-ring: 2px solid var(--color-accent);

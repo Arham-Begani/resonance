@@ -5,6 +5,8 @@ import type { SVGProps } from "react";
 const PATHS = {
   explore: "M3 12h3l3-8 4 16 3-8h5",
   investigate: "M11 18a7 7 0 1 0 0-14 7 7 0 0 0 0 14zM20 20l-4.2-4.2",
+  learn: "M9.5 18h5M10.5 21h3M12 3a6 6 0 0 0-3.6 10.8c.7.5 1.1 1.3 1.1 2.1v.1h5v-.1c0-.8.4-1.6 1.1-2.1A6 6 0 0 0 12 3z",
+  shuffle: "M16 3h5v5M4 20 21 3M21 16v5h-5M15 15l6 6M4 4l5 5",
   play: "M7 4.5v15l12-7.5z",
   stop: "M6.5 6.5h11v11h-11z",
   volume: "M4 9.5h3.5L12 5.5v13l-4.5-4H4zM15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11",

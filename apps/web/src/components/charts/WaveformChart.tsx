@@ -118,8 +118,8 @@ export function WaveformChart({ title, sampleRateHz, startS, series, summary, st
     >
       {(width) => (
         <div className="response-panel">
-          <p className="response-panel__title">{unit === "mA" ? "Current (mA)" : "Voltage (V)"}</p>
           <LinePlot
+          title={unit === "mA" ? "Current (mA)" : "Voltage (V)"}
           x={timeMs}
           xScale="linear"
           xDomain={xDomain}

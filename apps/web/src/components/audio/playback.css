@@ -157,3 +157,21 @@
   outline-offset: 4px;
   border-radius: var(--radius-sm);
 }
+
+/* Narrow: two compact rows (clip · Play · repeat · info, then volume · status). The tone levels
+   are already shown in the listening readouts and tables, so the strip omits them. */
+.app--narrow .playback .range {
+  width: 96px;
+}
+
+.app--narrow .playback__vol-value {
+  min-width: 48px;
+}
+
+.app--narrow .playback__status {
+  flex-basis: 120px;
+}
+
+.app--narrow .playback__levels {
+  display: none;
+}

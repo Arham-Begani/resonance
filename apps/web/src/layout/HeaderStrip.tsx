@@ -42,7 +42,7 @@ export function HeaderStrip({ revision, revisionText, goalTitle, ai, sim, health
     <header className="header">
       <div className="header__title">
         <h1 className="header__h1">{revision?.title ?? "Resonance"}</h1>
-        {revisionText ? <span className="header__rev">{revisionText}</span> : null}
+        {revisionText ? <span className="header__rev num">{revisionText}</span> : null}
       </div>
       {goalTitle ? (
         <p className="header__goal" title={goalTitle}>
@@ -53,7 +53,9 @@ export function HeaderStrip({ revision, revisionText, goalTitle, ai, sim, health
       ) : null}
       <div className="header__status" role="group" aria-label="System status">
         <AiBadge ai={ai} error={healthError} />
-        <SimulatorBadge sim={sim} />
+        <span className={sim?.available ? "header__sim" : undefined}>
+          <SimulatorBadge sim={sim} />
+        </span>
       </div>
     </header>
   );
