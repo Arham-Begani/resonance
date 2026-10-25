@@ -5,7 +5,7 @@ import type { ComponentId, EditableComponentId, ValueParseResult } from "../../a
 import type { Probe } from "../../state/workbench";
 import { makeRevision } from "../../test/fixtures";
 import { Schematic } from "../schematic/Schematic";
-import { ComponentList } from "./ComponentList";
+import { ComponentList, ProbeBar } from "./ComponentList";
 import { PARSE_DEBOUNCE_MS, ValueEditor } from "./ValueEditor";
 
 function Harness({ editable = true, onApply = vi.fn() }: { editable?: boolean; onApply?: (id: EditableComponentId, text: string) => void }) {
@@ -16,6 +16,7 @@ function Harness({ editable = true, onApply = vi.fn() }: { editable?: boolean; o
   return (
     <>
       <Schematic revision={revision} selectedId={selected} probe={probe} onSelect={setSelected} />
+      <ProbeBar revision={revision} probe={probe} onProbe={setProbe} />
       <ComponentList
         revision={revision}
         selectedId={selected}
@@ -73,6 +74,10 @@ describe("ComponentList and Schematic", () => {
     expect(screen.getByRole("button", { name: "Input voltage" })).toHaveAttribute("aria-pressed", "true");
     expect(container.querySelectorAll(".sch-net.is-probed")).toHaveLength(1);
     expect(container.querySelector(".sch-probe")).not.toBeNull();
+    // The row shortcut (icon-only, named by its action) probes the same thing as the bar.
+    await userEvent.click(screen.getByRole("button", { name: "Probe current at V1" }));
+    expect(screen.getByRole("button", { name: "Source current" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: "Probe current at V1" })).toHaveAttribute("aria-pressed", "true");
   });
 
   it("disables editing with a visible reason when the design is frozen", () => {

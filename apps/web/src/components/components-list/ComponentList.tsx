@@ -16,6 +16,8 @@ export interface ComponentListProps {
   /** False while a case freezes the intended design. */
   editable: boolean;
   lockedReason?: string;
+  /** Show lockedReason as a note under the list (off when the page already says it). */
+  showLockedNote?: boolean;
   applying: boolean;
   applyError: string | null;
   onSelect: (id: ComponentId) => void;
@@ -50,7 +52,7 @@ function sameProbe(a: Probe, b: Probe): boolean {
 }
 
 export function ComponentList(props: ComponentListProps) {
-  const { revision, selectedId, editingId, probe, editable, lockedReason, applying, applyError, onSelect, onEdit, onApply, onProbe } = props;
+  const { revision, selectedId, editingId, probe, editable, lockedReason, showLockedNote = true, applying, applyError, onSelect, onEdit, onApply, onProbe } = props;
   const components = revision.components;
   const [activeIndex, setActiveIndex] = useState(() => Math.max(0, components.findIndex((c) => c.id === selectedId)));
   const rowRefs = useRef<Map<ComponentId, HTMLButtonElement>>(new Map());
@@ -105,7 +107,6 @@ export function ComponentList(props: ComponentListProps) {
   };
 
   const selected = components.find((c) => c.id === selectedId) ?? null;
-  const probeNodes = revision.nodes.filter((n) => n.id !== "gnd");
 
   return (
     <div className="component-list">
@@ -157,16 +158,18 @@ export function ComponentList(props: ComponentListProps) {
                     </button>
                   ) : null}
                   {probeAction ? (
+                    // Icon-only shortcut for the same probe as the probe bar under the drawing;
+                    // the accessible name says what it probes.
                     <button
                       type="button"
-                      className="btn btn--sm btn--ghost"
+                      className="btn btn--sm btn--ghost btn--icon component-row__probe"
                       tabIndex={tab}
                       aria-pressed={sameProbe(probe, probeAction.probe)}
                       aria-label={`${probeAction.label} at ${c.label}`}
+                      title={`${probeAction.label} at ${c.label}`}
                       onClick={() => onProbe(probeAction.probe)}
                     >
-                      <Icon name="probe" size={14} />
-                      Probe
+                      <Icon name="probe" size={16} />
                     </button>
                   ) : null}
                 </div>
@@ -186,15 +189,24 @@ export function ComponentList(props: ComponentListProps) {
         })}
       </ul>
 
-      {!editable && lockedReason ? (
+      {!editable && lockedReason && showLockedNote ? (
         <p className="component-list__locked">
           <Icon name="lock" size={14} />
           {lockedReason}
         </p>
       ) : null}
 
-      <div className="probe-row">
-      <h3 className="eyebrow probe-row__label" id="nodes-heading">
+      {selected ? <Inspector revision={revision} component={selected} /> : null}
+    </div>
+  );
+}
+
+/** Probe choices for the drawing: node voltages (except ground) and the source current. */
+export function ProbeBar({ revision, probe, onProbe }: { revision: Revision; probe: Probe; onProbe: (probe: Probe) => void }) {
+  const probeNodes = revision.nodes.filter((n) => n.id !== "gnd");
+  return (
+    <div className="probe-row">
+      <h3 className="probe-row__label" id="nodes-heading">
         Probe
       </h3>
       <ul className="node-list" aria-labelledby="nodes-heading">
@@ -203,12 +215,7 @@ export function ComponentList(props: ComponentListProps) {
           const active = sameProbe(probe, p);
           return (
             <li key={n.id}>
-              <button
-                type="button"
-                className={`node-chip${active ? " is-active" : ""}`}
-                aria-pressed={active}
-                onClick={() => onProbe(p)}
-              >
+              <button type="button" className={`node-chip${active ? " is-active" : ""}`} aria-pressed={active} onClick={() => onProbe(p)}>
                 <Icon name="probe" size={14} />
                 {n.label} voltage
               </button>
@@ -227,9 +234,6 @@ export function ComponentList(props: ComponentListProps) {
           </button>
         </li>
       </ul>
-      </div>
-
-      {selected ? <Inspector revision={revision} component={selected} /> : null}
     </div>
   );
 }

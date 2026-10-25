@@ -1,8 +1,9 @@
 // The shared circuit view: schematic + semantic component list, both built from one Revision.
 // Explore and Learn edit the current session revision; Investigate shows the frozen intended design.
 import { Schematic } from "../components/schematic/Schematic";
-import { ComponentList } from "../components/components-list/ComponentList";
-import { Badge, Callout, ErrorCallout } from "../components/ui/primitives";
+import { ComponentList, ProbeBar } from "../components/components-list/ComponentList";
+import { Badge, ErrorCallout } from "../components/ui/primitives";
+import { Icon } from "../components/ui/Icon";
 import { FamilySwitch } from "../features/explore/FamilySwitch";
 import { formatHz } from "../lib/format";
 import { FAMILY_LABEL } from "../lib/family";
@@ -90,27 +91,38 @@ export function CircuitArea() {
         </p>
       </div>
       {templateError ? <ErrorCallout error={templateError} /> : null}
-      {investigate ? (
-        <Callout tone="accent" icon="lock" title="Actual behaviour may differ">
-          This is how the circuit is supposed to be built. The mystery circuit&apos;s actual values are hidden until the case is closed.
-        </Callout>
-      ) : null}
       <div className="circuit__card">
-        <Schematic revision={revision} selectedId={state.selectedComponentId} probe={state.probe} onSelect={(id) => wb.select(id)} caption={caption} />
-        <ComponentList
-          revision={revision}
-          selectedId={state.selectedComponentId}
-          editingId={!investigate ? state.editingComponentId : null}
-          probe={state.probe}
-          editable={!investigate && !revision.frozen}
-          lockedReason={!investigate ? "This revision is frozen." : FROZEN_REASON}
-          applying={state.pending === "revision"}
-          applyError={applyError}
-          onSelect={(id) => wb.select(id)}
-          onEdit={(id) => wb.edit(id)}
-          onApply={(id, text) => void wb.applyValues([{ component_id: id, value: text }])}
-          onProbe={(p) => wb.setProbe(p)}
-        />
+        <div className="circuit__drawing">
+          <Schematic revision={revision} selectedId={state.selectedComponentId} probe={state.probe} onSelect={(id) => wb.select(id)} caption={caption} />
+        </div>
+        <div className="circuit__parts">
+          {investigate ? (
+            // One quiet note instead of a banner: what this drawing is, and why editing is locked.
+            <p className="circuit__frozen">
+              <Icon name="lock" size={14} />
+              <span>
+                <strong>Actual behaviour may differ.</strong> This is the intended design; the mystery circuit&apos;s actual values stay hidden
+                until the case is closed. Editing is locked so every measurement compares against this reference.
+              </span>
+            </p>
+          ) : null}
+          <ComponentList
+            revision={revision}
+            selectedId={state.selectedComponentId}
+            editingId={!investigate ? state.editingComponentId : null}
+            probe={state.probe}
+            editable={!investigate && !revision.frozen}
+            lockedReason={!investigate ? "This revision is frozen." : FROZEN_REASON}
+            showLockedNote={!investigate}
+            applying={state.pending === "revision"}
+            applyError={applyError}
+            onSelect={(id) => wb.select(id)}
+            onEdit={(id) => wb.edit(id)}
+            onApply={(id, text) => void wb.applyValues([{ component_id: id, value: text }])}
+            onProbe={(p) => wb.setProbe(p)}
+          />
+          <ProbeBar revision={revision} probe={state.probe} onProbe={(p) => wb.setProbe(p)} />
+        </div>
       </div>
     </section>
   );
