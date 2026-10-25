@@ -364,6 +364,8 @@ export interface WorkbenchApi {
   switchTemplate: (templateId: TemplateId) => Promise<boolean>;
   setGoal: (input: GoalInput) => Promise<boolean>;
   dismissGoalNotice: () => void;
+  /** Re-read the session goal from the server (e.g. after the AI's set_goal tool changed it). */
+  syncGoal: () => Promise<void>;
   applySuggestion: (suggestion: DesignSuggestion) => Promise<boolean>;
   adoptLearnAttempt: (attempt: LearnAttempt) => Promise<void>;
   addProposal: (proposal: EditProposal) => void;
@@ -777,6 +779,14 @@ export function WorkbenchProvider({ children, client = endpoints }: { children: 
     [applyValues, announce],
   );
 
+  const syncGoal = useCallback(async () => {
+    try {
+      adoptGoal(await client.workbench());
+    } catch {
+      // Non-critical: the next reload shows the server's goal.
+    }
+  }, [client, adoptGoal]);
+
   const adoptLearnAttempt = useCallback(
     async (attempt: LearnAttempt) => {
       try {
@@ -867,6 +877,7 @@ export function WorkbenchProvider({ children, client = endpoints }: { children: 
       switchTemplate,
       setGoal,
       dismissGoalNotice: () => dispatch({ type: "goal_notice", text: null }),
+      syncGoal,
       applySuggestion,
       adoptLearnAttempt,
       addProposal: (proposal) => dispatch({ type: "proposal_added", proposal }),
@@ -892,6 +903,7 @@ export function WorkbenchProvider({ children, client = endpoints }: { children: 
       selectRevision,
       switchTemplate,
       setGoal,
+      syncGoal,
       applySuggestion,
       adoptLearnAttempt,
       applyProposal,

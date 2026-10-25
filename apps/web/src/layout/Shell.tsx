@@ -32,6 +32,8 @@ function ExploreAgentBridge() {
   useAgentEvents((scope, event) => {
     if (scope !== "explore") return;
     if (event.type === "proposal") wb.addProposal(event.proposal);
+    // The server's goal is authoritative: adopt it when the AI's set_goal tool changed it.
+    if (event.type === "tool_result" && event.ok && event.tool === "set_goal") void wb.syncGoal();
     if (event.type === "tool_result" && event.ok && event.experiment_id) void wb.showExperiment(event.experiment_id);
   });
   return null;
