@@ -3,7 +3,7 @@
 Owner: investigation & AI engineer. Code: `services/api/resonance/agent/`,
 `services/api/resonance/api/routes_agent.py`. Tests: `services/api/tests/agent/`.
 
-## Status (2026-10-23)
+## Status (2026-10-25)
 
 | Item | Status |
 |---|---|
@@ -11,7 +11,8 @@ Owner: investigation & AI engineer. Code: `services/api/resonance/agent/`,
 | Integration with the real CaseService, evaluator and ngspice (provider scripted) | Tested (`tests/agent/test_agent_integration.py`, `tests/agent/test_agent_families.py`) |
 | Milestone 2: both circuit families (low-pass, high-pass) and all six conditions incl. `c1_disconnected` in case views and prompts; honest rendering of readings at the measurement floor | Implemented; tested with the scripted provider, including one real-ngspice open-capacitor high-pass case |
 | Milestone 2 explore tools: `suggest_design`, family-switch `propose_values(template_id)`, `read_learn_attempt` | Implemented; tested with the scripted provider |
-| Live Nebius call, model-ID confirmation, real tool-call round trip, latency, usage; Nemotron evaluation run | **Pending: `NEBIUS_API_KEY` and `NEBIUS_MODEL` are not set in the project `.env`.** No live result, and no Nemotron evaluation result, is claimed anywhere in this document. |
+| Live Nebius call, model-ID confirmation, real tool-call round trip, latency, usage | **Verified live on 2026-10-25** (3/3 `live_ai` tests passed; see [Live verification results](#live-verification-results-2026-10-25)) |
+| Nemotron evaluation run on the held-out set | Not run yet |
 
 Without credentials the API reports `AiStatus.state = "missing_key"` (`GET /api/health`) and
 every agent-run endpoint returns `503 ai_unavailable` with setup instructions. No run is created
@@ -280,7 +281,40 @@ What the tests cover:
 | Integration | real CaseService, evaluator and ngspice: nothing hidden in model requests; close cancels the run before the reveal |
 | Verification findings | B-04 (agent sees the actions its own run may take), B-05 (failed or cancelled hint runs not counted), B-02 (case of a lost run released; liveness predicate) |
 
-## Live verification procedure (pending a key)
+## Live verification results (2026-10-25)
+
+These come from `RESONANCE_LIVE_AI=1 uv run pytest tests/agent/test_agent_live.py -s -m live_ai`
+on the development host, using the owner's key. The model is
+`nvidia/nemotron-3-super-120b-a12b` at `https://api.tokenfactory.nebius.com/v1/`.
+
+- **Model listing.** `/v1/models` returned 30 models, including the pinned
+  `nvidia/nemotron-3-super-120b-a12b`. The other Nemotron models listed were
+  `NVIDIA-Nemotron-3-Nano-30B-A3B`, `Nemotron-3-Ultra-550b-a55b`, `Nemotron-3.5-Super-VL` and
+  `Nemotron-3_5-Lightning`.
+- **Raw tool-call round trip:**
+  - HTTP 200 in 1.61 s, with `finish_reason=tool_calls` and one `get_case` call;
+  - 360 total tokens, of which 8 were reasoning tokens;
+  - reasoning is returned in separate `reasoning`/`reasoning_content` fields, with no
+    `<think>` tag in `content`;
+  - `parallel_tool_calls=false` was accepted (HTTP 200).
+- **Full investigate runs** against the TEST-ONLY fake case, whose hidden fault is R1
+  doubled. These use genuine inference but not the real evaluator.
+
+  | Run | Model calls | Tool calls | Total tokens | Wall time | Diagnosis |
+  |---|---|---|---|---|---|
+  | 1 | 7 | 6 | 39,945 | 17.7 s | `r1_increased` |
+  | 2 | 9 | 8 | 59,212 | 26.7 s | `r1_increased` |
+
+  - Run 1 measured voltage and then current, and assessed evidence once. It submitted a
+    diagnosis citing three observations and proposed a repair.
+  - Run 2 ran three experiments, assessing evidence after each, and submitted a diagnosis
+    citing an output-gain reading and a source-current reading.
+  - Both diagnoses match the fake case's hidden fault.
+
+  Two runs on a single fixture are not an accuracy measurement. The held-out comparison with
+  the baseline (`evals/run_nemotron.py`) has not been run yet.
+
+## Live verification procedure
 
 1. Put `NEBIUS_API_KEY` and `NEBIUS_MODEL=nvidia/nemotron-3-super-120b-a12b` in the repo `.env`
    (never commit it).
