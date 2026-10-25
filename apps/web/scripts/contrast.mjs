@@ -80,6 +80,20 @@ const checks = [
   ),
 ];
 
+// UI-pass additions (Oct 2026), measured on the surfaces they are used on:
+//  - the dashed "prediction" edge and the case-progress / choice-tile edges use border-strong
+//    and accent, already required at 3:1 above;
+//  - semantic verdict text (tone goal lines) sits on raised tiles: success/danger on raised above;
+//  - the filled secondary button's edge (control-border, 20% text over raised) is decorative: the
+//    raised fill and the label identify the control. Reported here, not required.
+const decorative = [["controlBorder (20%)", "#E8EEF2", 0.2, "raised"], ["borderSoft (12%)", "#E8EEF2", 0.12, "bg"]];
+for (const [name, hex, alpha, base] of decorative) {
+  const fg = rgb(hex);
+  const bg = rgb(tokens[base]);
+  const composite = hexOf(fg.map((v, i) => v * alpha + bg[i] * (1 - alpha)));
+  console.log(`info ${name.padEnd(20)} on ${base.padEnd(8)} ${ratio(composite, tokens[base]).toFixed(2)}:1 (decorative, no minimum)`);
+}
+
 let failed = 0;
 for (const [fgName, fg, bgName, bg, min] of checks) {
   const r = ratio(fg, bg);

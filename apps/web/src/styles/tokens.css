@@ -11,7 +11,18 @@
  *   success #6CCB94 ≥ 6.84, warning #E3B65E ≥ 7.16, danger #F28B82 ≥ 5.66 on every surface
  *   border-strong   #6A7F8C  (control boundaries) on bg 4.58, surface 4.21, raised 3.73, hover 3.24
  *   trace-reference #9AABB6  (neutral chart trace) ≥ 5.72 on every surface
+ *   control-border  rgba(232,238,242,.20) ≈ 1.8:1 on raised (scripts/contrast.mjs, info) — decorative edge of a
+ *                   filled (raised) button; the fill + label identify the control, inputs keep
+ *                   border-strong for their 3:1 boundary.
  * Text pairs need 4.5:1; control boundaries, focus rings, and chart marks need 3:1.
+ *
+ * Hierarchy rules (UI pass, Oct 2026):
+ *   - Elevation, not outlines: canvas = bg, instrument panels = surface, tiles inside a panel =
+ *     raised. No bordered box inside a bordered box; the lab-notes column is flat sections
+ *     separated by dividers.
+ *   - Cyan is reserved for: the one primary action per region, the active/selected state, the
+ *     output/observed trace, and the focus ring. Badges and secondary buttons are neutral.
+ *   - Predictions use a dashed outline (like the dashed reference trace); measurements are solid.
  */
 :root {
   color-scheme: dark;
@@ -35,6 +46,7 @@
   --text-lg: 24px;
   --text-xl: 32px;
   --leading-tight: 1.2;
+  --leading-snug: 1.35;
   --leading-body: 1.5;
   --weight-regular: 400;
   --weight-strong: 600;
@@ -49,6 +61,12 @@
   --color-border: rgba(232, 238, 242, 0.08); /* decorative hairline between regions */
   --color-border-soft: rgba(232, 238, 242, 0.12);
   --color-border-strong: #6a7f8c; /* control boundaries: ≥ 3:1 on every surface */
+  --color-border-faint: rgba(232, 238, 242, 0.06); /* edge of an elevated panel on the canvas */
+  --color-divider: rgba(232, 238, 242, 0.08); /* between flat sections and list rows */
+  --color-control: var(--color-raised); /* filled secondary button */
+  --color-control-hover: var(--color-hover);
+  --color-control-border: rgba(232, 238, 242, 0.2);
+  --color-track: var(--color-bg); /* inset track behind segmented controls */
   --color-text: #e8eef2;
   --color-text-secondary: #a7b8c3;
   --color-text-tertiary: #8b9da9;
@@ -84,11 +102,17 @@
   --motion-base: 200ms;
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
 
+  /* Depth: only things that genuinely float (popovers) get a shadow. */
+  --shadow-pop:
+    0 4px 8px rgba(0, 0, 0, 0.2),
+    0 12px 32px rgba(0, 0, 0, 0.35);
+
   /* Layout */
   --rail-width: 80px;
-  --panel-width: 360px;
+  --panel-width: 376px;
   --header-height: 48px;
   --control-height: 32px;
+  --control-height-sm: 28px;
   --control-height-lg: 40px;
   --focus-ring: 2px solid var(--color-accent);
 }
