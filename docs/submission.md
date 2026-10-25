@@ -26,7 +26,7 @@ person on Devpost before submission:
 | Nemotron via Nebius Token Factory | **Live verified 2026-10-25**: model listed, tool-call round trip 1.61 s, two full investigate runs (see `docs/ai-integration.md`) |
 | Hosted app | **Deployed**: https://resonance-lwdf.onrender.com (Render, single Docker instance). Smoke test 2026-10-25: health OK with ngspice 44.2 and AI ready; a real experiment in 3.3 s; a case created with no reveal |
 | Demo video (< 3 min) | Script below; **not recorded** (needs a human narrator and real Nemotron runs) |
-| Evaluation results | Baseline on `heldout_v1`: 24/24 correct, 20/20 restored, mean 4.29 s/case (measured). Nemotron comparison **blocked on the key** |
+| Evaluation results | **Measured** on `heldout_v1` (24 cases): baseline 24/24 correct, 20/20 restored, 4.29 s/case. Nemotron 20/24 correct, 1 incorrect, 3 not submitted, 9/20 restored (11 repairs not proposed), 28.41 s/case, 825,748 tokens |
 | Browser e2e suite | 32/32 at milestone 1; specs updated for milestone 2 but the full re-run is pending (host memory) |
 | Submission text | Draft below |
 
@@ -68,5 +68,8 @@ On a frozen held-out set of 24 cases across both filter families and six conditi
 fixed-experiment baseline identified 24/24 and restored 20/20 faulty circuits. These cases need
 only one current measurement after the symptom, so this shows that the pipeline works, not
 diagnostic skill.
-*(Before submitting, add the hosted URL and the measured Nemotron results from
-`evals/run_nemotron.py`. Do not claim results that were not measured.)*
+On the same cases, Nemotron (`nvidia/nemotron-3-super-120b-a12b` on Nebius Token Factory)
+identified 20/24 using 1.42 experiments on average. It made one unsupported claim, and in
+three runs it stopped before diagnosing. It verified a repair in 9 of the 20 faulty cases.
+It never proposed a repair in the other 11, and no repair it attempted failed. Try it:
+https://resonance-lwdf.onrender.com
