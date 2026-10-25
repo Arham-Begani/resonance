@@ -7,11 +7,12 @@ simulation (ngspice), hear the input and output at the same listening level, and
 hidden faults with measurements — alongside an NVIDIA Nemotron lab partner served by Nebius
 Token Factory. No electronics kit or GPU is needed.
 
-> Status: milestone 2 (low-pass and high-pass, Explore / Learn / Investigate). Live Nemotron
-> inference is still unverified because no API key has been configured yet. See
-> [Status and limitations](#status-and-limitations) for what is implemented, tested, and pending.
+> Status: milestone 2 (low-pass and high-pass, Explore / Learn / Investigate), deployed, with
+> live Nemotron inference verified. See [Status and limitations](#status-and-limitations) for
+> what is implemented, tested, and pending.
 
-Repository: https://github.com/Arham-Begani/resonance
+- **Try it:** https://resonance-lwdf.onrender.com (the landing page; the lab is at `/lab`)
+- **Repository:** https://github.com/Arham-Begani/resonance
 
 ## What you can do
 
@@ -170,7 +171,12 @@ Debian's ngspice). In the Render dashboard choose **New → Blueprint**, select 
 and enter `NEBIUS_API_KEY` when prompted. `NEBIUS_MODEL` is pinned to
 `nvidia/nemotron-3-super-120b-a12b`. Keep a single instance: case locks, cancellation and agent
 streams are in-process. Health check: `/api/health`. The container is built and smoke-tested in
-CI (`.github/workflows/ci.yml`); a Render deployment has not been performed yet.
+CI (`.github/workflows/ci.yml`). Deployed at https://resonance-lwdf.onrender.com. A smoke test
+on 2026-10-25 found:
+- health OK, with ngspice 44.2 and the pinned Nemotron model both ready;
+- a real low-pass experiment completing in 3.3 s, with 440 Hz at −0.32 dB and 4 kHz at
+  −8.64 dB (the same as the local and CI runs);
+- a case created with no reveal.
 
 ## Status and limitations
 
@@ -200,9 +206,9 @@ Also verified on the development host (Windows 10, Python 3.12, Node 20.15, ngsp
 
 Not yet verified:
 
-- **Live Nemotron inference**: no `NEBIUS_API_KEY` has been configured, so the agent has only
-  run against scripted test responses (see docs/ai-integration.md).
-- A real Render deployment (the image is only verified in CI).
+- **Nemotron accuracy**: live inference is verified (3/3 live tests and two full investigate
+  runs, see [docs/ai-integration.md](docs/ai-integration.md)), but a small fixture run is not
+  an accuracy measurement; see [Evaluation](#evaluation) for the held-out comparison.
 - No real screen-reader session and no user testing; accessibility is unvalidated by
   assistive-technology users.
 - Cases are solvable with one source-current measurement after the symptom, so perfect

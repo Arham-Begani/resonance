@@ -23,8 +23,8 @@ person on Devpost before submission:
 | Deliverable | Status |
 |---|---|
 | Public repository with license and third-party notices | **Done**: https://github.com/Arham-Begani/resonance (MIT `LICENSE`, `THIRD_PARTY_NOTICES.md`); CI green |
-| Nemotron via Nebius Token Factory | Integration built and tested with scripted responses; **live verification blocked on `NEBIUS_API_KEY`** |
-| Hosted app | `render.yaml` blueprint ready and the Docker image verified in CI; **not deployed yet** (owner creates the Render Blueprint and sets the key) |
+| Nemotron via Nebius Token Factory | **Live verified 2026-10-25**: model listed, tool-call round trip 1.61 s, two full investigate runs (see `docs/ai-integration.md`) |
+| Hosted app | **Deployed**: https://resonance-lwdf.onrender.com (Render, single Docker instance). Smoke test 2026-10-25: health OK with ngspice 44.2 and AI ready; a real experiment in 3.3 s; a case created with no reveal |
 | Demo video (< 3 min) | Script below; **not recorded** (needs a human narrator and real Nemotron runs) |
 | Evaluation results | Baseline on `heldout_v1`: 24/24 correct, 20/20 restored, mean 4.29 s/case (measured). Nemotron comparison **blocked on the key** |
 | Browser e2e suite | 32/32 at milestone 1; specs updated for milestone 2 but the full re-run is pending (host memory) |
