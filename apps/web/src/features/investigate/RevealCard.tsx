@@ -33,7 +33,7 @@ export function RevealCard({ c, onNew, creating, focusOnMount = false }: { c: Pu
   const ident = IDENT[o.exact_identification] ?? IDENT.not_submitted!;
   const recovery = RECOVERY[o.functional_recovery] ?? RECOVERY.not_attempted!;
   return (
-    <section className="panel-card reveal" aria-labelledby="reveal-heading">
+    <section className="panel-card panel-card--focus reveal" aria-labelledby="reveal-heading">
       <div className="panel-card__header">
         <h2 id="reveal-heading" ref={headingRef} tabIndex={-1} className="panel-card__title">
           Revealed

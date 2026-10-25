@@ -1,12 +1,118 @@
+/* Case header: title, status, lifecycle and budget. Sticky, so the budget stays in view while the
+   lab notes scroll. */
 .case-head {
+  position: sticky;
+  top: 0;
+  z-index: 2;
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
+  gap: var(--space-3);
+  margin: 0 calc(-1 * var(--space-6));
+  padding: var(--space-4) var(--space-6) var(--space-3);
+  border-bottom: 1px solid var(--color-divider);
+  background: var(--color-bg);
+}
+
+.app--narrow .case-head {
+  margin: 0 calc(-1 * var(--space-4));
+  padding: var(--space-3) var(--space-4);
+}
+
+.case-head + .panel-card {
+  border-top: 0;
 }
 
 .case-head__title {
   font-size: var(--text-md);
   font-weight: var(--weight-strong);
+  letter-spacing: -0.01em;
+}
+
+/* Lifecycle stepper: marks joined by a line; state is carried by the mark (check / number /
+   cross), weight and a spoken suffix, never colour alone. */
+.case-progress {
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.case-progress__step {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+  text-align: center;
+}
+
+.case-progress__step:not(:first-child)::before {
+  content: "";
+  position: absolute;
+  top: 10px;
+  right: calc(50% + 14px);
+  left: calc(-50% + 14px);
+  height: 2px;
+  border-radius: 1px;
+  background: var(--color-divider);
+}
+
+.case-progress__step.is-done:not(:first-child)::before,
+.case-progress__step.is-current:not(:first-child)::before {
+  background: var(--color-border-strong);
+}
+
+.case-progress__mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  margin-bottom: 2px;
+  border: 1px solid var(--color-border-soft);
+  border-radius: 50%;
+  background: var(--color-bg);
+  color: var(--color-text-tertiary);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-strong);
+  font-variant-numeric: tabular-nums;
+}
+
+.case-progress__step.is-done .case-progress__mark {
+  border-color: transparent;
+  background: var(--color-raised);
+  color: var(--color-text);
+}
+
+.case-progress__step.is-current .case-progress__mark {
+  border: 2px solid var(--color-accent);
+  color: var(--color-accent);
+}
+
+.case-progress__step.is-stopped .case-progress__mark {
+  border-color: var(--color-danger);
+  color: var(--color-danger);
+}
+
+.case-progress__label {
+  color: var(--color-text-secondary);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-strong);
+}
+
+.case-progress__step.is-current .case-progress__label {
+  color: var(--color-text);
+}
+
+.case-progress__step.is-skipped .case-progress__label {
+  color: var(--color-text-tertiary);
+  text-decoration: line-through;
+}
+
+.case-progress__detail {
+  color: var(--color-text-secondary);
+  font-size: var(--text-xs);
+  white-space: nowrap;
 }
 
 #instr-heading {
@@ -27,9 +133,9 @@
 .budget__cell {
   width: 16px;
   height: 8px;
-  border: 1px solid var(--color-accent);
+  border: 1px solid var(--color-text-secondary);
   border-radius: 2px;
-  background: var(--color-accent);
+  background: var(--color-text-secondary);
 }
 
 .budget__cell.is-used {
@@ -51,10 +157,10 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
-  padding: var(--space-3);
-  border: 1px solid var(--color-border-strong);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--color-control-border);
   border-radius: var(--radius-md);
-  background: var(--color-bg);
+  background: var(--color-surface);
   text-align: left;
   cursor: pointer;
   transition:
@@ -63,7 +169,7 @@
 }
 
 .approach__option:hover:not(:disabled) {
-  border-color: var(--color-accent);
+  border-color: var(--color-border-strong);
   background: var(--color-raised);
 }
 
@@ -93,10 +199,9 @@
   flex-direction: column;
   align-items: flex-start;
   gap: var(--space-2);
-  padding: var(--space-3);
-  border: 1px solid var(--color-border-soft);
+  padding: var(--space-3) var(--space-4);
   border-radius: var(--radius-md);
-  background: var(--color-bg);
+  background: var(--color-surface);
 }
 
 .instrument__head {
@@ -134,18 +239,18 @@
   flex-direction: column;
   align-items: flex-start;
   gap: var(--space-1);
-  padding: var(--space-3);
-  border: 1px solid var(--color-border-soft);
+  padding: var(--space-3) var(--space-4);
   border-radius: var(--radius-md);
+  background: var(--color-surface);
 }
 
 .obs.is-shown {
-  border-color: var(--color-accent-border);
   background: var(--color-raised);
+  box-shadow: inset 2px 0 0 var(--color-accent);
 }
 
 .obs.is-failed {
-  border-color: rgba(242, 139, 130, 0.4);
+  box-shadow: inset 2px 0 0 var(--color-danger);
 }
 
 .obs__head {
@@ -236,9 +341,6 @@
   color: var(--color-text-secondary);
 }
 
-.reveal {
-  border-color: var(--color-accent-border);
-}
 
 .reveal__fault {
   font-size: var(--text-md);
@@ -268,8 +370,8 @@
   flex-direction: column;
   gap: var(--space-2);
   margin: 0;
-  padding: var(--space-3);
-  border: 1px dashed var(--color-border-soft);
+  padding: var(--space-3) var(--space-4);
+  border: 1px dashed var(--color-border-strong);
   border-radius: var(--radius-md);
 }
 
@@ -294,7 +396,7 @@
   width: 100%;
   margin-top: var(--space-1);
   padding-top: var(--space-2);
-  border-top: 1px solid var(--color-border);
+  border-top: 1px solid var(--color-divider);
 }
 
 .prediction-check__title {
@@ -326,4 +428,9 @@
   flex-wrap: wrap;
   align-items: center;
   gap: 0 var(--space-1);
+}
+
+/* Phones: vertical space is scarce, so the case header scrolls with the notes. */
+.app--narrow .case-head {
+  position: static;
 }

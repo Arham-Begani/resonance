@@ -4,6 +4,7 @@
 import { Fragment, useEffect, useId, useState } from "react";
 import type { HypothesisId, InstrumentSpec, PublicCase, TemplateId } from "../../api/types";
 import { usePlayback } from "../../components/audio/PlaybackProvider";
+import { Icon } from "../../components/ui/Icon";
 import { Badge, Button, Callout, ErrorCallout } from "../../components/ui/primitives";
 import { formatHz } from "../../lib/format";
 import { FOCUS, focusWhenReady } from "../../lib/focus";
@@ -36,6 +37,62 @@ function BudgetMeter({ c }: { c: PublicCase }) {
         {remaining} of {total} experiments left
       </span>
     </div>
+  );
+}
+
+type StepState = "done" | "current" | "upcoming" | "skipped" | "stopped";
+
+/**
+ * The case lifecycle as five steps, derived only from the public case (status, budget, recorded
+ * diagnosis/repair/reveal). Never a percentage: each step is done, current, upcoming or skipped.
+ */
+export interface CaseStep {
+  key: string;
+  label: string;
+  detail: string | null;
+  state: StepState;
+}
+
+export function caseSteps(c: PublicCase): CaseStep[] {
+  const live = isLiveStatus(c.status);
+  const used = c.budget.total - c.budget.remaining;
+  const canRepair = c.available_actions.includes("propose_repair") || c.available_actions.includes("verify_repair");
+  // Choosing an approach is the doorway to measuring, so "Measure" is current from the start.
+  const measure: StepState = c.diagnosis || !live || c.budget.remaining === 0 ? "done" : "current";
+  const diagnose: StepState = c.diagnosis ? "done" : !live ? "skipped" : c.mode && c.budget.remaining === 0 ? "current" : "upcoming";
+  const repair: StepState = c.repair ? "done" : canRepair ? "current" : !live ? "skipped" : "upcoming";
+  const reveal: StepState = c.reveal ? "done" : c.diagnosis && !canRepair && live ? "current" : "upcoming";
+  const steps: CaseStep[] = [
+    { key: "symptom", label: "Symptom", detail: null, state: "done" },
+    { key: "measure", label: "Measure", detail: `${used} of ${c.budget.total} used`, state: measure },
+    { key: "diagnose", label: "Diagnose", detail: null, state: diagnose },
+    { key: "repair", label: "Repair", detail: c.repair ? (c.repair.status !== "succeeded" ? "not verified" : c.repair.functional_recovery ? "restored" : "not restored") : null, state: repair },
+    { key: "reveal", label: "Reveal", detail: null, state: reveal },
+  ];
+  if (c.status === "failed") {
+    const i = steps.findIndex((st) => st.state === "current" || st.state === "upcoming" || st.state === "skipped");
+    if (i >= 0) steps[i] = { ...steps[i]!, state: "stopped" };
+  }
+  return steps;
+}
+
+const STEP_WORD: Record<StepState, string> = { done: "done", current: "current step", upcoming: "not yet", skipped: "skipped", stopped: "stopped" };
+
+function CaseProgress({ c }: { c: PublicCase }) {
+  const steps = caseSteps(c);
+  return (
+    <ol className="case-progress" aria-label="Case progress">
+      {steps.map((st, i) => (
+        <li key={st.key} className={`case-progress__step is-${st.state}`} aria-current={st.state === "current" ? "step" : undefined}>
+          <span className="case-progress__mark" aria-hidden="true">
+            {st.state === "done" ? <Icon name="check" size={12} /> : st.state === "stopped" ? <Icon name="x" size={12} /> : i + 1}
+          </span>
+          <span className="case-progress__label">{st.label}</span>
+          {st.detail ? <span className="case-progress__detail num">{st.detail}</span> : null}
+          <span className="visually-hidden">, {STEP_WORD[st.state]}</span>
+        </li>
+      ))}
+    </ol>
   );
 }
 
@@ -299,7 +356,7 @@ function InstrumentCard({ spec, disabled, running, onRun }: { spec: InstrumentSp
           ))}
         </div>
       ) : null}
-      <Button size="sm" variant="primary" disabled={disabled} loading={running} onClick={() => onRun(probes.length ? probe : null)}>
+      <Button size="sm" icon="flask" disabled={disabled} loading={running} onClick={() => onRun(probes.length ? probe : null)}>
         Run{probe && probes.length ? ` · ${PROBE_LABEL[probe].toLowerCase()}` : ""}
       </Button>
     </li>
@@ -503,7 +560,7 @@ function EvidenceCard({ c }: { c: PublicCase }) {
         <p className="panel-card__note">{c.policy.description}</p>
       </details>
       {e.distinguishing_instruments && e.distinguishing_instruments.length && e.remaining.length > 1 ? (
-        <Callout tone="accent" title="What would tell them apart">
+        <Callout tone="neutral" icon="info" title="What would tell them apart">
           {e.distinguishing_instruments.map((k) => INSTRUMENT_SHORT[k]).join(" or ")} would distinguish the remaining explanations.
         </Callout>
       ) : null}
@@ -603,10 +660,11 @@ export function InvestigatePanel() {
           <p className="case-head__title">
             Mystery case <span className="case-head__family">· RC {FAMILY_LABEL[c.intended_revision.template_id].toLowerCase()}</span>
           </p>
-          <Badge tone={c.status === "failed" ? "danger" : c.status === "closed" ? "neutral" : "accent"} icon={null}>
+          <Badge tone={c.status === "failed" ? "danger" : "neutral"} icon={null}>
             {STATUS_LABEL[c.status]}
           </Badge>
         </div>
+        <CaseProgress c={c} />
         {c.mode ? <p className="panel-card__note">Approach: {c.mode === "guide" ? "Guide me" : "Investigate for me"}</p> : null}
       </section>
 

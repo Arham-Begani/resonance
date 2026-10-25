@@ -107,7 +107,7 @@ export function RepairSection({ c }: { c: PublicCase }) {
         <>
           {proposal ? (
             <div id={`${id}-proposal`}>
-            <Callout tone="accent" title="Proposed repair">
+            <Callout tone="neutral" icon="edit" title="Proposed repair">
               {proposal.proposed_by === "agent" ? "The AI proposed: " : "You proposed: "}replace {proposal.component_id} with a {proposal.display_value} part
               (its nominal value).{proposal.rationale ? ` ${proposal.rationale}` : ""}
             </Callout>
