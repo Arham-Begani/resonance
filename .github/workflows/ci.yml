@@ -1,0 +1,68 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    defaults:
+      run:
+        working-directory: services/api
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install ngspice
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ngspice && ngspice -v | head -3
+      - uses: astral-sh/setup-uv@v6
+      - run: uv sync
+      - run: uv run ruff check resonance tests
+      - run: uv run mypy resonance
+      - name: Tests (real ngspice required)
+        env:
+          RESONANCE_REQUIRE_NGSPICE: "1"
+        run: uv run pytest -q -p no:cacheprovider
+
+  frontend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: apps/web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+      - run: npm ci --no-audit --no-fund
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm run test
+      - run: npm run build
+
+  container:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build image
+        run: docker build -t resonance:ci .
+      - name: Smoke test the running container
+        run: |
+          # Plain HTTP in CI, so session cookies must not be marked Secure here (Render uses HTTPS).
+          docker run -d --name res -p 8000:8000 -e SESSION_COOKIE_SECURE=false resonance:ci
+          for i in $(seq 1 60); do curl -fsS http://127.0.0.1:8000/api/health && break; sleep 2; done
+          echo
+          curl -fsS http://127.0.0.1:8000/api/health | tee health.json
+          python3 -c "import json; h=json.load(open('health.json')); assert h['simulator']['available'], h; print('simulator', h['simulator']['version'])"
+          curl -fsS -c jar -b jar http://127.0.0.1:8000/ | grep -q '<div id="root">'
+          REV=$(curl -fsS -c jar -b jar -H 'content-type: application/json' -d '{"template_id":"rc_lowpass"}' http://127.0.0.1:8000/api/revisions | python3 -c "import json,sys; print(json.load(sys.stdin)['id'])")
+          curl -fsS -c jar -b jar -H 'content-type: application/json' -d "{\"revision_id\":\"$REV\"}" http://127.0.0.1:8000/api/experiments | python3 -c "import json,sys; r=json.load(sys.stdin); print(r['status'], [(t['label'], round(t['ac_gain_db'],2)) for t in r['tones']]); assert r['status']=='succeeded'"
+          curl -fsS -c jar -b jar -H 'content-type: application/json' -d '{}' http://127.0.0.1:8000/api/cases | python3 -c "import json,sys; c=json.load(sys.stdin); print(c['status'], c['intended_revision']['template_id']); assert c['reveal'] is None"
+      - name: Container logs
+        if: always()
+        run: docker logs res || true
