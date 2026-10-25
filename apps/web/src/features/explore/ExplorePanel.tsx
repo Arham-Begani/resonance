@@ -2,17 +2,22 @@
 import type { EditProposal } from "../../api/types";
 import { Badge, Button, Callout } from "../../components/ui/primitives";
 import { formatDb, formatHz } from "../../lib/format";
+import { FAMILY_LABEL } from "../../lib/family";
 import { FOCUS, focusWhenReady } from "../../lib/focus";
 import { experimentOrdinal, revisionOrdinal, shownRecord, useWorkbench } from "../../state/workbench";
 import { AgentRunLog } from "../agent/AgentRunLog";
 import { useAgentRuns } from "../agent/agentRuns";
+import { useWorkbenchResolver } from "../agent/useWorkbenchResolver";
 import { GoalCard } from "./GoalCard";
 import { HistoryPanel } from "./HistoryPanel";
+import { SuggestPanel } from "./SuggestPanel";
 import "./explore.css";
 
 function ProposalCard({ proposal }: { proposal: EditProposal }) {
   const wb = useWorkbench();
   const baseOrdinal = revisionOrdinal(wb.state, proposal.base_revision_id);
+  const base = wb.state.revisions.find((r) => r.id === proposal.base_revision_id);
+  const switchesTo = proposal.template_id && proposal.template_id !== base?.template_id ? proposal.template_id : null;
   const busy = wb.state.pending === "proposal";
   return (
     <article className="proposal" aria-label="Proposed change">
@@ -22,6 +27,12 @@ function ProposalCard({ proposal }: { proposal: EditProposal }) {
           Preview
         </Badge>
       </div>
+      {switchesTo ? (
+        <p className="proposal__switch">
+          Switches the circuit to the <strong>{FAMILY_LABEL[switchesTo].toLowerCase()}</strong> family. Your goal is kept if that family can meet it;
+          otherwise you will be told which goal applies.
+        </p>
+      ) : null}
       <ul className="proposal__changes num">
         {proposal.changes.map((c) => (
           <li key={c.component_id}>
@@ -66,6 +77,7 @@ export function ExplorePanel() {
   const label = record ? `Experiment ${experimentOrdinal(state, record.id) ?? ""}` : null;
   const view = runs.views.explore;
   const proposalError = state.error?.op === "proposal" ? state.error.error : null;
+  const resolver = useWorkbenchResolver();
 
   return (
     <div className="panel-stack">
@@ -77,18 +89,16 @@ export function ExplorePanel() {
         saving={state.pending === "goal"}
         error={state.error?.op === "goal" ? state.error.error : null}
         onSave={wb.setGoal}
-      />
+        notice={state.goalNotice}
+        onDismissNotice={wb.dismissGoalNotice}
+      >
+        <SuggestPanel />
+      </GoalCard>
 
       <AgentRunLog
         title="AI lab partner"
         view={view}
-        resolver={{
-          label: (id) => {
-            const ord = experimentOrdinal(state, id);
-            return ord ? `Experiment ${ord}` : null;
-          },
-          onSelect: (id) => void wb.showExperiment(id),
-        }}
+        resolver={resolver}
         onCancel={() => void runs.cancel("explore")}
         onDismiss={() => runs.clear("explore")}
       />

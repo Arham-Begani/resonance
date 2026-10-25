@@ -48,6 +48,10 @@ describe("first visit bootstrap", () => {
         calls.push("createRevision");
         return makeWorkbench().revisions[0]!;
       },
+      runExperiment: async () => {
+        calls.push("runExperiment");
+        return makeExperiment();
+      },
     });
     render(
       <StrictMode>
@@ -60,6 +64,9 @@ describe("first visit bootstrap", () => {
     expect(calls.filter((c) => c === "workbench")).toHaveLength(1);
     // The initially shown revision is persisted so a reload shows the same one.
     await waitFor(() => expect(mock.endpoints.setCurrentRevision).toHaveBeenCalledWith("rev_fixture000001"));
+    // The first visit measures its opening experiment exactly once, even with doubled effects.
+    await screen.findByRole("list", { name: "Measured tone levels" });
+    expect(calls.filter((c) => c === "runExperiment")).toHaveLength(1);
   });
 });
 

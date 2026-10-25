@@ -10,7 +10,8 @@ import { Badge, Button, ErrorCallout } from "../../components/ui/primitives";
 import { formatClock, formatDb, formatSignedDb, formatHz } from "../../lib/format";
 import { FOCUS, focusWhenReady } from "../../lib/focus";
 import { useAnnouncer } from "../../state/announcer";
-import { currentRevision, experimentOrdinal, revisionOrdinal, useWorkbench } from "../../state/workbench";
+import { FAMILY_LABEL } from "../../lib/family";
+import { currentRevision, experimentOrdinal, revisionById, revisionOrdinal, undoTargetId, useWorkbench } from "../../state/workbench";
 
 export function HistoryPanel() {
   const wb = useWorkbench();
@@ -22,8 +23,17 @@ export function HistoryPanel() {
   const [comparing, setComparing] = useState(false);
   const [compareError, setCompareError] = useState<ApiFailure | null>(null);
   const revision = currentRevision(state);
-  const parentOrdinal = revisionOrdinal(state, revision?.parent_id);
+  const undoTarget = undoTargetId(state, revision?.id);
+  const undoRevision = revisionById(state, undoTarget);
+  const parentOrdinal = revisionOrdinal(state, undoTarget);
+  const crossFamily = Boolean(undoRevision && revision && undoRevision.template_id !== revision.template_id);
   const experiments = [...state.experiments].reverse();
+  // Name the family on each entry once the session has used more than one.
+  const families = new Set(state.revisions.filter((r) => r.origin !== "case_intended").map((r) => r.template_id));
+  const familyOf = (revisionId: string) => {
+    const t = revisionById(state, revisionId)?.template_id;
+    return families.size > 1 && t ? ` · ${FAMILY_LABEL[t]}` : "";
+  };
 
   const toggle = (id: string) => {
     setPicked((prev) => (prev.includes(id) ? prev.filter((p) => p !== id) : [...prev.slice(-1), id]));
@@ -59,16 +69,16 @@ export function HistoryPanel() {
         <Button
           size="sm"
           icon="undo"
-          disabled={!revision?.parent_id || state.pending !== null}
+          disabled={!undoTarget || state.pending !== null}
           onClick={() => {
-            // At the original revision Undo becomes unavailable; move focus to the next step.
-            const target = state.revisions.find((r) => r.id === revision?.parent_id);
+            // When Undo becomes unavailable at the original revision, move focus to the next step.
+            const next = undoTargetId(state, undoTarget);
             wb.undo();
-            if (!target?.parent_id) focusWhenReady(FOCUS.runExperiment);
+            if (!next) focusWhenReady(FOCUS.runExperiment);
           }}
-          title={revision?.parent_id ? undefined : "This is the original circuit."}
+          title={undoTarget ? (crossFamily && undoRevision ? `Returns to the ${FAMILY_LABEL[undoRevision.template_id].toLowerCase()} circuit` : undefined) : "This is the original circuit."}
         >
-          {revision?.parent_id ? `Undo to Revision ${parentOrdinal ?? ""}` : "Undo"}
+          {undoTarget ? `Undo to Revision ${parentOrdinal ?? ""}` : "Undo"}
         </Button>
       </div>
 
@@ -97,7 +107,7 @@ export function HistoryPanel() {
                     </label>
                     <div className="history__body">
                       <p className="history__title">
-                        Experiment {ord} <span className="muted">· Revision {rev}</span>
+                        Experiment {ord} <span className="muted">· Revision {rev}{familyOf(e.revision_id)}</span>
                       </p>
                       <p className="history__meta num">
                         <span>{formatClock(e.created_at)}</span>

@@ -1,7 +1,8 @@
-// Explore instruments: measured tone levels, frequency response (gain/phase or source current),
-// and the oscilloscope/spectrum views for the experiment currently shown.
+// Explore instruments: the listening station (invitation, Play, measured tone levels), the
+// frequency response (gain/phase or source current), and the oscilloscope/spectrum views for the
+// experiment currently shown.
 import { useEffect, useRef, useState } from "react";
-import type { ExperimentRecord, Goal, Revision, ToneLevel } from "../../api/types";
+import type { ExperimentRecord, Goal, Revision } from "../../api/types";
 import { usePlayback } from "../../components/audio/PlaybackProvider";
 import { ResponseChart, type ResponsePanel } from "../../components/charts/ResponseChart";
 import { SpectrumChart } from "../../components/charts/SpectrumChart";
@@ -14,29 +15,15 @@ import { FOCUS } from "../../lib/focus";
 import {
   currentRevision,
   experimentOrdinal,
+  revisionById,
   revisionOrdinal,
   shownRecord,
   useWorkbench,
   type Probe,
 } from "../../state/workbench";
+import { ListenCard } from "./ListenCard";
 
-export function ToneLevels({ tones }: { tones: ToneLevel[] }) {
-  return (
-    <ul className="tone-levels" aria-label="Measured tone levels">
-      {tones.map((t) => (
-        <li key={t.frequency_hz} className="tone-level">
-          <p className="tone-level__label">
-            {t.label} · {formatHz(t.frequency_hz)}
-          </p>
-          <p className="tone-level__value">{formatDb(t.transient_gain_db)}</p>
-          <p className="tone-level__detail num">
-            {num(t.output_amplitude_v, 3)} V of {num(t.input_amplitude_v, 3)} V peak · AC {formatDb(t.ac_gain_db, 2)}
-          </p>
-        </li>
-      ))}
-    </ul>
-  );
-}
+export { ToneLevels } from "./ListenCard";
 
 function responseSummary(record: ExperimentRecord) {
   const r = record.response;
@@ -59,7 +46,7 @@ function responseSummary(record: ExperimentRecord) {
   );
 }
 
-function goalLimits(goal: Goal | null) {
+export function goalLimits(goal: Goal | null) {
   if (!goal) return [];
   return goal.constraints.map((c) => ({
     x: c.frequency_hz,
@@ -67,6 +54,60 @@ function goalLimits(goal: Goal | null) {
     direction: c.kind === "preserve" ? ("above" as const) : ("below" as const),
     label: `${c.kind === "preserve" ? "≥" : "≤"} ${formatDb(-c.limit_db, 0)}`,
   }));
+}
+
+/** Gain/phase (or source current) panels for one measured response. */
+export function responsePanels(record: ExperimentRecord, view: "voltage" | "current", goal: Goal | null): ResponsePanel[] {
+  const r = record.response;
+  if (!r) return [];
+  if (view === "voltage") {
+    return [
+      {
+        id: "gain",
+        title: "Gain (dB)",
+        series: [{ id: "out", label: "Output", kind: "primary", y: r.gain_db }],
+        height: 124,
+        valueFormat: (v) => formatDb(v, 2),
+        tickFormat: (v) => num(v, 0),
+        domain: gainDomain(r.gain_db, goalLimits(goal).map((l) => l.y)),
+        limits: goalLimits(goal),
+        pointLabels: (record.tones ?? []).map((t) => ({ x: t.frequency_hz, y: t.ac_gain_db, text: formatDb(t.ac_gain_db) })),
+      },
+      {
+        id: "phase",
+        title: "Phase (°)",
+        series: [{ id: "out", label: "Output", kind: "primary", y: r.phase_deg }],
+        height: 88,
+        valueFormat: (v) => formatDeg(v),
+        tickFormat: (v) => num(v, 0),
+        include: [0],
+      },
+    ];
+  }
+  return [
+    {
+      id: "current",
+      title: "Source current (mA, 1 V source)",
+      series: [{ id: "i", label: "I(V1)", kind: "primary", y: r.source_current_ma }],
+      height: 124,
+      valueFormat: (v) => formatMa(v),
+      tickFormat: (v) => num(v, 2),
+      domain: magnitudeDomain(r.source_current_ma),
+    },
+    {
+      id: "iphase",
+      title: "Current phase (°)",
+      series: [{ id: "i", label: "I(V1)", kind: "primary", y: r.source_current_phase_deg }],
+      height: 88,
+      valueFormat: (v) => formatDeg(v),
+      tickFormat: (v) => num(v, 0),
+      include: [0],
+    },
+  ];
+}
+
+function invitationFor(goal: Goal | null, revision: Revision | null): string | null {
+  return goal?.title ?? revision?.title ?? null;
 }
 
 export function ExploreInstruments() {
@@ -100,8 +141,9 @@ export function ExploreInstruments() {
   const curRevOrdinal = revisionOrdinal(state, revision?.id);
   const audioTitle = record ? `Experiment ${expOrdinal ?? ""} · Revision ${recRevOrdinal ?? ""}` : "";
 
+  // Loading clips into the shared player never starts playback.
   useEffect(() => {
-    if (state.mode !== "explore") return;
+    if (state.mode === "investigate") return;
     if (record?.audio) playback.setActive(record.audio, audioTitle);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- only when the shown record changes
   }, [record?.id, record?.audio, state.mode, audioTitle]);
@@ -110,60 +152,29 @@ export function ExploreInstruments() {
   const experimentError = state.error?.op === "experiment" ? state.error.error : null;
   const chartState: ChartState = record?.response ? "ready" : running ? "loading" : "empty";
   const emptyText = running ? "Simulating…" : "No measurement yet. Run the experiment to simulate this circuit with ngspice.";
-  const tones = revision?.source.tones ?? record?.settings.transient.tones ?? [];
+  // Everything that describes the SHOWN measurement (tone markers, listening hint) comes from
+  // that measurement, which may belong to an earlier revision or even the other family.
+  const tones = record?.settings.transient.tones ?? revision?.source.tones ?? [];
+  // Goals are per family: never draw one family's limits over the other family's result.
+  const sameFamily = !record || revisionById(state, record.revision_id)?.template_id === revision?.template_id;
   const markers = tones.map((t) => ({ x: t.frequency_hz, label: formatHz(t.frequency_hz) }));
-
-  const panels: ResponsePanel[] = [];
-  if (record?.response) {
-    const r = record.response;
-    if (view === "voltage") {
-      panels.push(
-        {
-          id: "gain",
-          title: "Gain (dB)",
-          series: [{ id: "out", label: "Output", kind: "primary", y: r.gain_db }],
-          height: 170,
-          valueFormat: (v) => formatDb(v, 2),
-          tickFormat: (v) => num(v, 0),
-          domain: gainDomain(r.gain_db, goalLimits(state.goal).map((l) => l.y)),
-          limits: goalLimits(state.goal),
-          pointLabels: (record.tones ?? []).map((t) => ({ x: t.frequency_hz, y: t.ac_gain_db, text: formatDb(t.ac_gain_db) })),
-        },
-        {
-          id: "phase",
-          title: "Phase (°)",
-          series: [{ id: "out", label: "Output", kind: "primary", y: r.phase_deg }],
-          height: 100,
-          valueFormat: (v) => formatDeg(v),
-          tickFormat: (v) => num(v, 0),
-          include: [0],
-        },
-      );
-    } else {
-      panels.push(
-        {
-          id: "current",
-          title: "Source current (mA, 1 V source)",
-          series: [{ id: "i", label: "I(V1)", kind: "primary", y: r.source_current_ma }],
-          height: 170,
-          valueFormat: (v) => formatMa(v),
-          tickFormat: (v) => num(v, 2),
-          domain: magnitudeDomain(r.source_current_ma),
-        },
-        {
-          id: "iphase",
-          title: "Current phase (°)",
-          series: [{ id: "i", label: "I(V1)", kind: "primary", y: r.source_current_phase_deg }],
-          height: 100,
-          valueFormat: (v) => formatDeg(v),
-          tickFormat: (v) => num(v, 0),
-          include: [0],
-        },
-      );
-    }
-  }
+  const panels = record ? responsePanels(record, view, sameFamily ? state.goal : null) : [];
+  const opening = Boolean(revision && !revision.parent_id && !revision.changes?.length && !isStaleRevision);
+  const eyebrow = opening ? "Opening experiment" : record ? `Experiment ${expOrdinal} · Revision ${recRevOrdinal}` : `Revision ${curRevOrdinal ?? ""}`;
 
   const probeTrace = (probe: Probe) => (probe?.kind === "node" ? (probe.node === "in" ? "in" : "out") : null);
+  const scopeSwitch = (
+    <div className="segmented" role="radiogroup" aria-label="Time or frequency view">
+      <label>
+        <input type="radio" name="scope-view" checked={scope === "time"} onChange={() => setScope("time")} />
+        Time domain
+      </label>
+      <label>
+        <input type="radio" name="scope-view" checked={scope === "spectrum"} onChange={() => setScope("spectrum")} />
+        Spectrum
+      </label>
+    </div>
+  );
 
   return (
     <section className="instruments" aria-labelledby="instruments-heading">
@@ -203,7 +214,14 @@ export function ExploreInstruments() {
         </Callout>
       ) : null}
 
-      {record?.tones?.length ? <ToneLevels tones={record.tones} /> : null}
+      {state.status === "loading" && !revision ? (
+        <div className="listen listen--skeleton" aria-hidden="true">
+          <div className="skeleton listen__skeleton" />
+          <div className="skeleton listen__skeleton" />
+        </div>
+      ) : (
+        <ListenCard invitation={invitationFor(state.goal, revision)} tones={tones} record={record} audioTitle={audioTitle} eyebrow={eyebrow} running={running} />
+      )}
 
       <div className="instruments__grid">
         <ResponseChart
@@ -229,53 +247,50 @@ export function ExploreInstruments() {
             </div>
           }
         />
-        <div className="instruments__scope">
-          <div className="segmented instruments__scope-switch" role="radiogroup" aria-label="Time or frequency view">
-            <label>
-              <input type="radio" name="scope-view" checked={scope === "time"} onChange={() => setScope("time")} />
-              Time domain
-            </label>
-            <label>
-              <input type="radio" name="scope-view" checked={scope === "spectrum"} onChange={() => setScope("spectrum")} />
-              Spectrum
-            </label>
-          </div>
-          {scope === "time" ? (
-            <WaveformChart
-              title="Time domain"
-              sampleRateHz={record?.waveform?.sample_rate_hz ?? 48_000}
-              startS={record?.waveform?.start_s ?? 0}
-              series={
-                record?.waveform
-                  ? [
-                      { id: "in", label: "Input", kind: "reference", y: record.waveform.input_v },
-                      { id: "out", label: "Output", kind: "primary", y: record.waveform.output_v },
-                    ]
-                  : []
-              }
-              emphasis={probeTrace(state.probe)}
-              summary={
-                record && (record.tones ?? []).length ? (
-                  <>
-                    Steady-state window after {num(record.settings.transient.settle_s * 1000, 0)} ms of settling.{" "}
-                    {(record.tones ?? []).map((t, i) => (
-                      <span key={t.frequency_hz}>
-                        {i > 0 ? "; " : ""}
-                        <strong>{t.label}</strong> output {num(t.output_amplitude_v, 3)} V of {num(t.input_amplitude_v, 3)} V
-                      </span>
-                    ))}
-                    .
-                  </>
-                ) : null
-              }
-              state={record?.waveform ? "ready" : running ? "loading" : "empty"}
-              emptyText={emptyText}
-              stale={running && Boolean(record)}
-            />
-          ) : (
-            <SpectrumChart spectrum={record?.spectrum} tones={tones} state={record?.spectrum ? "ready" : running ? "loading" : "empty"} emptyText={emptyText} stale={running && Boolean(record)} />
-          )}
-        </div>
+        {scope === "time" ? (
+          <WaveformChart
+            title="Time domain"
+            toolbar={scopeSwitch}
+            height={212}
+            sampleRateHz={record?.waveform?.sample_rate_hz ?? 48_000}
+            startS={record?.waveform?.start_s ?? 0}
+            series={
+              record?.waveform
+                ? [
+                    { id: "in", label: "Input", kind: "reference", y: record.waveform.input_v },
+                    { id: "out", label: "Output", kind: "primary", y: record.waveform.output_v },
+                  ]
+                : []
+            }
+            emphasis={probeTrace(state.probe)}
+            summary={
+              record && (record.tones ?? []).length ? (
+                <>
+                  Steady-state window after {num(record.settings.transient.settle_s * 1000, 0)} ms of settling.{" "}
+                  {(record.tones ?? []).map((t, i) => (
+                    <span key={t.frequency_hz}>
+                      {i > 0 ? "; " : ""}
+                      <strong>{t.label}</strong> output {num(t.output_amplitude_v, 3)} V of {num(t.input_amplitude_v, 3)} V
+                    </span>
+                  ))}
+                  .
+                </>
+              ) : null
+            }
+            state={record?.waveform ? "ready" : running ? "loading" : "empty"}
+            emptyText={emptyText}
+            stale={running && Boolean(record)}
+          />
+        ) : (
+          <SpectrumChart
+            toolbar={scopeSwitch}
+            spectrum={record?.spectrum}
+            tones={tones}
+            state={record?.spectrum ? "ready" : running ? "loading" : "empty"}
+            emptyText={emptyText}
+            stale={running && Boolean(record)}
+          />
+        )}
       </div>
 
       {record && (record.checks ?? []).length ? (

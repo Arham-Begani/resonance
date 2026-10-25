@@ -1726,6 +1726,12 @@
             "title": "Current Abs Tolerance Ma",
             "type": "number"
           },
+          "current_floor_ma": {
+            "default": 1e-06,
+            "description": "Measurement floor for currents (mA). A current at or below it is published as exactly 0 (no measurable current), and its phase (published as 0°) is undefined. Equals challenges.instruments.CURRENT_FLOOR_MA.",
+            "title": "Current Floor Ma",
+            "type": "number"
+          },
           "current_tolerance_pct": {
             "title": "Current Tolerance Pct",
             "type": "number"
@@ -1736,6 +1742,12 @@
           },
           "gain_tolerance_db": {
             "title": "Gain Tolerance Db",
+            "type": "number"
+          },
+          "measurement_floor_db": {
+            "default": -120.0,
+            "description": "Measurement floor for output/tone gains. Published case gains are clamped here: a value at or below it means no measurable output, and its phase (published as 0°) is undefined. Equals challenges.instruments.MEASUREMENT_FLOOR_DB.",
+            "title": "Measurement Floor Db",
             "type": "number"
           },
           "phase_tolerance_deg": {

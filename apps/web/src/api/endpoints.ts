@@ -2,7 +2,7 @@
 // so tests can replace this module and the UI stays in step with the generated contract.
 import { api, unwrap } from "./client";
 import type { components } from "./schema";
-import type { InstrumentKind } from "./types";
+import type { InstrumentKind, TemplateId } from "./types";
 
 type S = components["schemas"];
 
@@ -11,6 +11,7 @@ export const endpoints = {
   templates: () => unwrap(api.GET("/api/templates")),
   workbench: () => unwrap(api.GET("/api/workbench")),
   setGoal: (body: S["GoalInput"]) => unwrap(api.PUT("/api/workbench/goal", { body })),
+  suggestDesign: (body: S["DesignSuggestionRequest"]) => unwrap(api.POST("/api/workbench/goal/suggest", { body })),
   setCurrentRevision: (revisionId: string) =>
     unwrap(api.PUT("/api/workbench/current-revision", { body: { revision_id: revisionId } })),
   parseValue: (body: S["ValueParseRequest"], signal?: AbortSignal) =>
@@ -29,7 +30,15 @@ export const endpoints = {
   compareExperiments: (a: string, b: string) =>
     unwrap(api.GET("/api/experiments/compare", { params: { query: { a, b } } })),
 
-  createCase: () => unwrap(api.POST("/api/cases", { body: { template_id: "rc_lowpass" } })),
+  learnPrompts: (revisionId: string) =>
+    unwrap(api.GET("/api/learn/prompts", { params: { query: { revision_id: revisionId } } })),
+  createLearnAttempt: (body: S["LearnAttemptRequest"], signal?: AbortSignal) =>
+    unwrap(api.POST("/api/learn/attempts", { body, signal })),
+  getLearnAttempt: (attemptId: string) =>
+    unwrap(api.GET("/api/learn/attempts/{attempt_id}", { params: { path: { attempt_id: attemptId } } })),
+
+  /** `templateId` null lets the server draw the family with its published prior ("Surprise me"). */
+  createCase: (templateId: TemplateId | null) => unwrap(api.POST("/api/cases", { body: { template_id: templateId } })),
   getCase: (caseId: string) =>
     unwrap(api.GET("/api/cases/{case_id}", { params: { path: { case_id: caseId } } })),
   setCaseMode: (caseId: string, mode: "guide" | "agent") =>

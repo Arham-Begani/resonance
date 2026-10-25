@@ -17,6 +17,7 @@
 
 .panel-card__header {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: var(--space-2);
@@ -25,6 +26,11 @@
 .panel-card__title {
   font-size: var(--text-sm);
   font-weight: var(--weight-strong);
+  letter-spacing: -0.005em;
+}
+
+.panel-card__lead {
+  color: var(--color-text-secondary);
 }
 
 .panel-card__note {
@@ -200,7 +206,7 @@
 .instruments {
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
+  gap: var(--space-3);
   min-width: 0;
 }
 
@@ -209,6 +215,7 @@
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-2) var(--space-4);
+  min-height: var(--control-height);
 }
 
 .instruments__meta {
@@ -225,19 +232,146 @@
 .instruments__grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
-  gap: var(--space-6);
-  align-items: start;
+  gap: var(--space-3);
+  align-items: stretch;
 }
 
-.instruments__scope {
+/* ---------- Listening station ---------- */
+.listen {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(340px, 0.9fr);
+  gap: var(--space-4);
+  align-items: center;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+}
+
+.listen__lead {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
+  gap: 2px;
   min-width: 0;
 }
 
-.instruments__scope-switch {
-  align-self: flex-start;
+.listen__title {
+  font-size: var(--text-md);
+  font-weight: var(--weight-strong);
+  letter-spacing: -0.01em;
+  line-height: 1.35;
+}
+
+.listen__hint,
+.listen__note,
+.listen__waiting {
+  color: var(--color-text-secondary);
+  font-size: var(--text-xs);
+}
+
+.listen__note {
+  color: var(--color-text-tertiary);
+}
+
+.listen__hint {
+  margin-top: var(--space-1);
+  line-height: 1.4;
+}
+
+/* Play buttons stack between the invitation and the readouts. */
+.listen__actions {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--space-2);
+}
+
+.listen__actions > .btn {
+  justify-content: flex-start;
+}
+
+.listen__skeleton {
+  height: 88px;
+}
+
+@media (max-width: 1180px) {
+  .listen {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .listen__actions {
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+}
+
+/* ---------- Design suggestions ---------- */
+.suggest {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--color-border);
+}
+
+.suggest__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.suggestion {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: 1px dashed var(--color-accent-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg);
+}
+
+.suggestion__title {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-strong);
+}
+
+.suggestion__title:focus-visible {
+  outline-offset: 4px;
+}
+
+.suggestion__values {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.suggestion__values li {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.suggestion__cid {
+  min-width: 24px;
+  font-weight: var(--weight-strong);
+}
+
+.suggestion__values strong {
+  color: var(--color-accent);
+  font-weight: var(--weight-strong);
+}
+
+.suggestion .data-table td.n {
+  white-space: normal;
+}
+
+.suggestion__gain {
+  display: block;
+  margin-bottom: 2px;
+}
+
+.suggestion__stale {
+  color: var(--color-warning);
 }
 
 .checks {

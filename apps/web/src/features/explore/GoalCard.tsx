@@ -1,6 +1,6 @@
 // Current goal with measured pass/fail per constraint (from the shown experiment's goal
 // evaluation) and the analytical feasibility, labelled as a prediction. Includes an editor.
-import { useId, useState, type FormEvent } from "react";
+import { useId, useState, type FormEvent, type ReactNode } from "react";
 import type { ExperimentRecord, FeasibilityAnalysis, Goal, GoalConstraint, GoalInput } from "../../api/types";
 import { Badge, Button, Callout, ErrorCallout } from "../../components/ui/primitives";
 import { capitalize, formatDb, formatHz, num } from "../../lib/format";
@@ -21,9 +21,14 @@ interface GoalCardProps {
   saving: boolean;
   error: ApiFailure | null;
   onSave: (input: GoalInput) => Promise<boolean>;
+  /** Extra tools shown under the goal (e.g. design suggestions), hidden while editing. */
+  children?: ReactNode;
+  /** Why the goal changed without an edit (e.g. a family switch); shown until dismissed. */
+  notice?: string | null;
+  onDismissNotice?: () => void;
 }
 
-export function GoalCard({ goal, feasibility, record, experimentLabel, saving, error, onSave }: GoalCardProps) {
+export function GoalCard({ goal, feasibility, record, experimentLabel, saving, error, onSave, children, notice, onDismissNotice }: GoalCardProps) {
   const [editing, setEditing] = useState(false);
   if (!goal) return null;
   const evaluation = record?.goal && record.goal.goal_id === goal.id ? record.goal : null;
@@ -46,6 +51,29 @@ export function GoalCard({ goal, feasibility, record, experimentLabel, saving, e
         )}
       </div>
       <p className="goal-title">{goal.title}</p>
+      {notice ? (
+        <Callout
+          tone="neutral"
+          title="Goal changed"
+          action={
+            onDismissNotice ? (
+              <Button
+                size="sm"
+                variant="ghost"
+                aria-label="Dismiss goal change note"
+                onClick={() => {
+                  onDismissNotice();
+                  focusWhenReady(FOCUS.editGoal);
+                }}
+              >
+                Dismiss
+              </Button>
+            ) : undefined
+          }
+        >
+          {notice}
+        </Callout>
+      ) : null}
 
       {editing ? (
         <GoalEditor
@@ -122,6 +150,7 @@ export function GoalCard({ goal, feasibility, record, experimentLabel, saving, e
               Edit goal
             </Button>
           </div>
+          {children}
         </>
       )}
     </section>

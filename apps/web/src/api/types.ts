@@ -23,6 +23,7 @@ export type CircuitNode = S["CircuitNode"];
 export type ComponentChange = S["ComponentChange"];
 export type ValueParseResult = S["ValueParseResult"];
 export type CircuitTemplate = S["CircuitTemplate"];
+export type TemplateId = CircuitTemplate["id"];
 export type Tone = S["Tone"];
 
 export type WorkbenchState = S["WorkbenchState"];
@@ -46,6 +47,20 @@ export type ClipRole = AudioClip["role"];
 export type EvidenceRef = S["EvidenceRef"];
 
 export type EditProposal = S["EditProposal"];
+
+export type DesignSuggestion = S["DesignSuggestion"];
+export type DesignSuggestionRequest = S["DesignSuggestionRequest"];
+export type PredictedGoalTone = S["PredictedGoalTone"];
+export type SuggestedValue = S["SuggestedValue"];
+
+export type LearnPrompt = S["LearnPrompt"];
+export type LearnChange = S["LearnChange"];
+export type LearnAttempt = S["LearnAttempt"];
+export type LearnAttemptRequest = S["LearnAttemptRequest"];
+export type GradedPrediction = S["GradedPrediction"];
+export type TonePredictionInput = S["TonePredictionInput"];
+export type Expectation = TonePredictionInput["expectation"];
+export type ToneDelta = S["ToneDelta"];
 
 export type PublicCase = S["PublicCase"];
 export type CaseStatus = PublicCase["status"];

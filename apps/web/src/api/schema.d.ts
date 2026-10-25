@@ -1287,12 +1287,24 @@ export interface components {
         EvidencePolicy: {
             /** Current Abs Tolerance Ma */
             current_abs_tolerance_ma: number;
+            /**
+             * Current Floor Ma
+             * @description Measurement floor for currents (mA). A current at or below it is published as exactly 0 (no measurable current), and its phase (published as 0°) is undefined. Equals challenges.instruments.CURRENT_FLOOR_MA.
+             * @default 0.000001
+             */
+            current_floor_ma: number;
             /** Current Tolerance Pct */
             current_tolerance_pct: number;
             /** Description */
             description: string;
             /** Gain Tolerance Db */
             gain_tolerance_db: number;
+            /**
+             * Measurement Floor Db
+             * @description Measurement floor for output/tone gains. Published case gains are clamped here: a value at or below it means no measurable output, and its phase (published as 0°) is undefined. Equals challenges.instruments.MEASUREMENT_FLOOR_DB.
+             * @default -120
+             */
+            measurement_floor_db: number;
             /** Phase Tolerance Deg */
             phase_tolerance_deg: number;
             /** Tone Gain Tolerance Db */

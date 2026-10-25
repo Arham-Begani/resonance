@@ -4,8 +4,12 @@ import type {
   AgentEvent,
   AgentRun,
   AudioComparison,
+  CircuitTemplate,
+  DesignSuggestion,
   ExperimentRecord,
   HealthResponse,
+  LearnAttempt,
+  LearnPrompt,
   Observation,
   PublicCase,
   Revision,
@@ -266,7 +270,7 @@ export function makeCase(overrides: Partial<PublicCase> = {}): PublicCase {
       { id: "c1_increased", label: "C1 is about twice its nominal value", component_id: "C1", change: "increased", multiplier: 2 },
       { id: "c1_decreased", label: "C1 is about half its nominal value", component_id: "C1", change: "decreased", multiplier: 0.5 },
     ],
-    policy: { gain_tolerance_db: 0.5, phase_tolerance_deg: 3, current_tolerance_pct: 3, current_abs_tolerance_ma: 0.001, tone_gain_tolerance_db: 0.5, tone_phase_tolerance_deg: 3, description: "Tolerances: ±0.5 dB gain, ±3° phase, ±3% current." },
+    policy: { gain_tolerance_db: 0.5, phase_tolerance_deg: 3, current_tolerance_pct: 3, current_abs_tolerance_ma: 0.001, tone_gain_tolerance_db: 0.5, tone_phase_tolerance_deg: 3, measurement_floor_db: -120, current_floor_ma: 1e-6, description: "Tolerances: ±0.5 dB gain, ±3° phase, ±3% current." },
     budget: { total: 3, used: 1, remaining: 2, infrastructure_retries_per_experiment: 1, infrastructure_failures: 0 },
     hints_used: 0,
     observations: [symptom, makeObservation()],
@@ -320,3 +324,122 @@ export const runEvents: AgentEvent[] = [
   { type: "tool_result", seq: 4, run_id: "run_fixture000001", at: RUN_AT, call_id: "call_1", tool: "run_experiment", ok: true, summary: "Source current recorded on 31 frequencies.", observation_id: "obs_fixture000001", experiment_id: null, proposal_id: null, error: null },
   { type: "message", seq: 5, run_id: "run_fixture000001", at: RUN_AT, text: "The current at high frequency is lower than expected.", citations: [{ result_id: "obs_fixture000001", quantity: "source_current_ma", frequency_hz: 20000 }] },
 ];
+
+// ---------- Milestone 2: high-pass family, suggestions, Learn (shapes copied from the live API) ----------
+
+export const highpassTones = [
+  { frequency_hz: 50, amplitude_v: 0.3, label: "Mains hum", role: "interference" as const },
+  { frequency_hz: 440, amplitude_v: 0.6, label: "Musical tone", role: "wanted" as const },
+];
+
+export function makeHighpassRevision(overrides: Partial<Revision> = {}): Revision {
+  const lp = makeRevision();
+  return {
+    ...lp,
+    id: "rev_fixturehp0001",
+    template_id: "rc_highpass",
+    title: "RC high-pass filter",
+    origin: "user_edit",
+    components: [
+      { ...lp.components[0]!, name: "ideal voltage source", description: "V1 — ideal voltage source — test signal 50 Hz + 440 Hz — positive terminal at Input, negative terminal at Ground" },
+      { ...lp.components[2]!, nodes: ["in", "out"], description: "C1 — capacitor — 100 nF — connected between Input and Output" },
+      { ...lp.components[1]!, nodes: ["out", "gnd"], value_si: 10000, display_value: "10 kΩ", description: "R1 — resistor — 10 kΩ — connected between Output and Ground" },
+    ],
+    source: { ...lp.source, tones: highpassTones },
+    prediction: { basis: "analytical_first_order_rc", cutoff_hz: 159.15, time_constant_s: 1e-3 },
+    ...overrides,
+  };
+}
+
+export const lowpassGoal = {
+  title: "Keep the musical tone. Reduce the whistle.",
+  constraints: [
+    { kind: "preserve" as const, frequency_hz: 440, limit_db: 1, label: "Musical tone" },
+    { kind: "attenuate" as const, frequency_hz: 4000, limit_db: 12, label: "Whistle" },
+  ],
+};
+
+export const highpassGoal = {
+  title: "Keep the musical tone. Remove the mains hum.",
+  constraints: [
+    { kind: "preserve" as const, frequency_hz: 440, limit_db: 1, label: "Musical tone" },
+    { kind: "attenuate" as const, frequency_hz: 50, limit_db: 12, label: "Mains hum" },
+  ],
+};
+
+export function makeTemplates(): CircuitTemplate[] {
+  return [
+    { id: "rc_lowpass", title: "RC low-pass filter", summary: "Low-pass", cutoff_range_hz: [20, 20000], default_goal: lowpassGoal, default_revision: makeRevision() },
+    { id: "rc_highpass", title: "RC high-pass filter", summary: "High-pass", cutoff_range_hz: [20, 20000], default_goal: highpassGoal, default_revision: makeHighpassRevision({ id: "rev_preview_hp" }) },
+  ];
+}
+
+export function makeSuggestion(overrides: Partial<DesignSuggestion> = {}): DesignSuggestion {
+  return {
+    basis: "analytical_first_order_rc",
+    revision_id: "rev_fixture000001",
+    template_id: "rc_lowpass",
+    feasible: true,
+    target_cutoff_hz: 950,
+    predicted_cutoff_hz: 964.6,
+    predicted_goal_pass: true,
+    values: [
+      { component_id: "R1", display: "1 kΩ", series: "unchanged", value_si: 1000 },
+      { component_id: "C1", display: "150 nF", series: "E12", value_si: 1.5e-7 },
+    ],
+    predicted: [
+      { constraint_label: "Musical tone", frequency_hz: 440, predicted_gain_db: -0.8, margin_db: 0.2, passes: true },
+      { constraint_label: "Whistle", frequency_hz: 4000, predicted_gain_db: -12.6, margin_db: 0.6, passes: true },
+    ],
+    explanation: "Prediction: a cutoff near 950 Hz keeps the tone within 1 dB and reduces the whistle by at least 12 dB.",
+    tradeoff: null,
+    ...overrides,
+  };
+}
+
+export function makeLearnPrompts(): LearnPrompt[] {
+  return [
+    { id: "C1x2", template_id: "rc_lowpass", change: { component_id: "C1", multiplier: 2 }, question: "If we double C1, what happens to the musical tone and the whistle?", tones },
+    { id: "R1x0.5", template_id: "rc_lowpass", change: { component_id: "R1", multiplier: 0.5 }, question: "If we halve R1, what happens to the musical tone and the whistle?", tones },
+  ];
+}
+
+export function makeLearnAttempt(overrides: Partial<LearnAttempt> = {}): LearnAttempt {
+  return {
+    id: "learn_fixture0001",
+    created_at: T0,
+    template_id: "rc_lowpass",
+    base_revision_id: "rev_fixture000001",
+    new_revision_id: "rev_fixture000002",
+    base_experiment_id: "exp_fixture000001",
+    new_experiment_id: "exp_fixture000002",
+    change: { component_id: "C1", multiplier: 2 },
+    predictions: [
+      { frequency_hz: 440, expectation: "about_the_same" },
+      { frequency_hz: 4000, expectation: "louder" },
+    ],
+    reasoning: "More capacitance shorts more of the high tone.",
+    graded: [
+      { frequency_hz: 440, label: "Musical tone", role: "wanted", predicted: "about_the_same", observed: "about_the_same", delta_db: -0.9, correct: true, evidence: [{ result_id: "exp_fixture000002", quantity: "tone_gain_db", frequency_hz: 440 }] },
+      { frequency_hz: 4000, label: "Whistle", role: "interference", predicted: "louder", observed: "quieter", delta_db: -5.3, correct: false, evidence: [{ result_id: "exp_fixture000002", quantity: "tone_gain_db", frequency_hz: 4000 }] },
+    ],
+    score: 1,
+    total: 2,
+    explanation: "Measured in exp_fixture000002: doubling C1 halved the cutoff; the whistle fell by 5.3 dB and the tone by 0.9 dB.",
+    tradeoff: "The whistle is 5.3 dB quieter, at the cost of 0.9 dB of the musical tone.",
+    comparison: {
+      a_id: "exp_fixture000001",
+      b_id: "exp_fixture000002",
+      a_revision_id: "rev_fixture000001",
+      b_revision_id: "rev_fixture000002",
+      changes: [{ component_id: "C1", from_value_si: 1e-7, to_value_si: 2e-7, from_display: "100 nF", to_display: "200 nF" }],
+      tones: [
+        { frequency_hz: 440, label: "Musical tone", a_gain_db: -0.3, b_gain_db: -1.2, delta_db: -0.9 },
+        { frequency_hz: 4000, label: "Whistle", a_gain_db: -8.6, b_gain_db: -13.9, delta_db: -5.3 },
+      ],
+      summary: "exp_fixture000002 vs exp_fixture000001: whistle −5.3 dB, musical tone −0.9 dB.",
+      audio: { ...comparisonAudio, id: "cmp_fixturelearn1", clips: comparisonAudio.clips.map((c, i) => ({ ...c, label: i === 0 ? "Previous" : "New" })) },
+    },
+    ...overrides,
+  };
+}
