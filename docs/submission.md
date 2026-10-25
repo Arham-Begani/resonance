@@ -22,12 +22,25 @@ person on Devpost before submission:
 
 | Deliverable | Status |
 |---|---|
-| Public repository with license and third-party notices | Code, MIT `LICENSE` and `THIRD_PARTY_NOTICES.md` exist locally; **no remote yet** (needs the owner's GitHub account) |
+| Public repository with license and third-party notices | **Done**: https://github.com/Arham-Begani/resonance (MIT `LICENSE`, `THIRD_PARTY_NOTICES.md`); CI green |
 | Nemotron via Nebius Token Factory | Integration built and tested with scripted responses; **live verification blocked on `NEBIUS_API_KEY`** |
-| Hosted app | **Not deployed**: needs a hosting account/decision; the Dockerfile is untested (no Docker on the dev host) |
+| Hosted app | `render.yaml` blueprint ready and the Docker image verified in CI; **not deployed yet** (owner creates the Render Blueprint and sets the key) |
 | Demo video (< 3 min) | Script below; **not recorded** (needs a human narrator and real Nemotron runs) |
-| Evaluation results | Baseline harness and held-out set (milestone 2); Nemotron comparison blocked on the key |
+| Evaluation results | Baseline on `heldout_v1`: 24/24 correct, 20/20 restored, mean 4.29 s/case (measured). Nemotron comparison **blocked on the key** |
+| Browser e2e suite | 32/32 at milestone 1; specs updated for milestone 2 but the full re-run is pending (host memory) |
 | Submission text | Draft below |
+
+### Owner steps before submitting
+
+1. Put `NEBIUS_API_KEY` in `.env`, then run the live checks from `services/api`:
+   - `RESONANCE_LIVE_AI=1 uv run pytest tests/agent/test_agent_live.py -s -m live_ai`
+   - `uv run python ../../evals/run_nemotron.py --set dev_v1 --limit 2`
+   - then the held-out set.
+2. Deploy on Render: **New → Blueprint** → this repository → enter `NEBIUS_API_KEY`. Open the
+   URL in a fresh browser and run one fresh mystery.
+3. Record the demo following the script below, using live inference only.
+4. Fill in the hosted URL and the measured Nemotron numbers. Re-check the official rules on
+   Devpost, then submit.
 
 ## Demo script (~150 s, actual interactions only)
 
@@ -44,12 +57,16 @@ person on Devpost before submission:
 ## Draft submission text
 
 **Resonance — hear what a circuit does, discover why it fails.** A browser electronics lab where
-learners edit RC filters, run real ngspice simulations, hear input and output at one honest
+learners edit RC low-pass and high-pass filters, predict and test changes in Learn mode, run real ngspice simulations, hear input and output at one honest
 listening level, and investigate hidden faults with an NVIDIA Nemotron lab partner served by
 Nebius Token Factory. The AI cannot see the fault: it must choose measurements within a budget,
 cite the evidence, and admit ambiguity (doubling R and doubling C sound identical; only the
 source current tells them apart). Trusted code runs the simulator, enforces budgets, evaluates
 hypotheses against declared tolerances and verifies repairs; the hidden state lives in an
 isolated evaluator. Built with React/TypeScript, FastAPI, NumPy and ngspice.
-*(Fill in measured evaluation numbers and the hosted URL before submitting; do not claim
-results that were not measured.)*
+On a frozen held-out set of 24 cases across both filter families and six conditions, a
+fixed-experiment baseline identified 24/24 and restored 20/20 faulty circuits. These cases need
+only one current measurement after the symptom, so this shows that the pipeline works, not
+diagnostic skill.
+*(Before submitting, add the hosted URL and the measured Nemotron results from
+`evals/run_nemotron.py`. Do not claim results that were not measured.)*
