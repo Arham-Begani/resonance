@@ -12,11 +12,12 @@ import {
 } from "react";
 import { ApiFailure, toFailure } from "../../api/client";
 import { endpoints, type Endpoints } from "../../api/endpoints";
-import type { DiagnosisSubmission, InstrumentKind, PublicCase } from "../../api/types";
+import type { DiagnosisSubmission, InstrumentKind, PublicCase, TemplateId } from "../../api/types";
 import { newRequestId } from "../../lib/hooks";
 import { useAnnouncer } from "../../state/announcer";
 import { useWorkbench } from "../../state/workbench";
 import { useAgentEvents, useAgentRuns } from "../agent/agentRuns";
+import { comparePrediction, type GuidePrediction, type PredictionResult } from "./guidePrediction";
 import type { TransientProbe } from "./labels";
 
 export type CaseAction = "load" | "create" | "mode" | "experiment" | "diagnosis" | "repair_proposal" | "repair" | "close" | "agent";
@@ -33,11 +34,16 @@ interface CaseApi {
   error: CaseError | null;
   view: CaseView;
   setView: (view: CaseView) => void;
+  /** The family chosen for the next mystery (null = Surprise me). */
+  family: TemplateId | null;
+  setFamily: (family: TemplateId | null) => void;
+  /** Guide-me predictions compared with the evidence, by observation ID (UI only). */
+  predictions: Record<string, PredictionResult>;
   load: (caseId: string) => Promise<void>;
-  create: () => Promise<boolean>;
+  create: (family?: TemplateId | null) => Promise<boolean>;
   chooseMode: (mode: "guide" | "agent") => Promise<boolean>;
   /** Resolves to the new observation's ID (or null if the request failed). */
-  runExperiment: (instrument: InstrumentKind, probe: TransientProbe | null) => Promise<string | null>;
+  runExperiment: (instrument: InstrumentKind, probe: TransientProbe | null, prediction?: GuidePrediction | null) => Promise<string | null>;
   submitDiagnosis: (submission: DiagnosisSubmission) => Promise<boolean>;
   proposeRepair: (componentId: "R1" | "C1", rationale: string) => Promise<boolean>;
   verifyRepair: () => Promise<boolean>;
@@ -63,6 +69,9 @@ export function CaseProvider({ children, client = endpoints }: { children: React
   const [pending, setPending] = useState<CaseAction | null>(null);
   const [error, setError] = useState<CaseError | null>(null);
   const [view, setView] = useState<CaseView>(null);
+  const [family, setFamily] = useState<TemplateId | null>(null);
+  const familyChosen = useRef(false);
+  const [predictions, setPredictions] = useState<Record<string, PredictionResult>>({});
   const currentRef = useRef<PublicCase | null>(null);
   currentRef.current = current;
 
@@ -105,6 +114,10 @@ export function CaseProvider({ children, client = endpoints }: { children: React
     [client, run, accept],
   );
 
+  // Until the learner picks a family, a new mystery uses the family they are exploring.
+  const exploringFamily = wb.state.revisions.find((r) => r.id === wb.state.currentRevisionId)?.template_id ?? "rc_lowpass";
+  const effectiveFamily = familyChosen.current ? family : exploringFamily;
+
   // Restore the session's active case on first load.
   const restored = useRef(false);
   useEffect(() => {
@@ -140,10 +153,15 @@ export function CaseProvider({ children, client = endpoints }: { children: React
     }
   });
 
-  const create = useCallback(async () => {
-    const c = await run("create", () => client.createCase());
+  const familyRef = useRef(effectiveFamily);
+  familyRef.current = effectiveFamily;
+
+  const create = useCallback(async (chosen?: TemplateId | null) => {
+    const templateId = chosen === undefined ? familyRef.current : chosen;
+    const c = await run("create", () => client.createCase(templateId));
     if (c) {
       setView(null);
+      setPredictions({});
       accept(c, true);
       runs.clear("case");
       wb.setActiveCase(c.id);
@@ -169,7 +187,7 @@ export function CaseProvider({ children, client = endpoints }: { children: React
   );
 
   const runExperiment = useCallback(
-    async (instrument: InstrumentKind, probe: TransientProbe | null) => {
+    async (instrument: InstrumentKind, probe: TransientProbe | null, prediction: GuidePrediction | null = null) => {
       const id = currentRef.current?.id;
       if (!id) return null;
       // One key per click; reused only for the single automatic retry of this same click.
@@ -188,7 +206,13 @@ export function CaseProvider({ children, client = endpoints }: { children: React
         accept(res.case);
         setView({ kind: "observation", id: res.observation.id });
         if (res.observation.status === "succeeded") {
-          announce(`${res.observation.summary} ${res.case.budget.remaining} of ${res.case.budget.total} experiments left.`);
+          let check = "";
+          if (prediction && prediction.expected.length > 0) {
+            const result = comparePrediction(prediction, res.case.evidence.assessments);
+            setPredictions((prev) => ({ ...prev, [res.observation.id]: result }));
+            check = ` Your prediction: ${result.matched} of ${result.checks.length} matched the evidence.`;
+          }
+          announce(`${res.observation.summary}${check} ${res.case.budget.remaining} of ${res.case.budget.total} experiments left.`);
         } else {
           announce(res.observation.error?.message ?? "The experiment failed and did not use budget.");
         }
@@ -280,6 +304,12 @@ export function CaseProvider({ children, client = endpoints }: { children: React
       error,
       view,
       setView,
+      family: effectiveFamily,
+      setFamily: (f) => {
+        familyChosen.current = true;
+        setFamily(f);
+      },
+      predictions,
       load,
       create,
       chooseMode,
@@ -294,10 +324,11 @@ export function CaseProvider({ children, client = endpoints }: { children: React
       forget: () => {
         setCurrent(null);
         setView(null);
+        setPredictions({});
         runs.clear("case");
       },
     }),
-    [current, pending, error, view, load, create, chooseMode, runExperiment, submitDiagnosis, proposeRepair, verifyRepair, close, startAgent, cancelAgent, runs],
+    [current, pending, error, view, effectiveFamily, predictions, load, create, chooseMode, runExperiment, submitDiagnosis, proposeRepair, verifyRepair, close, startAgent, cancelAgent, runs],
   );
 
   return <CaseContext.Provider value={api}>{children}</CaseContext.Provider>;

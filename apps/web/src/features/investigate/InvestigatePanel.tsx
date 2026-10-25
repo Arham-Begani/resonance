@@ -2,16 +2,19 @@
 // diagnosis → repair → close & reveal. Everything rendered here comes from PublicCase; the
 // hidden fault is shown only in the reveal, after the case is closed.
 import { Fragment, useEffect, useId, useState } from "react";
-import type { InstrumentSpec, PublicCase } from "../../api/types";
+import type { HypothesisId, InstrumentSpec, PublicCase, TemplateId } from "../../api/types";
 import { usePlayback } from "../../components/audio/PlaybackProvider";
 import { Badge, Button, Callout, ErrorCallout } from "../../components/ui/primitives";
-import { formatDb, formatHz, num } from "../../lib/format";
+import { formatHz } from "../../lib/format";
 import { FOCUS, focusWhenReady } from "../../lib/focus";
+import { FAMILIES, FAMILY_LABEL, lowToneNote } from "../../lib/family";
 import { useWorkbench } from "../../state/workbench";
 import { AgentRunLog } from "../agent/AgentRunLog";
 import { isRunActive, useAgentRuns } from "../agent/agentRuns";
 import { useCase } from "./caseStore";
 import { DiagnosisForm, DiagnosisSummary } from "./DiagnosisForm";
+import type { GuidePrediction, PredictionResult } from "./guidePrediction";
+import { checkText, floorsOf, toneGainText } from "./floors";
 import { RepairSection } from "./RepairSection";
 import { RevealCard } from "./RevealCard";
 import { HYPOTHESIS_STATUS, INSTRUMENT_SHORT, PROBE_LABEL, STATUS_LABEL, hypothesisLabel, isLiveStatus, observationLabel, observationTitle, quantityLabel, requesterLabel, type TransientProbe } from "./labels";
@@ -36,6 +39,35 @@ function BudgetMeter({ c }: { c: PublicCase }) {
   );
 }
 
+function FamilyChoice({ disabled }: { disabled: boolean }) {
+  const cs = useCase();
+  const id = useId();
+  const options: { value: TemplateId | null; label: string }[] = [
+    ...FAMILIES.map((f) => ({ value: f, label: FAMILY_LABEL[f] })),
+    { value: null, label: "Surprise me" },
+  ];
+  return (
+    <div className="field">
+      <p className="field__label" id={`${id}-label`}>
+        Circuit family
+      </p>
+      <div className="segmented" role="radiogroup" aria-labelledby={`${id}-label`}>
+        {options.map((o) => (
+          <label key={o.label}>
+            <input type="radio" name={`${id}-family`} checked={cs.family === o.value} disabled={disabled} onChange={() => cs.setFamily(o.value)} />
+            {o.label}
+          </label>
+        ))}
+      </div>
+      <p className="field__hint">
+        {cs.family === null
+          ? "The family is drawn at random (50/50) and shown once the mystery starts."
+          : `An RC ${FAMILY_LABEL[cs.family].toLowerCase()} filter.`}
+      </p>
+    </div>
+  );
+}
+
 function StartCard() {
   const cs = useCase();
   const wb = useWorkbench();
@@ -45,10 +77,11 @@ function StartCard() {
       <h2 id="start-heading" className="panel-card__title">
         Circuit mystery
       </h2>
-      <p className="muted">
-        A low-pass circuit with its intended design visible. Its simulated behaviour may differ: a component value may have changed, or it may be
-        working correctly. You get one symptom and three experiments.
+      <p className="panel-card__lead">
+        The intended design stays visible, but the circuit&apos;s simulated behaviour may differ, or it may be working correctly. You get one
+        symptom and three experiments; the possible explanations are listed with the symptom.
       </p>
+      <FamilyChoice disabled={cs.pending === "create"} />
       {conflict ? (
         <Callout
           tone="warning"
@@ -100,6 +133,7 @@ function SymptomCard({ c }: { c: PublicCase }) {
   if (!symptom) return null;
   const tones = symptom.transient?.tones ?? [];
   const audio = symptom.transient?.audio ?? null;
+  const lowNote = lowToneNote(c.intended_revision.source.tones);
   return (
     <section className="panel-card" aria-labelledby="symptom-heading">
       <div className="panel-card__header">
@@ -109,6 +143,7 @@ function SymptomCard({ c }: { c: PublicCase }) {
         <Badge icon={null}>Symptom · no budget used</Badge>
       </div>
       <p>{symptom.summary}</p>
+      {lowNote ? <p className="panel-card__note">{lowNote}</p> : null}
       {tones.length ? (
         <table className="data-table">
           <caption className="visually-hidden">Symptom tone levels at the output</caption>
@@ -129,8 +164,8 @@ function SymptomCard({ c }: { c: PublicCase }) {
                 <th scope="row">
                   {t.label} · {formatHz(t.frequency_hz)}
                 </th>
-                <td className="n">{t.expected_gain_db != null ? formatDb(t.expected_gain_db) : "—"}</td>
-                <td className="n">{t.gain_db != null ? formatDb(t.gain_db) : "—"}</td>
+                <td className="n">{toneGainText(t, "expected", floorsOf(c))}</td>
+                <td className="n">{toneGainText(t, "observed", floorsOf(c))}</td>
               </tr>
             ))}
           </tbody>
@@ -203,6 +238,41 @@ function blockedReason(c: PublicCase, agentActive: boolean): string | null {
   return "Experiments are not available right now.";
 }
 
+function PredictStep({
+  c,
+  expected,
+  onChange,
+  disabled,
+}: {
+  c: PublicCase;
+  expected: HypothesisId[];
+  onChange: (next: HypothesisId[]) => void;
+  disabled: boolean;
+}) {
+  return (
+    <fieldset className="guide-predict">
+      <legend className="field__label">Predict first (optional): which explanations do you expect the next measurement to rule out?</legend>
+      <div className="guide-predict__options">
+        {c.evidence.remaining.map((h) => (
+          <label key={h} className="choice">
+            <input
+              type="checkbox"
+              className="checkbox"
+              checked={expected.includes(h)}
+              disabled={disabled}
+              onChange={(e) => onChange(e.target.checked ? [...expected, h] : expected.filter((x) => x !== h))}
+            />
+            <span>{hypothesisLabel(c, h)}</span>
+          </label>
+        ))}
+      </div>
+      <p className="panel-card__note">
+        Leave everything unticked to skip. Afterwards your prediction is compared with the recorded evidence, not with the hidden answer.
+      </p>
+    </fieldset>
+  );
+}
+
 function InstrumentCard({ spec, disabled, running, onRun }: { spec: InstrumentSpec; disabled: boolean; running: boolean; onRun: (probe: TransientProbe | null) => void }) {
   const id = useId();
   const probes: TransientProbe[] = spec.probes ?? [];
@@ -242,8 +312,10 @@ function InstrumentsCard({ c }: { c: PublicCase }) {
   const agentActive = isRunActive(runs.views.case) || Boolean(c.active_run_id);
   const reason = blockedReason(c, agentActive);
   const [ranKind, setRanKind] = useState<string | null>(null);
+  const [expected, setExpected] = useState<HypothesisId[]>([]);
   const wb = useWorkbench();
   if (c.status === "ready" || !isLiveStatus(c.status)) return null;
+  const canPredict = c.mode === "guide" && !reason && c.evidence.remaining.length >= 2;
   const canHint = c.available_actions.includes("request_hint");
   const canStartAgent = c.available_actions.includes("start_agent") && !agentActive;
   const aiReady = Boolean(wb.state.health?.ai?.available);
@@ -256,6 +328,7 @@ function InstrumentsCard({ c }: { c: PublicCase }) {
         <BudgetMeter c={c} />
       </div>
       {reason ? <p className="panel-card__note">{reason}</p> : null}
+      {canPredict ? <PredictStep c={c} expected={expected} onChange={setExpected} disabled={cs.pending !== null} /> : null}
       <ul className="instrument-list">
         {c.instruments.map((spec) => (
           <InstrumentCard
@@ -265,8 +338,15 @@ function InstrumentsCard({ c }: { c: PublicCase }) {
             running={cs.pending === "experiment" && ranKind === spec.kind}
             onRun={(probe) => {
               setRanKind(spec.kind);
+              const ticked = expected.filter((h) => c.evidence.remaining.includes(h));
+              const prediction: GuidePrediction | null =
+                canPredict && ticked.length ? { candidates: [...c.evidence.remaining], expected: ticked } : null;
               // Focus the new measurement (the run button may become unavailable afterwards).
-              void cs.runExperiment(spec.kind, probe).then((obsId) => obsId && focusWhenReady(FOCUS.observation(obsId)));
+              void cs.runExperiment(spec.kind, probe, prediction).then((obsId) => {
+                if (!obsId) return;
+                setExpected([]);
+                focusWhenReady(FOCUS.observation(obsId));
+              });
             }}
           />
         ))}
@@ -314,6 +394,31 @@ function InstrumentsCard({ c }: { c: PublicCase }) {
   );
 }
 
+export function PredictionCheckView({ c, result }: { c: PublicCase; result: PredictionResult }) {
+  return (
+    <div className="prediction-check">
+      <p className="prediction-check__title">
+        Your prediction: {result.matched} of {result.checks.length} matched the evidence
+      </p>
+      <ul className="prediction-check__list" aria-label="Your prediction compared with the recorded evidence">
+        {result.checks.map((ch) => (
+          <li key={ch.hypothesis} className="prediction-check__item">
+            <span className="prediction-check__label">{hypothesisLabel(c, ch.hypothesis)}</span>
+            <span className="prediction-check__row">
+              <span className="muted">You expected: {ch.expectedRuledOut ? "ruled out" : "still possible"}</span>
+              <span className="muted"> · Evidence: </span>
+              <Badge tone={ch.agrees ? "success" : "warning"} icon={ch.agrees ? "check" : "alert"}>
+                {ch.ruledOut ? "Ruled out" : ch.onlyOneLeft ? "Still possible (only one left)" : "Still possible"}
+              </Badge>
+              <span className="visually-hidden">{ch.agrees ? " (as you expected)" : " (not what you expected)"}</span>
+            </span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 function ObservationsCard({ c }: { c: PublicCase }) {
   const cs = useCase();
   const list = c.observations.filter((o) => o.sequence > 0);
@@ -338,6 +443,7 @@ function ObservationsCard({ c }: { c: PublicCase }) {
                 {requesterLabel(o)} · {o.status === "succeeded" ? (o.counted ? "used 1 experiment" : "no budget used") : "failed · no budget used"}
               </p>
               <p className="obs__summary">{o.status === "succeeded" ? o.summary : (o.error?.message ?? o.summary)}</p>
+              {cs.predictions[o.id] ? <PredictionCheckView c={c} result={cs.predictions[o.id]!} /> : null}
               {o.status === "succeeded" ? (
                 <Button size="sm" variant="ghost" disabled={shown} onClick={() => cs.setView({ kind: "observation", id: o.id })}>
                   {shown ? "Shown in instruments" : "Show in instruments"}
@@ -378,7 +484,7 @@ function EvidenceCard({ c }: { c: PublicCase }) {
                   {worst ? (
                     <span className="hypotheses__why num">
                       {quantityLabel(worst.quantity)}
-                      {worst.frequency_hz != null ? ` @ ${formatHz(worst.frequency_hz)}` : ""}: observed {num(worst.observed, 2)} vs predicted {num(worst.predicted, 2)} {worst.unit}
+                      {worst.frequency_hz != null ? ` @ ${formatHz(worst.frequency_hz)}` : ""}: {checkText(worst, floorsOf(c))}
                     </span>
                   ) : null}
                 </th>
@@ -494,7 +600,9 @@ export function InvestigatePanel() {
     <div className="panel-stack">
       <section className="case-head" aria-label="Case status">
         <div className="row row--between">
-          <p className="case-head__title">Mystery case</p>
+          <p className="case-head__title">
+            Mystery case <span className="case-head__family">· RC {FAMILY_LABEL[c.intended_revision.template_id].toLowerCase()}</span>
+          </p>
           <Badge tone={c.status === "failed" ? "danger" : c.status === "closed" ? "neutral" : "accent"} icon={null}>
             {STATUS_LABEL[c.status]}
           </Badge>

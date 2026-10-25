@@ -9,15 +9,23 @@ import { gainDomain, magnitudeDomain } from "../../components/charts/scales";
 import { Badge, Callout } from "../../components/ui/primitives";
 import { formatDb, formatDeg, formatHz, formatMa, num } from "../../lib/format";
 import { useCase } from "./caseStore";
+import { dbBelow, DEFAULT_CURRENT_FLOOR_MA, DEFAULT_FLOOR_DB, floorsOf, maBelow, NO_CURRENT, NO_OUTPUT, toneAmplitudeText, toneGainText, tonePhaseText, type Floors } from "./floors";
 import { observationLabel, observationTitle, requesterLabel } from "./labels";
 import "./investigate.css";
 
-function toneValue(t: ObservedTone, which: "observed" | "expected"): string {
-  const amp = which === "observed" ? t.amplitude : t.expected_amplitude;
-  return t.amplitude_unit === "mA" ? formatMa(amp) : `${num(amp, 3)} V`;
-}
+const DEFAULT_FLOORS: Floors = { db: DEFAULT_FLOOR_DB, ma: DEFAULT_CURRENT_FLOOR_MA };
 
-export function ToneComparisonTable({ tones, caption, observedLabel = "Observed" }: { tones: ObservedTone[]; caption: string; observedLabel?: string }) {
+export function ToneComparisonTable({
+  tones,
+  caption,
+  observedLabel = "Observed",
+  floors = DEFAULT_FLOORS,
+}: {
+  tones: ObservedTone[];
+  caption: string;
+  observedLabel?: string;
+  floors?: Floors;
+}) {
   const hasGain = tones.some((t) => t.gain_db != null);
   return (
     <table className="data-table tone-compare">
@@ -52,16 +60,16 @@ export function ToneComparisonTable({ tones, caption, observedLabel = "Observed"
             <th scope="row">
               {t.label} · {formatHz(t.frequency_hz)}
             </th>
-            <td className="n">{toneValue(t, "expected")}</td>
-            <td className="n">{toneValue(t, "observed")}</td>
+            <td className="n">{toneAmplitudeText(t, "expected", floors)}</td>
+            <td className="n">{toneAmplitudeText(t, "observed", floors)}</td>
             {hasGain ? (
               <>
-                <td className="n">{t.expected_gain_db != null ? formatDb(t.expected_gain_db) : "—"}</td>
-                <td className="n">{t.gain_db != null ? formatDb(t.gain_db) : "—"}</td>
+                <td className="n">{toneGainText(t, "expected", floors)}</td>
+                <td className="n">{toneGainText(t, "observed", floors)}</td>
               </>
             ) : null}
             <td className="n">
-              {formatDeg(t.expected_phase_deg)} → {formatDeg(t.phase_deg)}
+              {tonePhaseText(t, "expected", floors)} → {tonePhaseText(t, "observed", floors)}
             </td>
           </tr>
         ))}
@@ -70,31 +78,47 @@ export function ToneComparisonTable({ tones, caption, observedLabel = "Observed"
   );
 }
 
-function sweepPanels(o: Observation): { panels: ResponsePanel[]; summary: string } | null {
+/** Clip magnitudes at the floor (drawn on the labelled floor line) and blank their phases. */
+function floored(magnitude: number[], phase: number[], isGain: boolean, f: Floors) {
+  const below = (v: number) => (isGain ? dbBelow(v, f) : maBelow(v, f));
+  return {
+    magnitude: magnitude.map((v) => (isGain && below(v) ? f.db : v)),
+    phase: phase.map((v, i) => (below(magnitude[i]!) ? Number.NaN : v)),
+    any: magnitude.some(below),
+  };
+}
+
+function magnitudeFormat(isGain: boolean, f: Floors) {
+  return isGain ? (v: number) => (dbBelow(v, f) ? NO_OUTPUT : formatDb(v, 2)) : (v: number) => (maBelow(v, f) ? NO_CURRENT : formatMa(v));
+}
+
+function sweepPanels(o: Observation, f: Floors): { panels: ResponsePanel[]; summary: string } | null {
   const s = o.sweep;
   if (!s) return null;
   const isGain = s.quantity === "output_gain";
-  const fmt = isGain ? (v: number) => formatDb(v, 2) : (v: number) => formatMa(v);
+  const obs = floored(s.magnitude, s.phase_deg, isGain, f);
+  const exp = floored(s.expected_magnitude, s.expected_phase_deg, isGain, f);
   return {
     panels: [
       {
         id: "mag",
         title: isGain ? "Output gain (dB)" : "Source current (mA, 1 V source)",
         series: [
-          { id: "exp", label: "Expected", kind: "reference", y: s.expected_magnitude },
-          { id: "obs", label: "Observed", kind: "primary", y: s.magnitude },
+          { id: "exp", label: "Expected", kind: "reference", y: exp.magnitude },
+          { id: "obs", label: "Observed", kind: "primary", y: obs.magnitude },
         ],
         height: 170,
-        valueFormat: fmt,
+        valueFormat: magnitudeFormat(isGain, f),
         tickFormat: (v) => num(v, isGain ? 0 : 2),
-        domain: isGain ? gainDomain([...s.magnitude, ...s.expected_magnitude]) : magnitudeDomain([...s.magnitude, ...s.expected_magnitude]),
+        domain: isGain ? gainDomain([...obs.magnitude, ...exp.magnitude]) : magnitudeDomain([...s.magnitude, ...s.expected_magnitude]),
+        floor: isGain && (obs.any || exp.any) ? { y: f.db, label: "measurement floor" } : null,
       },
       {
         id: "phase",
         title: isGain ? "Output phase (°)" : "Current phase (°)",
         series: [
-          { id: "exp", label: "Expected", kind: "reference", y: s.expected_phase_deg },
-          { id: "obs", label: "Observed", kind: "primary", y: s.phase_deg },
+          { id: "exp", label: "Expected", kind: "reference", y: exp.phase },
+          { id: "obs", label: "Observed", kind: "primary", y: obs.phase },
         ],
         height: 100,
         valueFormat: (v) => formatDeg(v),
@@ -126,7 +150,8 @@ function ObservationView({ c, o }: { c: PublicCase; o: Observation }) {
 
   const tones = c.intended_revision.source.tones;
   const markers = tones.map((t) => ({ x: t.frequency_hz, label: formatHz(t.frequency_hz) }));
-  const sweep = sweepPanels(o);
+  const floors = floorsOf(c);
+  const sweep = sweepPanels(o, floors);
   const tr = o.transient;
   const isCurrent = tr?.waveform.unit === "mA";
 
@@ -145,7 +170,7 @@ function ObservationView({ c, o }: { c: PublicCase; o: Observation }) {
       ) : null}
       {tr ? (
         <>
-          <ToneComparisonTable tones={tr.tones} caption={`${title}: tone levels, intended design (expected) vs mystery circuit (observed).`} />
+          <ToneComparisonTable tones={tr.tones} floors={floors} caption={`${title}: tone levels, intended design (expected) vs mystery circuit (observed).`} />
           <WaveformChart
             title={isCurrent ? "Source current over time" : "Output over time"}
             sampleRateHz={tr.waveform.sample_rate_hz}
@@ -165,26 +190,30 @@ function ObservationView({ c, o }: { c: PublicCase; o: Observation }) {
   );
 }
 
-function repairPanels(r: RepairVerification): ResponsePanel[] {
+function repairPanels(r: RepairVerification, f: Floors): ResponsePanel[] {
+  const pts = r.points ?? [];
+  const exp = floored(pts.map((p) => p.expected_gain_db), pts.map((p) => p.expected_phase_deg), true, f);
+  const rep = floored(pts.map((p) => p.repaired_gain_db), pts.map((p) => p.repaired_phase_deg), true, f);
   return [
     {
       id: "gain",
       title: "Output gain (dB)",
       series: [
-        { id: "exp", label: "Expected", kind: "reference", y: (r.points ?? []).map((p) => p.expected_gain_db) },
-        { id: "rep", label: "Repaired", kind: "primary", y: (r.points ?? []).map((p) => p.repaired_gain_db) },
+        { id: "exp", label: "Expected", kind: "reference", y: exp.magnitude },
+        { id: "rep", label: "Repaired", kind: "primary", y: rep.magnitude },
       ],
       height: 170,
-      valueFormat: (v) => formatDb(v, 2),
+      valueFormat: magnitudeFormat(true, f),
       tickFormat: (v) => num(v, 0),
-      domain: gainDomain((r.points ?? []).flatMap((p) => [p.expected_gain_db, p.repaired_gain_db])),
+      domain: gainDomain([...exp.magnitude, ...rep.magnitude]),
+      floor: exp.any || rep.any ? { y: f.db, label: "measurement floor" } : null,
     },
     {
       id: "phase",
       title: "Output phase (°)",
       series: [
-        { id: "exp", label: "Expected", kind: "reference", y: (r.points ?? []).map((p) => p.expected_phase_deg) },
-        { id: "rep", label: "Repaired", kind: "primary", y: (r.points ?? []).map((p) => p.repaired_phase_deg) },
+        { id: "exp", label: "Expected", kind: "reference", y: exp.phase },
+        { id: "rep", label: "Repaired", kind: "primary", y: rep.phase },
       ],
       height: 100,
       valueFormat: (v) => formatDeg(v),
@@ -213,20 +242,26 @@ function RepairView({ c, r }: { c: PublicCase; r: RepairVerification }) {
       <ResponseChart
         title="Repair verification"
         frequency={(r.points ?? []).map((p) => p.frequency_hz)}
-        panels={repairPanels(r)}
+        panels={repairPanels(r, floorsOf(c))}
         markers={markers}
         summary={r.summary}
         state="ready"
         tableCaption={`Repaired vs intended design on the declared grid (tolerance ±${r.criteria.gain_tolerance_db} dB, ±${r.criteria.phase_tolerance_deg}°).`}
       />
-      {r.tones?.length ? <ToneComparisonTable tones={r.tones} caption="Tone levels: intended design vs repaired circuit." observedLabel="Repaired" /> : null}
+      {r.tones?.length ? <ToneComparisonTable tones={r.tones} floors={floorsOf(c)} caption="Tone levels: intended design vs repaired circuit." observedLabel="Repaired" /> : null}
     </div>
   );
 }
 
 export function CaseInstruments() {
   const cs = useCase();
+  const playback = usePlayback();
   const c = cs.current;
+  // Without a case there is nothing to listen to here; do not leave Explore's clips loaded.
+  useEffect(() => {
+    if (!c) playback.setActive(null, "");
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only when a case opens or goes
+  }, [c?.id]);
   if (!c) {
     return (
       <section className="instruments" aria-labelledby="instruments-heading">

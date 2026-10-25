@@ -8,6 +8,7 @@ import { Badge, Button, Callout, ErrorCallout } from "../../components/ui/primit
 import { formatDb, formatDeg, formatHz } from "../../lib/format";
 import { FOCUS, focusWhenReady } from "../../lib/focus";
 import { useCase } from "./caseStore";
+import { dbBelow, floorsOf, NO_OUTPUT } from "./floors";
 
 export function RepairSection({ c }: { c: PublicCase }) {
   const cs = useCase();
@@ -23,6 +24,9 @@ export function RepairSection({ c }: { c: PublicCase }) {
 
   if (!repair && !proposal && !canPropose) return null;
 
+  // Points where either side has no measurable output: no difference is computed against them.
+  const floors = floorsOf(c);
+  const flooredPoints = (repair?.points ?? []).filter((p) => dbBelow(p.repaired_gain_db, floors) || dbBelow(p.expected_gain_db, floors));
   const nominal = (cid: string) => c.intended_revision.components.find((x) => x.id === cid)?.display_value ?? "";
 
   const submit = async (event: FormEvent) => {
@@ -55,12 +59,26 @@ export function RepairSection({ c }: { c: PublicCase }) {
           {repair.status === "succeeded" ? (
             <>
               <dl className="kv num">
-                <dt>Largest gain difference</dt>
-                <dd>{repair.max_gain_deviation_db != null ? formatDb(repair.max_gain_deviation_db, 2) : "—"}</dd>
-                <dt>Largest phase difference</dt>
-                <dd>{repair.max_phase_deviation_deg != null ? formatDeg(repair.max_phase_deviation_deg) : "—"}</dd>
-                <dt>Worst frequency</dt>
-                <dd>{repair.worst_frequency_hz != null ? formatHz(repair.worst_frequency_hz) : "—"}</dd>
+                {flooredPoints.length ? (
+                  <>
+                    <dt>Repaired output</dt>
+                    <dd>
+                      {NO_OUTPUT} at {flooredPoints.length} of {(repair.points ?? []).length} frequencies
+                      {flooredPoints.length === (repair.points ?? []).length ? "" : ` (from ${formatHz(flooredPoints[0]!.frequency_hz)})`}
+                    </dd>
+                    <dt>Largest difference</dt>
+                    <dd>Not computed: there is no measurable output to compare.</dd>
+                  </>
+                ) : (
+                  <>
+                    <dt>Largest gain difference</dt>
+                    <dd>{repair.max_gain_deviation_db != null ? formatDb(repair.max_gain_deviation_db, 2) : "—"}</dd>
+                    <dt>Largest phase difference</dt>
+                    <dd>{repair.max_phase_deviation_deg != null ? formatDeg(repair.max_phase_deviation_deg) : "—"}</dd>
+                    <dt>Worst frequency</dt>
+                    <dd>{repair.worst_frequency_hz != null ? formatHz(repair.worst_frequency_hz) : "—"}</dd>
+                  </>
+                )}
                 <dt>Tolerance</dt>
                 <dd>
                   ±{repair.criteria.gain_tolerance_db} dB, ±{repair.criteria.phase_tolerance_deg}° on {repair.criteria.frequency_hz.length} frequencies

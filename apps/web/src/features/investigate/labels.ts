@@ -61,6 +61,7 @@ export function observationLabel(o: Observation): string {
 
 export function hypothesisLabel(c: PublicCase, id: HypothesisId | null | undefined): string {
   if (!id) return "";
+  // Labels come from the server catalogue (e.g. "C1 is disconnected (open)").
   return c.hypotheses.find((h: Hypothesis) => h.id === id)?.label ?? id;
 }
 
