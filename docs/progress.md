@@ -2,6 +2,57 @@
 
 Concise, factual notes for resuming work. Newest first. Distinguish implemented / tested / proposed.
 
+## 2026-10-25 — Milestone 2 committed and pushed; CI green; submission prep
+
+- Public repository: https://github.com/Arham-Begani/resonance (MIT). All work is committed in
+  small, focused commits and pushed to `main`.
+- Milestone 2 implemented:
+  - RC high-pass family (C1 In→Out, R1 Out→Ground; 50 Hz hum + 440 Hz).
+  - Open-capacitor fault; 6 conditions at prior 1/6 each; generator `rc-m2-v1`.
+  - Measurement floors (−120 dB, 1 nA), never used as evidence.
+  - Learn mode, graded on measured change at a 1 dB threshold with 0.01 dB rounding.
+  - Analytical E12 suggestions, labeled as predictions.
+  - Family switching, and an opening experiment measured on the first visit.
+  - Guide-me predictions.
+  - Evaluation harness with a frozen `heldout_v1` set (24 cases). Baseline result: 24/24
+    correct, 20/20 restored, mean 4.29 s per case.
+- Independent milestone-2 backend verification: no blocker or major findings. Its minors
+  were fixed: M2-01 (Learn rounding at the threshold), M2-02 (floor values shown as
+  measurements) and M2-03 (solver noise published as current).
+- CI (`.github/workflows/ci.yml`): backend, frontend and container jobs. Green at
+  `d5dc196`:
+  - backend: ruff, mypy, 719 passed / 5 skipped;
+  - frontend: 69 unit tests and the build;
+  - container: Docker build and smoke test, with ngspice 44.2 in the image.
+- Two CI-only failures were fixed along the way:
+  - ruff findings in a verification test file;
+  - a cancellation race. Fast Linux ngspice finished before a fixed 0.4 s cancel. The
+    runner now lets a cancellation that arrives as the job finishes win, and the test
+    cancels deterministically from inside the supervisor.
+- `render.yaml` blueprint is added. No Render service has been created yet: that needs the
+  owner's account and `NEBIUS_API_KEY`.
+- e2e specs are updated for the automatic opening experiment:
+  - `openWorkbench` waits for Experiment 1;
+  - redundant first runs are removed;
+  - click-run steps are renumbered.
+  They are NOT verified yet. The full Playwright run was stopped twice:
+  1. `PLAYWRIGHT_BROWSERS_PATH` pointed to a missing directory. Fix: unset it, since the
+     browsers are in the default `%LOCALAPPDATA%\ms-playwright`.
+  2. The host ran critically low on memory, and every failure in that run was a browser
+     crash.
+  Re-run when memory allows, with `cd apps/web && npx playwright test`.
+
+NEXT:
+1. Re-run the full Playwright suite; commit the e2e spec updates once green.
+2. Owner: add `NEBIUS_API_KEY` (and keep `NEBIUS_MODEL=nvidia/nemotron-3-super-120b-a12b`) to
+   `.env`, then:
+   - run `RESONANCE_LIVE_AI=1 uv run pytest tests/agent/test_agent_live.py -s -m live_ai`;
+   - run `evals/run_nemotron.py --set dev_v1 --limit 2`, then the held-out set;
+   - record the results in docs/ai-integration.md and README.
+3. Owner: create the Render Blueprint and set the key; test from a fresh browser.
+4. Owner: record the demo video (< 3 min) and submit on Devpost (deadline 30 Oct 2026,
+   10:00 PDT).
+
 ## 2026-10-16 — Milestone 1 builders finished; verification pass NOT yet run
 
 Accepted (lead reran each suite with RESONANCE_REQUIRE_NGSPICE=1):
