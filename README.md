@@ -7,24 +7,44 @@ simulation (ngspice), hear the input and output at the same listening level, and
 hidden faults with measurements — alongside an NVIDIA Nemotron lab partner served by Nebius
 Token Factory. No electronics kit or GPU is needed.
 
-> Status: milestone 1 (low-pass workflow). See [Status and limitations](#status-and-limitations)
-> for exactly what is implemented, tested, and still pending.
+> Status: milestone 2 (low-pass and high-pass, Explore / Learn / Investigate). Live Nemotron
+> inference is still unverified because no API key has been configured yet. See
+> [Status and limitations](#status-and-limitations) for what is implemented, tested, and pending.
 
-## What you can do (milestone 1)
+Repository: https://github.com/Arham-Begani/resonance
 
-- **Explore** an RC low-pass filter: edit R1/C1 with explicit SI units, run an ngspice AC sweep
-  and a two-tone transient (440 Hz musical tone + 4 kHz whistle), see gain/phase, source
-  current, waveform and spectrum, play Input vs Output at one shared gain, check a measured
-  goal ("keep 440 Hz within 1 dB, cut 4 kHz by ≥ 12 dB"), compare revisions, undo.
-- **Investigate** a hidden single-fault mystery (R1 or C1 at 2× or 0.5×, or no fault): hear and
-  see the standardized symptom, choose up to three bounded experiments (output-voltage sweep,
-  source-current sweep, two-tone capture of output voltage or source current), track which
-  explanations are supported / ruled out / still possible, submit an evidence-linked diagnosis
-  (or say the evidence is insufficient), verify a nominal-part repair, then close to reveal the
-  fault, seed, and outcome (identification and functional recovery reported separately).
-- **AI lab partner** (Nemotron via Nebius): "Investigate for me", hints in Guide-me mode, and
-  natural-language explore requests that produce previewed, user-applied proposals. Without
-  credentials every manual path keeps working and the UI says the AI is unavailable.
+## What you can do
+
+One workbench with three modes that share the schematic, component list, instruments and
+experiment history:
+
+- **Explore** an RC low-pass or RC high-pass filter. A first visit opens on a measured
+  experiment (simulation only; nothing plays until you press Play). Edit R1/C1 with explicit
+  SI units, run an ngspice AC sweep and a two-tone transient (low-pass: 440 Hz tone + 4 kHz
+  whistle; high-pass: 50 Hz hum + 440 Hz tone), and see gain/phase, source current, waveform
+  and spectrum. Play Input vs Output at one shared gain, and check a measured goal (e.g. "keep
+  440 Hz within 1 dB, cut 4 kHz by ≥ 12 dB"). "Suggest values" gives an analytical E12
+  preview, labeled as a prediction until you apply and measure it. Compare revisions and undo.
+- **Learn**: predict whether a component change raises, lowers or leaves a tone's level, run
+  the experiment, and get graded against the *measured* change (1 dB threshold), with optional
+  hints.
+- **Investigate** a hidden single-fault mystery in either family. Conditions: R1 or C1 at 2× or
+  0.5×, capacitor disconnected, or no fault.
+  1. Hear and see the standardized symptom.
+  2. Choose up to three bounded experiments: output-voltage sweep, source-current sweep, or a
+     two-tone capture of output voltage or source current.
+  3. Track which explanations are supported, ruled out, or still possible.
+  4. Submit an evidence-linked diagnosis, or say the evidence is insufficient.
+  5. Verify a nominal-part repair.
+  6. Close to reveal the fault, the seed, and the outcome. Identification and functional
+     recovery are reported separately.
+
+  Readings below the measurement floor (−120 dB, 1 nA) are shown as "below floor", never as
+  numbers.
+- **AI lab partner** (Nemotron via Nebius) offers "Investigate for me", hints and predictions
+  in Guide-me mode, and natural-language Explore requests that produce previewed proposals you
+  apply yourself. Without credentials every manual path keeps working, and the UI says the AI
+  is unavailable.
 
 ## Requirements
 
@@ -109,12 +129,13 @@ Details: [docs/architecture.md](docs/architecture.md), rules and boundary:
 
 ## Supported circuits and faults
 
-| | Milestone 1 |
+| | Supported |
 |---|---|
-| Circuit | RC low-pass: ideal source V1 (Input→Ground), R1 Input→Output, C1 Output→Ground |
+| RC low-pass | ideal source V1 (Input→Ground), R1 Input→Output, C1 Output→Ground; default 1 kΩ / 100 nF; tones 440 Hz + 4 kHz |
+| RC high-pass | V1 (Input→Ground), C1 Input→Output, R1 Output→Ground; default 10 kΩ / 100 nF; tones 50 Hz hum + 440 Hz |
 | Values | R1 100 Ω–100 kΩ, C1 1 nF–10 µF, cutoff 20 Hz–20 kHz |
-| Faults | R1 ×2, R1 ×0.5, C1 ×2, C1 ×0.5, or no fault (20 % each, drawn independently of the design) |
-| Not yet | RC high-pass, capacitor disconnected, Learn mode, voice |
+| Faults | R1 ×2, R1 ×0.5, C1 ×2, C1 ×0.5, C1 disconnected, or no fault (1/6 each, drawn independently of the design); family 50/50 unless chosen |
+| Not supported | other topologies, simultaneous faults, netlist import, voice |
 
 ## Modeling assumptions and limitations
 
@@ -126,24 +147,54 @@ Details: [docs/architecture.md](docs/architecture.md), rules and boundary:
   15 ms fades; nothing is normalized.
 - Output voltage of a first-order RC depends only on R·C, so R-vs-C faults are
   indistinguishable from voltage alone; source current separates them. With the symptom, one
-  current measurement identifies every milestone-1 case.
+  current measurement identifies every supported case.
+- Measurement floors: gains below −120 dB and currents below 1 nA are reported as below the
+  floor and never used as evidence (an open capacitor makes some readings exactly zero).
+
+## Evaluation
+
+`evals/` holds a frozen held-out set (`heldout_v1`: 24 cases, 2 per family × condition, unseen
+nominal values) and two runners that use the same symptom, budget, tolerances and repair check.
+Commands are in [evals/README.md](evals/README.md).
+
+Measured baseline (`evals/results/baseline-heldout_v1-20261021T174452Z.md`, ngspice 47,
+Windows): 24/24 correct, 0 abstentions, 0 unsupported certainty, 20/20 faulty cases restored by
+the verified repair, 2 experiments per case, mean 4.29 s per case. These cases need only the
+symptom plus one current measurement, so a perfect score shows the pipeline works; it is not
+evidence of diagnostic skill. **No Nemotron evaluation has been run yet** (no API key).
+
+## Deploy (Render)
+
+`render.yaml` defines one Docker web service (the image builds the web app and installs
+Debian's ngspice). In the Render dashboard choose **New → Blueprint**, select this repository,
+and enter `NEBIUS_API_KEY` when prompted. `NEBIUS_MODEL` is pinned to
+`nvidia/nemotron-3-super-120b-a12b`. Keep a single instance: case locks, cancellation and agent
+streams are in-process. Health check: `/api/health`. The container is built and smoke-tested in
+CI (`.github/workflows/ci.yml`); a Render deployment has not been performed yet.
 
 ## Status and limitations
 
 See [docs/progress.md](docs/progress.md) for the current, dated status.
 
-Verified on the development host (Windows 10, Python 3.12, Node 20.15, ngspice 47):
+Continuous integration (GitHub Actions, Ubuntu, Debian ngspice 44.2) runs on every push. At
+commit `d5dc196` it was green on all three jobs: backend ruff + mypy + 719 tests passed
+(5 skipped: live-AI tests), frontend typecheck + lint + 69 unit tests + build, and Docker build +
+container smoke test (health, a real experiment, case creation without a reveal).
 
-- Backend: 544 tests pass with real ngspice (`RESONANCE_REQUIRE_NGSPICE=1`), including
+Also verified on the development host (Windows 10, Python 3.12, Node 20.15, ngspice 47):
+
+- Backend tests with real ngspice (`RESONANCE_REQUIRE_NGSPICE=1`), including
   physics within 1 % / 1° of independent formulas, audio tone levels within 0.5 dB of AC with
   no per-clip normalization, R-vs-C identifiability and ambiguity handling, hidden-state
   isolation across all fault types, budget and reveal-ordering races, and agent-loop honesty
   with scripted provider responses.
-- Frontend: typecheck, lint, 43 unit tests and the production build pass; 42/42 contrast pairs.
-- Fresh setup from a clean copy of the repository with the commands above.
-- Browser end-to-end suite (Playwright, real API and ngspice): 32/32 passed in 14.8 min, covering
-  the complete edit → simulate → compare → mystery → diagnose → repair → reveal flow, keyboard-only
-  journeys, axe WCAG 2 A/AA scans and honest error states.
+- Fresh setup from a clean copy of the repository with the commands above (milestone 1).
+- Browser end-to-end suite (Playwright, real API and ngspice): 32/32 passed in 14.8 min at
+  milestone 1. It covers the complete edit → simulate → compare → mystery → diagnose → repair
+  → reveal flow, keyboard-only journeys, axe WCAG 2 A/AA scans and honest error states. The
+  specs have since been updated for the automatic opening experiment, but **the full suite has
+  not yet been re-run against the milestone-2 UI**. The last attempt was stopped by low memory
+  on the development host, and every failure in it was a browser crash.
 - Independent verification found and fixed 2 isolation/lifecycle majors, an accessibility
   focus major and an accidental-reveal UI major among others (see docs/verification/).
 
@@ -151,11 +202,11 @@ Not yet verified:
 
 - **Live Nemotron inference**: no `NEBIUS_API_KEY` has been configured, so the agent has only
   run against scripted test responses (see docs/ai-integration.md).
-- The Docker image (Docker is unavailable on the development host).
+- A real Render deployment (the image is only verified in CI).
 - No real screen-reader session and no user testing; accessibility is unvalidated by
   assistive-technology users.
-- Milestone-1 cases are solvable with one source-current measurement after the symptom, so
-  perfect identification is not by itself evidence of agent skill.
+- Cases are solvable with one source-current measurement after the symptom, so perfect
+  identification is not by itself evidence of agent skill.
 
 ## License
 
