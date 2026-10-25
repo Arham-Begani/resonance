@@ -12,10 +12,11 @@ const MODES: { id: Mode; label: string; icon: IconName }[] = [
 export function ModeRail({ mode, onChange, caseOpen }: { mode: Mode; onChange: (mode: Mode) => void; caseOpen: boolean }) {
   return (
     <nav className="rail" aria-label="Workbench mode">
-      <p className="rail__brand" aria-hidden="true">
-        <span className="rail__mark" />
+      {/* The landing page lives at "/"; the workbench itself may be served under any path. */}
+      <a className="rail__brand" href="/" aria-label="Resonance home">
+        <span className="rail__mark" aria-hidden="true" />
         <span className="rail__name">Resonance</span>
-      </p>
+      </a>
       <ul className="rail__list">
         {MODES.map((m) => (
           <li key={m.id}>

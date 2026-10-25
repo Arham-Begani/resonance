@@ -1,4 +1,6 @@
-/* ---------- Shell ---------- */
+/* ---------- Shell ----------
+   Canvas (bg) holds the circuit and instruments as elevated surface panels; the lab-notes
+   column is flat sections on the canvas, separated by dividers; the strip is a surface bar. */
 .app {
   position: relative; /* containing block for visually-hidden text, so it never extends the page */
   display: grid;
@@ -6,6 +8,7 @@
   height: 100vh;
   height: 100dvh;
   overflow: hidden;
+  background: var(--color-bg);
 }
 
 .app__main {
@@ -51,27 +54,38 @@
   align-items: stretch;
   gap: var(--space-4);
   padding: var(--space-3) var(--space-2);
-  border-right: 1px solid var(--color-border);
+  border-right: 1px solid var(--color-divider);
   background: var(--color-bg);
 }
 
+/* The brand mark links to the landing page ("/"); the workbench itself may live at any path. */
 .rail__brand {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: var(--space-1);
-  padding-bottom: var(--space-2);
+  min-height: 48px;
+  padding: var(--space-1) 0 var(--space-2);
+  border-radius: var(--radius-md);
   color: var(--color-text-secondary);
   font-size: var(--text-xs);
   font-weight: var(--weight-strong);
+  text-decoration: none;
+  transition: color var(--motion-fast) var(--ease-out);
+}
+
+.rail__brand:hover {
+  color: var(--color-text);
 }
 
 .rail__mark {
-  width: 20px;
-  height: 20px;
+  width: 22px;
+  height: 22px;
   border: 2px solid var(--color-accent);
   border-radius: 50%;
-  box-shadow: inset 0 0 0 4px var(--color-bg), inset 0 0 0 6px var(--color-accent);
+  box-shadow:
+    inset 0 0 0 4px var(--color-bg),
+    inset 0 0 0 6px var(--color-accent);
 }
 
 .rail__list {
@@ -90,7 +104,7 @@
   width: 100%;
   min-height: 56px;
   padding: var(--space-2) var(--space-1);
-  border: 1px solid transparent;
+  border: 0;
   border-radius: var(--radius-md);
   background: transparent;
   color: var(--color-text-secondary);
@@ -103,14 +117,26 @@
 }
 
 .rail__item:hover {
-  background: var(--color-hover);
+  background: var(--color-raised);
   color: var(--color-text);
 }
 
 .rail__item.is-active {
-  border-color: var(--color-border-soft);
   background: var(--color-raised);
   color: var(--color-text);
+}
+
+/* Active marker: a short cyan bar on the rail edge plus the cyan icon (never colour alone:
+   the item is also aria-current and set on a raised fill). */
+.rail__item.is-active::before {
+  content: "";
+  position: absolute;
+  top: 14px;
+  bottom: 14px;
+  left: calc(-1 * var(--space-2));
+  width: 3px;
+  border-radius: 0 2px 2px 0;
+  background: var(--color-accent);
 }
 
 .rail__item.is-active svg {
@@ -134,15 +160,15 @@
   align-items: center;
   gap: var(--space-4);
   min-height: var(--header-height);
-  padding: var(--space-2) var(--space-6);
-  border-bottom: 1px solid var(--color-border);
+  padding: var(--space-2) var(--space-8);
+  border-bottom: 1px solid var(--color-divider);
   background: var(--color-bg);
 }
 
 .header__title {
   display: flex;
-  align-items: baseline;
-  gap: var(--space-2);
+  align-items: center;
+  gap: var(--space-3);
   min-width: 0;
 }
 
@@ -153,28 +179,34 @@
 }
 
 .header__rev {
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-sm);
+  background: var(--color-raised);
   color: var(--color-text-secondary);
   font-size: var(--text-xs);
+  font-weight: var(--weight-strong);
   white-space: nowrap;
 }
 
 .header__goal {
-  display: inline-flex;
+  display: none; /* desktop: the goal leads the instruments and the Goal section */
   align-items: center;
   gap: var(--space-2);
   min-width: 0;
-  max-width: 440px;
   min-height: 28px;
   padding: 0 var(--space-3);
-  border: 1px solid var(--color-border-soft);
   border-radius: var(--radius-md);
+  background: var(--color-surface);
   color: var(--color-text-secondary);
   font-size: var(--text-xs);
 }
 
 .header__goal svg {
   flex: none;
-  color: var(--color-accent);
+  color: var(--color-text-tertiary);
 }
 
 .header__goal-text {
@@ -191,6 +223,18 @@
   margin-left: auto;
 }
 
+/* A status dot beside a word: green = ready, amber = degraded, red = unavailable. */
+.status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.status-dot--ok {
+  color: var(--color-success);
+}
+
 /* ---------- Workspace ---------- */
 .workspace {
   display: grid;
@@ -205,7 +249,7 @@
   gap: var(--space-6);
   min-width: 0;
   min-height: 0;
-  padding: var(--space-4) var(--space-6) var(--space-6);
+  padding: var(--space-3) var(--space-8) var(--space-8);
   overflow: auto;
   outline: none;
 }
@@ -221,19 +265,33 @@
   position: relative;
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
+  gap: 0;
   min-height: 0;
-  padding: var(--space-4);
-  border-left: 1px solid var(--color-border);
+  padding: 0 var(--space-6) var(--space-8);
+  border-left: 1px solid var(--color-divider);
   background: var(--color-bg);
   overflow: auto;
+}
+
+.workspace__panel > .callout,
+.workspace__panel > .ai-setup {
+  margin-top: var(--space-4);
+}
+
+/* Region heading row shared by Circuit and Instruments: title, quiet meta, actions at the end. */
+.section-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-4);
+  min-height: var(--control-height);
 }
 
 /* ---------- Circuit ---------- */
 .circuit {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
+  gap: var(--space-3);
 }
 
 .circuit__header {
@@ -250,19 +308,53 @@
   font-size: var(--text-xs);
 }
 
+.circuit__prediction .num {
+  color: var(--color-text);
+  font-weight: var(--weight-strong);
+}
+
 .circuit__basis {
   color: var(--color-text-tertiary);
 }
 
+/* One elevated panel: drawing + probes on the left, the semantic component list on the right. */
 .circuit__card {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(300px, 1fr);
-  gap: var(--space-4);
-  align-items: start;
-  padding: var(--space-3) var(--space-4);
-  border: 1px solid var(--color-border);
+  gap: var(--space-6);
+  align-items: center;
+  padding: var(--space-3) var(--space-6) var(--space-3) var(--space-4);
+  border: 1px solid var(--color-border-faint);
   border-radius: var(--radius-lg);
   background: var(--color-surface);
+}
+
+.circuit__drawing {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+/* Investigate: the frozen-design notice is one quiet line, not a banner. */
+.circuit__frozen {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  color: var(--color-text-secondary);
+  font-size: var(--text-xs);
+  line-height: var(--leading-snug);
+}
+
+.circuit__frozen svg {
+  flex: none;
+  margin-top: 1px;
+  color: var(--color-text-tertiary);
+}
+
+.circuit__frozen strong {
+  color: var(--color-text);
+  font-weight: var(--weight-strong);
 }
 
 .circuit__skeleton {
@@ -286,32 +378,37 @@
   font-size: var(--text-xs);
 }
 
-@media (max-width: 1180px) {
+@media (max-width: 1240px) {
   .circuit__card {
     grid-template-columns: minmax(0, 1fr);
   }
 }
 
-/* ---------- Bottom strip ---------- */
+/* ---------- Bottom strip: playback | AI command ---------- */
 .strip {
   display: grid;
-  grid-template-columns: minmax(0, 1.4fr) minmax(280px, 1fr);
+  grid-template-columns: minmax(0, 1.3fr) minmax(320px, 1fr);
   align-items: center;
-  gap: var(--space-2) var(--space-6);
-  padding: var(--space-2) var(--space-6);
-  border-top: 1px solid var(--color-border);
+  gap: var(--space-2) 0;
+  min-height: 56px;
+  padding: var(--space-2) var(--space-8);
+  border-top: 1px solid var(--color-divider);
   background: var(--color-surface);
 }
 
 .command {
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
+  gap: 2px;
   min-width: 0;
+  padding-left: var(--space-6);
+  margin-left: var(--space-6);
+  border-left: 1px solid var(--color-divider);
 }
 
 .command__label {
   display: inline-flex;
+  flex: none;
   align-items: center;
   gap: var(--space-1);
   color: var(--color-text-secondary);
@@ -320,17 +417,13 @@
 }
 
 .command__label svg {
-  color: var(--color-accent);
+  color: var(--color-text-tertiary);
 }
 
 .command__row {
   display: flex;
   align-items: center;
   gap: var(--space-2);
-}
-
-.command__label {
-  flex: none;
 }
 
 .command__input {
@@ -351,7 +444,7 @@
   display: flex;
   gap: var(--space-1);
   padding: 0 var(--space-4);
-  border-bottom: 1px solid var(--color-border);
+  border-bottom: 1px solid var(--color-divider);
   background: var(--color-bg);
 }
 
@@ -366,6 +459,7 @@
   font-size: var(--text-sm);
   font-weight: var(--weight-strong);
   cursor: pointer;
+  transition: color var(--motion-fast) var(--ease-out);
 }
 
 .tabs__tab:hover {
@@ -393,13 +487,16 @@
   gap: var(--space-2);
   padding: var(--space-1) var(--space-3);
   border-right: 0;
-  border-bottom: 1px solid var(--color-border);
+  border-bottom: 1px solid var(--color-divider);
 }
 
 .app--narrow .rail__brand {
   flex-direction: row;
+  justify-content: center;
   gap: var(--space-2);
-  padding-bottom: 0;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0;
 }
 
 .app--narrow .rail__name {
@@ -423,6 +520,16 @@
   padding: 0 var(--space-3);
 }
 
+.app--narrow .rail__item.is-active::before {
+  top: auto;
+  bottom: calc(-1 * var(--space-1) - 1px);
+  left: var(--space-3);
+  right: var(--space-3);
+  width: auto;
+  height: 2px;
+  border-radius: 2px 2px 0 0;
+}
+
 .app--narrow .rail__dot {
   top: 6px;
   right: 6px;
@@ -430,11 +537,12 @@
 
 .app--narrow .header {
   flex-wrap: wrap;
-  gap: var(--space-1) var(--space-2);
+  gap: var(--space-2);
   padding: var(--space-2) var(--space-4);
 }
 
 .app--narrow .header__goal {
+  display: inline-flex;
   order: 3;
   max-width: 100%;
   flex-basis: 100%;
@@ -458,15 +566,28 @@
 }
 
 .app--narrow .workspace__panel {
-  padding: var(--space-4);
+  padding: 0 var(--space-4) var(--space-6);
   border-left: 0;
   overflow: visible;
+}
+
+.app--narrow .circuit__card {
+  padding: var(--space-3) var(--space-4);
+  gap: var(--space-4);
 }
 
 .app--narrow .strip {
   grid-template-columns: minmax(0, 1fr);
   gap: var(--space-2);
   padding: var(--space-2) var(--space-4);
+}
+
+.app--narrow .command {
+  margin-left: 0;
+  padding-top: var(--space-2);
+  padding-left: 0;
+  border-top: 1px solid var(--color-divider);
+  border-left: 0;
 }
 
 .app--narrow .command__label {
@@ -491,7 +612,23 @@
 }
 
 .circuit__empty {
-  border: 1px solid var(--color-border);
+  border: 1px solid var(--color-border-faint);
   border-radius: var(--radius-lg);
   background: var(--color-surface);
+}
+
+.header__model {
+  color: var(--color-text-tertiary);
+  font-weight: var(--weight-regular);
+}
+
+.app--narrow .header__model {
+  display: none;
+}
+
+.circuit__parts {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
 }

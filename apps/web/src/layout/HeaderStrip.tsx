@@ -8,10 +8,12 @@ export function AiBadge({ ai, error }: { ai: AiStatus | null | undefined; error?
   if (!ai) return <Badge icon={null}>Checking AI…</Badge>;
   if (ai.state === "dev_fixture") return <Badge tone="warning">Dev fixture · not AI</Badge>;
   if (ai.available) {
+    // Neutral, with a green status dot: "ready" is a status, not the accent.
     return (
-      <Badge tone="accent" icon="ai">
-        AI ready{ai.model ? ` · ${ai.model}` : ""}
-      </Badge>
+      <span className="badge header__ai" title={ai.model ?? undefined}>
+        <span className="status-dot status-dot--ok" aria-hidden="true" />
+        AI ready{ai.model ? <span className="header__model"> · {ai.model}</span> : null}
+      </span>
     );
   }
   return <Badge tone="warning">AI unavailable</Badge>;
