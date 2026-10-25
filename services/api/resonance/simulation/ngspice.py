@@ -276,9 +276,14 @@ class NgspiceRunner:
         while True:
             try:
                 proc.wait(timeout=_POLL_S)
-                break
             except subprocess.TimeoutExpired:
                 pass
+            else:
+                # A cancellation that arrived while the job was finishing still wins: a
+                # cancelled request never produces a result.
+                if _any_cancelled(cancel):
+                    raise SimulationCancelled(MSG_CANCELLED)
+                break
             if _any_cancelled(cancel):
                 _kill(proc)
                 raise SimulationCancelled(MSG_CANCELLED)

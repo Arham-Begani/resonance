@@ -1646,6 +1646,7 @@ async def test_hidden_runs_leave_no_job_files_even_when_cancelled(
 
     from resonance.contracts.investigation import CaseExperimentRequest
     from resonance.simulation import create_simulator
+    from resonance.simulation.ngspice import NETLIST_NAME
 
     simulator = create_simulator(settings)
     simulator.info()
@@ -1661,12 +1662,18 @@ async def test_hidden_runs_leave_no_job_files_even_when_cancelled(
             requested_by="user",
         )
         token = CancelToken()
+        # Cancel deterministically while ngspice runs (a fixed delay races fast hosts): the job
+        # directory with the hidden netlist exists at this point and must still be removed.
+        runner = simulator.runner  # type: ignore[attr-defined]
+        supervise = runner._supervise
+        seen_jobs: list[bool] = []
 
-        async def cancel_soon() -> None:
-            await asyncio.sleep(0.4)
+        def supervise_then_cancel(proc: Any, job: Path, cancel: Any) -> None:
+            seen_jobs.append((job / NETLIST_NAME).is_file())
             token.cancel()
+            supervise(proc, job, cancel)
 
-        canceller = asyncio.create_task(cancel_soon())
+        runner._supervise = supervise_then_cancel
         from resonance.api.errors import ApiException
 
         with pytest.raises(ApiException) as info:
@@ -1681,7 +1688,8 @@ async def test_hidden_runs_leave_no_job_files_even_when_cancelled(
                 requested_by="user",
                 cancel=token,
             )
-        await canceller
+        runner._supervise = supervise
+        assert seen_jobs and all(seen_jobs), "the cancelled run reached ngspice with its netlist"
         assert info.value.error.code.value == "cancelled"
         public = rig.service.get_case(session, case.id)
         assert public.budget.used == 1 and public.observations[-1].status == "cancelled"
