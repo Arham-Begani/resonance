@@ -1,9 +1,11 @@
+/* A live AI run is lifted onto a surface card (it needs attention while it works). */
 .agent-log {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
-  padding: var(--space-3);
-  border: 1px solid var(--color-border-soft);
+  margin: var(--space-4) calc(-1 * var(--space-3));
+  padding: var(--space-4);
+  border: 1px solid var(--color-border-faint);
   border-radius: var(--radius-lg);
   background: var(--color-surface);
 }
@@ -95,24 +97,35 @@
   margin-top: var(--space-1);
 }
 
+/* Evidence references: neutral, tabular chips. A clickable one (opens the measurement) shows a
+   visible edge and an underline on hover. */
 .citation {
   display: inline-flex;
   align-items: center;
   min-height: 24px;
   padding: 0 var(--space-2);
-  border: 1px solid var(--color-accent-border);
+  border: 1px solid transparent;
   border-radius: var(--radius-sm);
-  background: var(--color-accent-subtle);
-  color: var(--color-accent);
+  background: var(--color-raised);
+  color: var(--color-text-secondary);
+  font-family: inherit;
   font-variant-numeric: tabular-nums;
   font-size: var(--text-xs);
+  font-weight: var(--weight-strong);
   white-space: nowrap;
 }
 
 button.citation {
+  border-color: var(--color-control-border);
+  color: var(--color-text);
   cursor: pointer;
+  transition:
+    background-color var(--motion-fast) var(--ease-out),
+    border-color var(--motion-fast) var(--ease-out);
 }
 
 button.citation:hover {
-  background: rgba(101, 197, 212, 0.2);
+  border-color: var(--color-border-strong);
+  background: var(--color-hover);
+  text-decoration: underline;
 }

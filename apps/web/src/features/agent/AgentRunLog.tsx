@@ -1,6 +1,7 @@
 // Renders a run's genuine events as concise evidence cards: tool requests paired with their
 // results, visible assistant messages with citation chips, errors, and measured usage.
 // Never shows hidden reasoning, fake progress, or invented messages.
+import { useEffect, useRef } from "react";
 import type { AgentEvent, AgentRun, EvidenceRef } from "../../api/types";
 import { Badge, Button, Callout } from "../../components/ui/primitives";
 import { Icon } from "../../components/ui/Icon";
@@ -142,9 +143,15 @@ interface AgentRunLogProps {
 
 export function AgentRunLog({ title, headingId, view, resolver, onCancel, onDismiss }: AgentRunLogProps) {
   const { run, events, connection, startError, cancelling } = view;
+  const sectionRef = useRef<HTMLElement>(null);
+  // A run started from the command strip appears in the lab notes: scroll it into view (focus is
+  // not moved; the strip keeps it, and status is announced politely elsewhere).
+  useEffect(() => {
+    if (connection === "starting" || startError) sectionRef.current?.scrollIntoView?.({ block: "nearest" });
+  }, [connection, startError]);
   if (startError) {
     return (
-      <section className="agent-log" aria-label={title}>
+      <section ref={sectionRef} className="agent-log" aria-label={title}>
         {headingId ? (
           <h3 id={headingId} tabIndex={-1} className="visually-hidden">
             {title}
@@ -169,8 +176,8 @@ export function AgentRunLog({ title, headingId, view, resolver, onCancel, onDism
   const status = run ? STATUS_LABEL[run.status] : STATUS_LABEL.running;
 
   return (
-    <section className="agent-log" aria-label={title}>
-      <header className="agent-log__header">
+    <section ref={sectionRef} className="agent-log" aria-label={title}>
+      <div className="agent-log__header">
         <Icon name="ai" />
         <h3 className="agent-log__title" id={headingId} tabIndex={headingId ? -1 : undefined}>
           {title}
@@ -188,7 +195,7 @@ export function AgentRunLog({ title, headingId, view, resolver, onCancel, onDism
             Dismiss
           </Button>
         ) : null}
-      </header>
+      </div>
       {run && run.source !== "nebius" ? (
         <Callout tone="warning" title="Development fixture">
           This run uses scripted test data, not AI inference.
