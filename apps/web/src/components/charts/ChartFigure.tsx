@@ -68,26 +68,31 @@ export function ChartFigure({
           {title}
         </h3>
         {stale ? <span className="chart__stale">Updating…</span> : null}
-        {toolbar}
-        {legend.length > 1 && state === "ready" ? (
-          <ul className="chart__legend" aria-label={`${title} legend`}>
-            {legend.map((item) => (
-              <li key={item.label}>
-                <LineKey kind={item.kind} />
-                {item.label}
-              </li>
-            ))}
-          </ul>
-        ) : null}
+        {toolbar ? <div className="chart__toolbar">{toolbar}</div> : null}
       </div>
       <div ref={ref} className={`chart__body${stale ? " is-stale" : ""}`}>
         {state === "ready" ? (
           <>
             <p className="chart__readout num" aria-hidden="true">
-              {readout ?? " "}
+              {readout ?? " "}
             </p>
             {children(width)}
-            {xAxisLabel ? <p className="chart__axis-label">{xAxisLabel}</p> : null}
+            {/* Legend and axis name share one row under the plot: line style + text, never colour alone. */}
+            <div className="chart__footer">
+              {legend.length > 1 ? (
+                <ul className="chart__legend" aria-label={`${title} legend`}>
+                  {legend.map((item) => (
+                    <li key={item.label}>
+                      <LineKey kind={item.kind} />
+                      {item.label}
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <span />
+              )}
+              {xAxisLabel ? <p className="chart__axis-label">{xAxisLabel}</p> : null}
+            </div>
           </>
         ) : state === "loading" ? (
           <div className="chart__placeholder">

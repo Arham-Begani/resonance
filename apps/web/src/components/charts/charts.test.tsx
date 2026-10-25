@@ -1,8 +1,10 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { AnnouncerProvider } from "../../state/announcer";
 import { grid } from "../../test/fixtures";
 import { ResponseChart } from "./ResponseChart";
 import { crossing, decimateByPixel, logTicks } from "./scales";
+import { WaveformChart } from "./WaveformChart";
 
 function renderChart(state: "ready" | "empty" | "loading" = "ready") {
   const f = grid(20, 20000, 10);
@@ -67,6 +69,37 @@ describe("ResponseChart", () => {
     renderChart("empty");
     expect(screen.getByText("No measurement yet.")).toBeInTheDocument();
     expect(screen.queryByRole("table")).not.toBeInTheDocument();
+  });
+});
+
+describe("WaveformChart time window", () => {
+  it("opens on a readable 5 ms window, says so, keeps every sample in the table, and can show the full window", async () => {
+    const sr = 48_000;
+    const n = 480; // 10 ms
+    const y = Array.from({ length: n }, (_, i) => Math.sin((2 * Math.PI * 440 * i) / sr));
+    const { container } = render(
+      <AnnouncerProvider>
+        <WaveformChart
+          title="Time domain"
+          sampleRateHz={sr}
+          startS={0}
+          zoomMs={5}
+          series={[
+            { id: "in", label: "Input", kind: "reference", y },
+            { id: "out", label: "Output", kind: "primary", y: y.map((v) => v * 0.9) },
+          ]}
+          summary="Steady-state window."
+          state="ready"
+        />
+      </AnnouncerProvider>,
+    );
+    expect(screen.getByRole("radio", { name: "5 ms" })).toBeChecked();
+    const axis = () => container.querySelector(".chart__axis-label");
+    expect(axis()).toHaveTextContent("Time (ms) · first 5 of 10 ms shown");
+    // The sample table always lists the whole window (every 2nd of 480 samples).
+    expect(screen.getByText(/every 2nd sample shown/)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("radio", { name: "Full" }));
+    expect(axis()?.textContent).toBe("Time (ms)");
   });
 });
 

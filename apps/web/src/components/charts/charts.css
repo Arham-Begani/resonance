@@ -4,7 +4,7 @@
   gap: var(--space-2);
   min-width: 0;
   padding: var(--space-3) var(--space-4);
-  border: 1px solid var(--color-border);
+  border: 1px solid var(--color-border-faint);
   border-radius: var(--radius-lg);
   background: var(--color-surface);
 }
@@ -14,13 +14,30 @@
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-2) var(--space-3);
-  min-height: 28px;
+  min-height: var(--control-height);
 }
 
 .chart__title {
   font-size: var(--text-sm);
   font-weight: var(--weight-strong);
   margin-right: auto;
+}
+
+.chart__toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.chart__footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-1) var(--space-4);
+  margin-top: var(--space-1);
+  padding-left: 52px; /* aligns with the plot area (PLOT_MARGIN.left) */
 }
 
 .chart__legend {
@@ -81,6 +98,7 @@
 }
 
 .chart__axis-label {
+  margin-left: auto;
   color: var(--color-text-tertiary);
   font-size: var(--text-xs);
   line-height: 16px;
@@ -93,8 +111,8 @@
   justify-content: center;
   min-height: 236px;
   padding: var(--space-4);
-  border: 1px dashed var(--color-border-soft);
   border-radius: var(--radius-md);
+  background: var(--color-bg);
   color: var(--color-text-secondary);
   text-align: center;
 }
@@ -110,9 +128,12 @@
 }
 
 .chart__summary {
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--color-divider);
   color: var(--color-text-secondary);
   font-size: var(--text-xs);
-  max-width: 72ch;
+  line-height: var(--leading-body);
+  max-width: 80ch;
 }
 
 .chart__summary strong {
@@ -124,15 +145,16 @@
   position: relative;
   max-height: 240px;
   margin-top: var(--space-2);
+  padding: 0 var(--space-2);
   overflow: auto;
-  border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
+  background: var(--color-bg);
 }
 
 .chart__table-scroll .data-table thead th {
   position: sticky;
   top: 0;
-  background: var(--color-raised);
+  background: var(--color-bg);
 }
 
 .chart__table-scroll .data-table caption {
@@ -214,8 +236,11 @@
   stroke: var(--trace-primary);
 }
 
+/* The reference sits behind the output: thinner, dashed, neutral (≥ 3:1 on every surface). */
 .trace--reference {
   stroke: var(--trace-reference);
+  stroke-width: 1.5;
+  stroke-linecap: butt;
 }
 
 .trace--muted {
@@ -287,25 +312,24 @@
   flex: none;
 }
 
-/* ---------- Tone level readouts ---------- */
+/* ---------- Tone level readouts ----------
+   The measured number is the hero; name and role above, provenance and goal verdict below. */
 
 .tone-levels {
   list-style: none;
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-  gap: var(--space-2);
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: var(--space-3);
   min-width: 0;
   transition: opacity var(--motion-base) var(--ease-out);
 }
-
 
 .tone-level {
   display: flex;
   flex-direction: column;
   gap: 2px;
   min-width: 0;
-  padding: var(--space-2) var(--space-3);
-  border: 1px solid var(--color-border-soft);
+  padding: var(--space-3) var(--space-4);
   border-radius: var(--radius-md);
   background: var(--color-raised);
 }
@@ -340,7 +364,7 @@
 }
 
 .tone-level__value {
-  font-size: var(--text-lg);
+  font-size: var(--text-xl);
   font-weight: var(--weight-strong);
   letter-spacing: var(--tracking-display);
   line-height: var(--leading-tight);
@@ -349,12 +373,12 @@
 .tone-level__value--empty {
   color: var(--color-text-tertiary);
   font-size: var(--text-md);
-  line-height: 29px;
+  line-height: 38px;
 }
 
 .tone-level__skeleton {
-  width: 96px;
-  height: 29px;
+  width: 112px;
+  height: 38px;
 }
 
 .tone-level__detail {
@@ -363,6 +387,29 @@
   font-size: var(--text-xs);
   white-space: nowrap;
   text-overflow: ellipsis;
+}
+
+.tone-level__goal {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-1);
+  margin-top: var(--space-1);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-strong);
+  line-height: var(--leading-snug);
+}
+
+.tone-level__goal svg {
+  flex: none;
+  margin-top: 1px;
+}
+
+.tone-level__goal.is-pass {
+  color: var(--color-success);
+}
+
+.tone-level__goal.is-fail {
+  color: var(--color-danger);
 }
 
 .response-panels {

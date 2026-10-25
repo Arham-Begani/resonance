@@ -1,6 +1,6 @@
 // Oscilloscope view of a short steady-state window. Reference/input traces are neutral dashed;
 // output/observed traces are cyan solid.
-import { useMemo, useState, type ReactNode } from "react";
+import { useId, useMemo, useState, type ReactNode } from "react";
 import { useAnnouncer } from "../../state/announcer";
 import { formatMs, num } from "../../lib/format";
 import { ChartFigure, type ChartState } from "./ChartFigure";
@@ -22,21 +22,41 @@ interface WaveformChartProps {
   /** Highlight this series id (the active probe's trace). */
   emphasis?: string | null;
   unit?: "V" | "mA";
+  /**
+   * Offer a zoomed view of the first `zoomMs` of the clip (default view) beside the full window.
+   * A two-tone signal over the whole window is too dense to read; the data table always lists
+   * the full window.
+   */
+  zoomMs?: number;
 }
 
 const MAX_TABLE_ROWS = 400;
 
-export function WaveformChart({ title, sampleRateHz, startS, series, summary, state, emptyText, errorText, stale, toolbar, height = 220, emphasis, unit = "V" }: WaveformChartProps) {
+/** 2 → "2nd", 3 → "3rd", 11 → "11th". */
+function ordinal(n: number): string {
+  const tens = n % 100;
+  const suffix = tens >= 11 && tens <= 13 ? "th" : n % 10 === 1 ? "st" : n % 10 === 2 ? "nd" : n % 10 === 3 ? "rd" : "th";
+  return `${n}${suffix}`;
+}
+
+export function WaveformChart({ title, sampleRateHz, startS, series, summary, state, emptyText, errorText, stale, toolbar, height = 220, emphasis, unit = "V", zoomMs }: WaveformChartProps) {
+  const zoomId = useId();
   const [hover, setHover] = useState<number | null>(null);
+  const [zoomed, setZoomed] = useState(true);
   const { announce } = useAnnouncer();
   const length = Math.max(0, ...series.map((s) => s.y.length));
   const timeMs = useMemo(
     () => Array.from({ length }, (_, i) => (startS + i / Math.max(1, sampleRateHz)) * 1000),
     [length, startS, sampleRateHz],
   );
+  const fullMs = length / Math.max(1, sampleRateHz) * 1000;
+  const canZoom = zoomMs != null && fullMs > zoomMs * 1.3;
+  const viewLength = canZoom && zoomed ? Math.min(length, Math.round((zoomMs! / 1000) * sampleRateHz) + 1) : length;
+  const viewTime = useMemo(() => timeMs.slice(0, viewLength), [timeMs, viewLength]);
+  const viewSeries = useMemo(() => series.map((s) => ({ ...s, y: s.y.slice(0, viewLength) })), [series, viewLength]);
   const xDomain = useMemo<[number, number]>(
-    () => (timeMs.length > 1 ? [timeMs[0]!, timeMs[timeMs.length - 1]!] : [0, 1]),
-    [timeMs],
+    () => (viewTime.length > 1 ? [viewTime[0]!, viewTime[viewTime.length - 1]!] : [0, 1]),
+    [viewTime],
   );
   const yDomain = useMemo(() => {
     const [lo, hi] = niceDomain(series.flatMap((s) => s.y), { minSpan: unit === "mA" ? 0.02 : 0.2, pad: 0.05 });
@@ -45,10 +65,10 @@ export function WaveformChart({ title, sampleRateHz, startS, series, summary, st
   }, [series, unit]);
 
   const ordered = useMemo(() => {
-    if (!emphasis) return series;
+    if (!emphasis) return viewSeries;
     // Draw the emphasized trace last so it sits on top.
-    return [...series.filter((s) => s.id !== emphasis), ...series.filter((s) => s.id === emphasis)];
-  }, [series, emphasis]);
+    return [...viewSeries.filter((s) => s.id !== emphasis), ...viewSeries.filter((s) => s.id === emphasis)];
+  }, [viewSeries, emphasis]);
 
   const readoutFor = (i: number | null) => {
     if (i === null || timeMs[i] === undefined) return null;
@@ -69,7 +89,7 @@ export function WaveformChart({ title, sampleRateHz, startS, series, summary, st
   const table = (
     <table className="data-table">
       <caption>
-        {title}: samples at {sampleRateHz.toLocaleString()} Hz{step > 1 ? `, every ${step}th sample shown` : ""}, starting{" "}
+        {title}: samples at {sampleRateHz.toLocaleString()} Hz{step > 1 ? `, every ${ordinal(step)} sample shown` : ""}, starting{" "}
         {formatMs(startS)} into the steady-state clip.
       </caption>
       <thead>
@@ -113,14 +133,32 @@ export function WaveformChart({ title, sampleRateHz, startS, series, summary, st
       emptyText={emptyText}
       errorText={errorText}
       stale={stale}
-      toolbar={toolbar}
-      xAxisLabel="Time (ms)"
+      toolbar={
+        canZoom ? (
+          <>
+            {toolbar}
+            <div className="segmented" role="radiogroup" aria-label={`${title} time window`}>
+              <label>
+                <input type="radio" name={`${zoomId}-zoom`} checked={zoomed} onChange={() => setZoomed(true)} />
+                {num(zoomMs!, 0)} ms
+              </label>
+              <label>
+                <input type="radio" name={`${zoomId}-zoom`} checked={!zoomed} onChange={() => setZoomed(false)} />
+                Full
+              </label>
+            </div>
+          </>
+        ) : (
+          toolbar
+        )
+      }
+      xAxisLabel={canZoom && zoomed ? `Time (ms) · first ${num(zoomMs!, 0)} of ${num(fullMs, 0)} ms shown` : "Time (ms)"}
     >
       {(width) => (
         <div className="response-panel">
           <LinePlot
           title={unit === "mA" ? "Current (mA)" : "Voltage (V)"}
-          x={timeMs}
+          x={viewTime}
           xScale="linear"
           xDomain={xDomain}
           yDomain={yDomain}
