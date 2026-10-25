@@ -12,6 +12,8 @@ export interface CitationResolver {
   /** Short label for an observation or experiment ID, e.g. "Obs 2" or "Experiment 3". */
   label: (resultId: string) => string | null;
   onSelect?: (resultId: string) => void;
+  /** Which labelled IDs onSelect can open (default: all). Others render as plain chips. */
+  canSelect?: (resultId: string) => boolean;
 }
 
 const UNIT_SUFFIX = /_(db|dbv|ma|deg|v|hz|s|ms|fs|si)$/;
@@ -33,7 +35,7 @@ export function citationText(ref: EvidenceRef, resolver?: CitationResolver): str
 
 export function CitationChip({ refItem, resolver }: { refItem: EvidenceRef; resolver?: CitationResolver }) {
   const text = citationText(refItem, resolver);
-  if (resolver?.onSelect && resolver.label(refItem.result_id)) {
+  if (resolver?.onSelect && resolver.label(refItem.result_id) && (resolver.canSelect?.(refItem.result_id) ?? true)) {
     return (
       <button type="button" className="citation" onClick={() => resolver.onSelect?.(refItem.result_id)}>
         {text}
@@ -43,11 +45,57 @@ export function CitationChip({ refItem, resolver }: { refItem: EvidenceRef; reso
   return <span className="citation">{text}</span>;
 }
 
-function describeArgs(args: Record<string, unknown>): string {
+/** Readable names for every tool the explore, investigate, and hint runs can call. */
+export const TOOL_LABEL: Record<string, string> = {
+  inspect_circuit: "Inspect circuit",
+  set_goal: "Set goal",
+  propose_values: "Propose values",
+  suggest_design: "Suggest standard parts (prediction)",
+  run_experiment: "Run experiment",
+  compare_experiments: "Compare experiments",
+  read_learn_attempt: "Read Learn attempt",
+  get_case: "Read case",
+  assess_evidence: "Assess evidence",
+  read_observation: "Read observation",
+  submit_diagnosis: "Submit diagnosis",
+  propose_repair: "Propose repair",
+};
+
+export function toolLabel(tool: string): string {
+  return TOOL_LABEL[tool] ?? humanize(tool);
+}
+
+const ID_PATTERN = /(?<![A-Za-z0-9_-])(rev|exp|art|cmp|goal|case|obs|dx|rep|prop|run|learn)_[A-Za-z0-9_-]{6,16}/g;
+const ID_NOUN: Record<string, string> = {
+  rev: "a revision",
+  exp: "an experiment",
+  obs: "an observation",
+  learn: "a Learn attempt",
+  case: "the case",
+  prop: "a proposal",
+  goal: "the goal",
+  dx: "the diagnosis",
+  rep: "the repair",
+};
+
+/** Learners never see raw result IDs: cited ones get their workbench label, others a plain noun. */
+export function readableIdText(text: string, resolver?: CitationResolver): string {
+  return text.replace(ID_PATTERN, (id, kind: string) => resolver?.label(id) ?? ID_NOUN[kind] ?? "a result");
+}
+
+export function describeArgs(args: Record<string, unknown>, resolver?: CitationResolver): string {
   return Object.entries(args)
     .filter(([, v]) => v !== null && v !== undefined && (typeof v === "string" || typeof v === "number" || typeof v === "boolean"))
+    .map(([k, v]): [string, string | null] => {
+      if (typeof v !== "string") return [k, String(v)];
+      ID_PATTERN.lastIndex = 0;
+      if (ID_PATTERN.test(v)) return [k, resolver?.label(v) ?? null]; // never print a raw ID
+      if (/^[A-Z][0-9]+$/.test(v)) return [k, v]; // component IDs keep their case (R1, C1)
+      return [k, humanize(v).toLowerCase()];
+    })
+    .filter((entry): entry is [string, string] => entry[1] !== null)
     .slice(0, 3)
-    .map(([k, v]) => `${humanize(k).toLowerCase()}: ${typeof v === "string" ? humanize(v).toLowerCase() : String(v)}`)
+    .map(([k, v]) => `${humanize(k.replace(/_id$/, "")).toLowerCase()}: ${v}`)
     .join(", ");
 }
 
@@ -201,8 +249,8 @@ function ToolItem({
   result: Extract<AgentEvent, { type: "tool_result" }> | null;
   resolver?: CitationResolver;
 }) {
-  const name = humanize(call?.tool ?? result?.tool ?? "tool");
-  const args = call ? describeArgs(call.arguments) : "";
+  const name = toolLabel(call?.tool ?? result?.tool ?? "tool");
+  const args = call ? describeArgs(call.arguments, resolver) : "";
   const resultId = result?.observation_id ?? result?.experiment_id ?? null;
   return (
     <div className="agent-item__tool">
@@ -220,7 +268,7 @@ function ToolItem({
       </div>
       {result ? (
         <p className="agent-item__text">
-          {result.ok ? result.summary : (result.error?.message ?? result.summary)}
+          {readableIdText(result.ok ? result.summary : (result.error?.message ?? result.summary), resolver)}
           {resultId && resolver?.label(resultId) ? (
             <>
               {" "}
@@ -244,7 +292,7 @@ function EventItem({ event, resolver }: { event: AgentEvent; resolver?: Citation
     case "message":
       return (
         <div className="agent-item__message">
-          <p className="agent-item__text">{event.text}</p>
+          <p className="agent-item__text">{readableIdText(event.text, resolver)}</p>
           {event.citations && event.citations.length > 0 ? (
             <p className="agent-item__citations">
               {event.citations.map((c, i) => (

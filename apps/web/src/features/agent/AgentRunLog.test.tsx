@@ -11,6 +11,26 @@ function view(overrides: Partial<RunView> = {}): RunView {
   return { run: makeRun(), events: runEvents, connection: "streaming", startError: null, cancelling: false, ...overrides };
 }
 
+describe("AgentRunLog tool labels", () => {
+  it("names the design-suggestion and Learn tools readably and never prints raw result IDs", () => {
+    const at = "2026-10-15T12:01:00Z";
+    const events: RunView["events"] = [
+      { type: "tool_call", seq: 1, run_id: "run_fixture000001", at, call_id: "c1", tool: "suggest_design", arguments: { vary: "C1", revision_id: "rev_AbCdEf123456-_xy" } },
+      { type: "tool_result", seq: 2, run_id: "run_fixture000001", at, call_id: "c1", tool: "suggest_design", ok: true, summary: "Prediction for rev_AbCdEf123456-_xy: C1 82 nF (E12).", observation_id: null, experiment_id: null, proposal_id: null, error: null },
+      { type: "tool_call", seq: 3, run_id: "run_fixture000001", at, call_id: "c2", tool: "read_learn_attempt", arguments: { attempt_id: "learn_Zz9-Yy8_Xx7Ww6V" } },
+      { type: "tool_result", seq: 4, run_id: "run_fixture000001", at, call_id: "c2", tool: "read_learn_attempt", ok: true, summary: "Read Learn attempt learn_Zz9-Yy8_Xx7Ww6V (2 of 2 predictions matched the measurement).", observation_id: null, experiment_id: null, proposal_id: null, error: null },
+    ];
+    const labels = { label: (id: string) => (id === "learn_Zz9-Yy8_Xx7Ww6V" ? "Attempt 1" : null) };
+    const { container } = render(<AgentRunLog title="AI lab partner" view={view({ run: makeRun({ kind: "explore", case_id: null }), events })} resolver={labels} />);
+    expect(screen.getByText("Suggest standard parts (prediction)")).toBeInTheDocument();
+    expect(screen.getByText("(vary: C1)")).toBeInTheDocument();
+    expect(screen.getByText("Read Learn attempt")).toBeInTheDocument();
+    expect(screen.getByText("Prediction for a revision: C1 82 nF (E12).")).toBeInTheDocument();
+    expect(screen.getByText("Read Learn attempt Attempt 1 (2 of 2 predictions matched the measurement).")).toBeInTheDocument();
+    expect(container.textContent).not.toMatch(/(rev|learn)_[A-Za-z0-9_-]{6}/);
+  });
+});
+
 describe("AgentRunLog", () => {
   it("pairs tool calls with their results and shows the genuine current status", () => {
     render(<AgentRunLog title="AI lab partner" view={view()} resolver={resolver} onCancel={vi.fn()} />);
