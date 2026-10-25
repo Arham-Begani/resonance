@@ -79,25 +79,35 @@ async def test_every_published_measurement_is_on_its_declared_grid(rig: Rig) -> 
     case = await rig.service.harness_create_case(SESSION_A, seed_for("r1_decreased"))
     await rig.service.set_mode(SESSION_A, case.id, "guide")
     for i, (instrument, probe) in enumerate(
-        [("output_voltage_sweep", None), ("source_current_sweep", None),
-         ("transient_capture", "source_current")]
+        [
+            ("output_voltage_sweep", None),
+            ("source_current_sweep", None),
+            ("transient_capture", "source_current"),
+        ]
     ):
         await rig.service.run_experiment(
-            SESSION_A, case.id,
+            SESSION_A,
+            case.id,
             CaseExperimentRequest.model_validate(
                 {"instrument": instrument, "probe": probe, "client_request_id": f"grid-{i:05d}"}
             ),
             requested_by="user",
         )
     await rig.service.submit_diagnosis(
-        SESSION_A, case.id,
-        DiagnosisSubmission.model_validate({
-            "conclusion": "insufficient_evidence", "explanation": "x",
-            "candidate_hypothesis_ids": ["r1_decreased", "c1_decreased"]}),
+        SESSION_A,
+        case.id,
+        DiagnosisSubmission.model_validate(
+            {
+                "conclusion": "insufficient_evidence",
+                "explanation": "x",
+                "candidate_hypothesis_ids": ["r1_decreased", "c1_decreased"],
+            }
+        ),
         submitted_by="user",
     )
-    await rig.service.propose_repair(SESSION_A, case.id, RepairProposalInput(component_id="R1"),
-                                     proposed_by="user")
+    await rig.service.propose_repair(
+        SESSION_A, case.id, RepairProposalInput(component_id="R1"), proposed_by="user"
+    )
     case = await rig.service.verify_repair(SESSION_A, case.id)
     leaves = _measured_leaves(case)
     assert len(leaves) > 1000
@@ -112,8 +122,15 @@ def _strip(payload: Any) -> Any:
         return {
             k: _strip(v)
             for k, v in payload.items()
-            if k not in (
-                "id", "case_id", "observation_id", "created_at", "artifact_id", "url", "source_id"
+            if k
+            not in (
+                "id",
+                "case_id",
+                "observation_id",
+                "created_at",
+                "artifact_id",
+                "url",
+                "source_id",
             )
         }
     if isinstance(payload, list):
@@ -121,14 +138,15 @@ def _strip(payload: Any) -> Any:
     return payload
 
 
-async def _voltage_payload(rig: Rig, fault: str, nominal: tuple[float, float], i: int) -> (
-    tuple[str, list[bytes]]
-):
+async def _voltage_payload(
+    rig: Rig, fault: str, nominal: tuple[float, float], i: int
+) -> tuple[str, list[bytes]]:
     session = f"{SESSION_A}q{i}"
     case = await rig.service.harness_create_case(session, seed_for(fault, nominal))  # type: ignore[arg-type]
     await rig.service.set_mode(session, case.id, "guide")
     resp = await rig.service.run_experiment(
-        session, case.id,
+        session,
+        case.id,
         CaseExperimentRequest(instrument="output_voltage_sweep", client_request_id="volt-00001"),  # type: ignore[arg-type]
         requested_by="user",
     )

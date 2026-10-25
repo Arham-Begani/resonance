@@ -1,6 +1,7 @@
 """Independent verification, lens C: physics, audio honesty, Explore goals, units, hypotheses.
 
-Owner: independent verification engineer (lens C). Report: ``docs/verification/review-C-physics-audio.md``.
+Owner: independent verification engineer (lens C).
+Report: ``docs/verification/review-C-physics-audio.md``.
 
 Every expected number here comes from analytical first-order RC formulas written in THIS file
 (voltage divider and series-RC admittance). ``resonance.simulation.analytic`` is deliberately not
@@ -24,7 +25,9 @@ imported. What is tested:
 7. Spectrum peaks vs fitted tone levels and dB floors (no non-finite JSON).
 
 The AI is not involved anywhere in this file. Data lives under pytest's tmp_path.
-Run: ``RESONANCE_REQUIRE_NGSPICE=1 uv run pytest tests/verification/test_v_physics_audio.py -rxX -s``
+Run from services/api:
+
+    RESONANCE_REQUIRE_NGSPICE=1 uv run pytest tests/verification/test_v_physics_audio.py
 """
 
 from __future__ import annotations
@@ -344,7 +347,9 @@ def bundle(tmp_path_factory: pytest.TempPathFactory) -> Iterator[Bundle]:
         goal = workbench["goal"]
         runs: dict[str, Run] = {}
         designs: list[tuple[str, Any, Any]] = [(n, r, c) for n, (r, c) in CORNER_RUNS.items()]
-        designs += [(n, 1.0 / (TWO_PI * fc * STRADDLE_C), STRADDLE_C) for n, fc in STRADDLE_FC.items()]
+        designs += [
+            (n, 1.0 / (TWO_PI * fc * STRADDLE_C), STRADDLE_C) for n, fc in STRADDLE_FC.items()
+        ]
         for name, r_in, c_in in designs:
             rev = client.post(
                 "/api/revisions",
@@ -363,7 +368,9 @@ def bundle(tmp_path_factory: pytest.TempPathFactory) -> Iterator[Bundle]:
             )
             assert resp.status_code == 201, resp.text
             record = strict_json(resp.text)
-            wavs = {clip["role"]: _download(client, clip["url"]) for clip in record["audio"]["clips"]}
+            wavs = {
+                clip["role"]: _download(client, clip["url"]) for clip in record["audio"]["clips"]
+            }
             runs[name] = Run(name, values["R1"], values["C1"], record, resp.text, wavs)
         cmp_resp = client.get(
             "/api/experiments/compare",
@@ -406,7 +413,9 @@ def test_transient_tone_levels_match_exact_ac(bundle: Bundle) -> None:
             assert abs(tone["ac_gain_db"] - db(exact)) <= 1e-4
             err = tone["transient_gain_db"] - db(exact)
             assert abs(err) <= TONE_TOL_DB, (run.name, f, err)
-            assert abs(tone["agreement_db"] - (tone["transient_gain_db"] - tone["ac_gain_db"])) < 1e-9
+            assert (
+                abs(tone["agreement_db"] - (tone["transient_gain_db"] - tone["ac_gain_db"])) < 1e-9
+            )
             assert angle_diff(tone["phase_deg"], deg(exact)) <= PHASE_TOL_DEG
             assert abs(db(tone["input_amplitude_v"] / amp)) <= 0.05
             out_err = db(tone["output_amplitude_v"] / (amp * abs(exact)))
@@ -459,7 +468,11 @@ def test_wav_pcm_levels_equal_measured_tone_gains(bundle: Bundle) -> None:
         assert set(run.wavs) == {"input", "output"}
         for wav in run.wavs.values():
             assert (wav.channels, wav.sample_width, wav.rate, wav.frames) == (1, 2, FS, CLIP_N)
-            assert wav.raw[:4] == b"RIFF" and wav.raw[8:16] == b"WAVEfmt " and wav.raw[36:40] == b"data"
+            assert (
+                wav.raw[:4] == b"RIFF"
+                and wav.raw[8:16] == b"WAVEfmt "
+                and wav.raw[36:40] == b"data"
+            )
             assert len(wav.raw) == 44 + 2 * CLIP_N  # RIFF + fmt + data only, no metadata chunks
         a_in = amplitudes(fit_pcm(run.wavs["input"].pcm))
         a_out = amplitudes(fit_pcm(run.wavs["output"].pcm))
@@ -533,7 +546,9 @@ def test_spectrum_peaks_match_fitted_tone_levels(bundle: Bundle) -> None:
         assert all(20.0 - 1e-9 <= f <= 12_000.0 + 1e-9 for f in sp["frequency_hz"])
         assert min(sp["input_dbv"] + sp["output_dbv"]) >= -120.0
         for tone in run.record["tones"]:
-            idx = [i for i, f in enumerate(sp["frequency_hz"]) if abs(f - tone["frequency_hz"]) < 1e-6]
+            idx = [
+                i for i, f in enumerate(sp["frequency_hz"]) if abs(f - tone["frequency_hz"]) < 1e-6
+            ]
             assert len(idx) == 1, (run.name, tone["frequency_hz"])
             i = idx[0]
             assert abs(sp["output_dbv"][i] - db(tone["output_amplitude_v"] / math.sqrt(2))) <= 0.01
@@ -554,7 +569,11 @@ def test_goal_pass_fail_follows_measured_gain(bundle: Bundle) -> None:
             exact = db(h_lowpass(c["frequency_hz"], run.r, run.c))
             assert abs(res["measured_gain_db"] - exact) <= 1e-4
             attenuation = -res["measured_gain_db"]
-            ok = attenuation <= c["limit_db"] if c["kind"] == "preserve" else attenuation >= c["limit_db"]
+            ok = (
+                attenuation <= c["limit_db"]
+                if c["kind"] == "preserve"
+                else attenuation >= c["limit_db"]
+            )
             assert res["passed"] is ok
             assert res["evidence"] == {
                 "result_id": run.record["id"],
@@ -752,18 +771,30 @@ def test_units_battery_through_the_public_api(
     circuit = revision_to_circuit(rev)
     for compiled in (
         compile_ac(circuit, AcSweep(start_hz=10.0, stop_hz=1e5, points_per_decade=40)),
-        compile_transient(circuit, TransientRequest(stop_s=1.4, max_step_s=1e-5, probes=("v(in)", "v(out)", "i(V1)"))),
+        compile_transient(
+            circuit,
+            TransientRequest(stop_s=1.4, max_step_s=1e-5, probes=("v(in)", "v(out)", "i(V1)")),
+        ),
     ):
         lines = compiled.text.splitlines()
         assert all(_NETLIST_LINE.fullmatch(line) for line in lines), compiled.text
-        assert f"{component} {'in out' if component == 'R1' else 'out 0'} {comp.value_si!r}" in lines
+        assert (
+            f"{component} {'in out' if component == 'R1' else 'out 0'} {comp.value_si!r}" in lines
+        )
 
 
 @pytest.mark.parametrize("raw", ["NaN", "Infinity", "-Infinity", "1e400", "-1e3", "0", "1e-320"])
-def test_non_finite_and_non_positive_json_numbers_are_rejected(plain_client: TestClient, raw: str) -> None:
+def test_non_finite_and_non_positive_json_numbers_are_rejected(
+    plain_client: TestClient, raw: str
+) -> None:
     base = plain_client.post("/api/revisions", json={"template_id": "rc_lowpass"}).json()
-    body = '{"parent_id": "%s", "values": [{"component_id": "R1", "value": %s}]}' % (base["id"], raw)
-    resp = plain_client.post("/api/revisions", content=body, headers={"content-type": "application/json"})
+    body = '{{"parent_id": "{}", "values": [{{"component_id": "R1", "value": {}}}]}}'.format(
+        base["id"],
+        raw,
+    )
+    resp = plain_client.post(
+        "/api/revisions", content=body, headers={"content-type": "application/json"}
+    )
     assert resp.status_code == 422
     err = strict_json(resp.text)["error"]
     assert err["code"] == "validation_error" and err["field"] == "values.0.value"
@@ -796,7 +827,10 @@ def test_over_range_comparison_gets_one_shared_disclosed_reduction(tmp_path: Pat
         loud = 1.6 * np.sin(TWO_PI * 440.0 * t)
         quiet = 0.2 * np.sin(TWO_PI * 440.0 * t)
         cmp_ = render_comparison(
-            [ClipSource("expected", "Loud clip", loud, None), ClipSource("observed", "Quiet clip", quiet, None)],
+            [
+                ClipSource("expected", "Loud clip", loud, None),
+                ClipSource("observed", "Quiet clip", quiet, None),
+            ],
             artifacts,
             "sess_verifC_render",
         )
@@ -816,7 +850,9 @@ def test_over_range_comparison_gets_one_shared_disclosed_reduction(tmp_path: Pat
         assert decoded[0] / 32767 == pytest.approx(1.6 * factor, rel=1e-3)
         assert decoded[1] / 32767 == pytest.approx(0.2 * factor, rel=1e-3)
         within = render_comparison(
-            [ClipSource("input", "In", 0.99 * np.sin(TWO_PI * 440.0 * t), None)], artifacts, "sess_verifC_render"
+            [ClipSource("input", "In", 0.99 * np.sin(TWO_PI * 440.0 * t), None)],
+            artifacts,
+            "sess_verifC_render",
         )
         assert within.gain_adjustment_db == 0.0
     finally:
@@ -831,23 +867,41 @@ def test_over_range_comparison_gets_one_shared_disclosed_reduction(tmp_path: Pat
 def _preds(view: str, r: float, c: float) -> list[tuple[str, float, float]]:
     """(kind, value, declared tolerance) per measured quantity, from the policy text."""
     out: list[tuple[str, float, float]] = []
-    cur_tol = lambda x: policy.EVIDENCE_CURRENT_ABS_TOLERANCE_MA + policy.EVIDENCE_CURRENT_TOLERANCE_PCT / 100 * abs(x)  # noqa: E731
+
+    def cur_tol(x: float) -> float:
+        return (
+            policy.EVIDENCE_CURRENT_ABS_TOLERANCE_MA
+            + policy.EVIDENCE_CURRENT_TOLERANCE_PCT / 100 * abs(x)
+        )
+
     if view in ("v_sweep", "i_sweep"):
         for f in CASE_GRID:
             if view == "v_sweep":
                 z = h_lowpass(f, r, c)
-                out += [("db", db(z), policy.EVIDENCE_GAIN_TOLERANCE_DB), ("deg", deg(z), policy.EVIDENCE_PHASE_TOLERANCE_DEG)]
+                out += [
+                    ("db", db(z), policy.EVIDENCE_GAIN_TOLERANCE_DB),
+                    ("deg", deg(z), policy.EVIDENCE_PHASE_TOLERANCE_DEG),
+                ]
             else:
                 ma = 1e3 * i_delivered(f, r, c)
-                out += [("ma", abs(ma), cur_tol(abs(ma))), ("deg", deg(ma), policy.EVIDENCE_PHASE_TOLERANCE_DEG)]
+                out += [
+                    ("ma", abs(ma), cur_tol(abs(ma))),
+                    ("deg", deg(ma), policy.EVIDENCE_PHASE_TOLERANCE_DEG),
+                ]
     else:
         for f, a in TONES:
             if view == "t_volt":
                 z = h_lowpass(f, r, c)
-                out += [("db", db(z), policy.EVIDENCE_TONE_GAIN_TOLERANCE_DB), ("deg", deg(z), policy.EVIDENCE_TONE_PHASE_TOLERANCE_DEG)]
+                out += [
+                    ("db", db(z), policy.EVIDENCE_TONE_GAIN_TOLERANCE_DB),
+                    ("deg", deg(z), policy.EVIDENCE_TONE_PHASE_TOLERANCE_DEG),
+                ]
             else:
                 ma = 1e3 * a * i_delivered(f, r, c)
-                out += [("ma", abs(ma), cur_tol(abs(ma))), ("deg", deg(ma), policy.EVIDENCE_TONE_PHASE_TOLERANCE_DEG)]
+                out += [
+                    ("ma", abs(ma), cur_tol(abs(ma))),
+                    ("deg", deg(ma), policy.EVIDENCE_TONE_PHASE_TOLERANCE_DEG),
+                ]
     return out
 
 
@@ -946,10 +1000,17 @@ def _synthetic(view: str, r: float, c: float, scale: float) -> Observation:
         probe="output_voltage" if voltage else "source_current",
         tones=tones,
         waveform=ObservedWaveform(
-            sample_rate_hz=FS, start_s=0.0, unit="V" if voltage else "mA", input_v=[0.0], observed=[0.0], expected=[0.0]
+            sample_rate_hz=FS,
+            start_s=0.0,
+            unit="V" if voltage else "mA",
+            input_v=[0.0],
+            observed=[0.0],
+            expected=[0.0],
         ),
     )
-    return Observation(kind="transient_capture", probe=transient.probe, transient=transient, **common)
+    return Observation(
+        kind="transient_capture", probe=transient.probe, transient=transient, **common
+    )
 
 
 def test_service_assessment_agrees_with_reference_on_every_design() -> None:
@@ -961,9 +1022,13 @@ def test_service_assessment_agrees_with_reference_on_every_design() -> None:
         for truth, (mr, mc) in VARIANTS.items():
             for view in VIEWS:
                 obs = _synthetic(view, r0 * mr, c0 * mc, 0.9)
-                state = hypotheses.assess("rc_lowpass", nominal, [obs], publish_distinguishing=False)
+                state = hypotheses.assess(
+                    "rc_lowpass", nominal, [obs], publish_distinguishing=False
+                )
                 group = (
-                    next(g for g in VOLTAGE_GROUPS if truth in g) if view in ("v_sweep", "t_volt") else (truth,)
+                    next(g for g in VOLTAGE_GROUPS if truth in g)
+                    if view in ("v_sweep", "t_volt")
+                    else (truth,)
                 )
                 assert tuple(state.remaining) == group, (r0, c0, truth, view, state.remaining)
                 status = {a.hypothesis_id: a.status for a in state.assessments}
@@ -976,7 +1041,9 @@ def test_deviation_just_beyond_tolerance_contradicts(design: tuple[float, float]
     r0, c0 = design
     for view in VIEWS:
         obs = _synthetic(view, r0, c0, 1.02)
-        state = hypotheses.assess("rc_lowpass", {"R1": r0, "C1": c0}, [obs], publish_distinguishing=False)
+        state = hypotheses.assess(
+            "rc_lowpass", {"R1": r0, "C1": c0}, [obs], publish_distinguishing=False
+        )
         status = {a.hypothesis_id: a.status for a in state.assessments}
         assert status["no_fault"] == "contradicted", (design, view)
 
@@ -989,7 +1056,13 @@ CASE_SCENARIOS = [
     # (nominal, truth, experiments, repair component, repair should restore)
     (LOW_FC, "no_fault", [("transient_capture", "source_current")], "R1", True),
     (LOW_FC, "c1_increased", [("transient_capture", "source_current")], "R1", False),
-    (HIGH_FC, "r1_decreased", [("output_voltage_sweep", None), ("source_current_sweep", None)], "R1", True),
+    (
+        HIGH_FC,
+        "r1_decreased",
+        [("output_voltage_sweep", None), ("source_current_sweep", None)],
+        "R1",
+        True,
+    ),
     (HIGH_FC, "c1_decreased", [("transient_capture", "source_current")], "C1", True),
 ]
 
@@ -1012,7 +1085,9 @@ def _assert_audio_matches_tones(
     assert set(by_role) == {"expected", observed_role}
     for k, tone in enumerate(tones):
         assert abs(db(by_role[observed_role][k] / 32767 / (gain * tone.amplitude))) <= PCM_TOL_DB
-        assert abs(db(by_role["expected"][k] / 32767 / (gain * tone.expected_amplitude))) <= PCM_TOL_DB
+        assert (
+            abs(db(by_role["expected"][k] / 32767 / (gain * tone.expected_amplitude))) <= PCM_TOL_DB
+        )
         assert tone.gain_db is not None and tone.expected_gain_db is not None
         pcm_rel = db(by_role[observed_role][k] / by_role["expected"][k])
         assert abs(pcm_rel - (tone.gain_db - tone.expected_gain_db)) <= PCM_TOL_DB
@@ -1044,9 +1119,14 @@ async def test_real_cases_at_extreme_designs(
         svc = rig.service
         case = await svc.harness_create_case(session, seed_for(truth, nominal))  # type: ignore[arg-type]
         r0, c0 = nominal
-        assert (case.intended_revision.components[1].value_si, case.intended_revision.components[2].value_si) == nominal
+        assert (
+            case.intended_revision.components[1].value_si,
+            case.intended_revision.components[2].value_si,
+        ) == nominal
         group = next(g for g in VOLTAGE_GROUPS if truth in g)
-        assert tuple(case.evidence.remaining) == group  # symptom: never split, truth never contradicted
+        assert (
+            tuple(case.evidence.remaining) == group
+        )  # symptom: never split, truth never contradicted
         margins = [_truth_margin(case, truth)]
         symptom = case.observations[0].transient
         assert symptom is not None
@@ -1055,14 +1135,23 @@ async def test_real_cases_at_extreme_designs(
         last = None
         for j, (instrument, probe) in enumerate(plan):
             req = CaseExperimentRequest.model_validate(
-                {"instrument": instrument, "probe": probe, "client_request_id": f"verifC-{j}-{truth}"}
+                {
+                    "instrument": instrument,
+                    "probe": probe,
+                    "client_request_id": f"verifC-{j}-{truth}",
+                }
             )
             resp = await svc.run_experiment(session, case.id, req, requested_by="user")
             last = resp
             margins.append(_truth_margin(resp.case, truth))
             sweep = resp.observation.sweep
             if sweep is not None:  # reference (intended design) values vs the formulas
-                for f, m, p in zip(sweep.frequency_hz, sweep.expected_magnitude, sweep.expected_phase_deg, strict=True):
+                for f, m, p in zip(
+                    sweep.frequency_hz,
+                    sweep.expected_magnitude,
+                    sweep.expected_phase_deg,
+                    strict=True,
+                ):
                     if sweep.quantity == "output_gain":
                         z = h_lowpass(f, r0, c0)
                         assert abs(m - db(z)) <= 20 * math.log10(1 + GAIN_REL_TOL)
@@ -1074,7 +1163,9 @@ async def test_real_cases_at_extreme_designs(
                 assert tuple(resp.case.evidence.remaining) == group  # voltage never splits R from C
         assert last is not None
         assert last.case.evidence.remaining == [truth]
-        assert {a.hypothesis_id: a.status for a in last.case.evidence.assessments}[truth] == "supported"
+        assert {a.hypothesis_id: a.status for a in last.case.evidence.assessments}[
+            truth
+        ] == "supported"
         assert max(margins) <= 0.25, margins  # ngspice + fit error sits well inside tolerance
         quantity = "source_current_ma" if last.observation.sweep is not None else "tone_current_ma"
         submission = DiagnosisSubmission(
@@ -1085,15 +1176,22 @@ async def test_real_cases_at_extreme_designs(
         )
         case = await svc.submit_diagnosis(session, case.id, submission, submitted_by="user")
         assert case.diagnosis is not None and case.diagnosis.evidence_check.status == "supported"
-        await svc.propose_repair(session, case.id, RepairProposalInput(component_id=repair), proposed_by="user")  # type: ignore[arg-type]
+        await svc.propose_repair(
+            session, case.id, RepairProposalInput(component_id=repair), proposed_by="user"
+        )  # type: ignore[arg-type]
         case = await svc.verify_repair(session, case.id)
         rep = case.repair
         assert rep is not None and rep.functional_recovery is restores
         # Independent expectation: only the proposed component returns to nominal.
         mr, mc = VARIANTS[truth]
         r_rep, c_rep = (r0, c0 * mc) if repair == "R1" else (r0 * mr, c0)
-        gain_dev = max(abs(db(h_lowpass(f, r_rep, c_rep)) - db(h_lowpass(f, r0, c0))) for f in CASE_GRID)
-        phase_dev = max(angle_diff(deg(h_lowpass(f, r_rep, c_rep)), deg(h_lowpass(f, r0, c0))) for f in CASE_GRID)
+        gain_dev = max(
+            abs(db(h_lowpass(f, r_rep, c_rep)) - db(h_lowpass(f, r0, c0))) for f in CASE_GRID
+        )
+        phase_dev = max(
+            angle_diff(deg(h_lowpass(f, r_rep, c_rep)), deg(h_lowpass(f, r0, c0)))
+            for f in CASE_GRID
+        )
         assert rep.max_gain_deviation_db == pytest.approx(gain_dev, abs=0.01)
         assert rep.max_phase_deviation_deg == pytest.approx(phase_dev, abs=0.05)
         assert any(math.isclose(rep.worst_frequency_hz, f, rel_tol=1e-6) for f in CASE_GRID)
@@ -1102,11 +1200,16 @@ async def test_real_cases_at_extreme_designs(
         closed = await svc.close_case(session, case.id)
         assert closed.reveal is not None
         assert closed.reveal.outcome.exact_identification == "correct"
-        expected_recovery = "not_needed" if truth == "no_fault" else ("restored" if restores else "not_restored")
+        expected_recovery = (
+            "not_needed" if truth == "no_fault" else ("restored" if restores else "not_restored")
+        )
         assert closed.reveal.outcome.functional_recovery == expected_recovery
-        print(f"\n[C6] {nominal} {truth}: truth worst dev/tol {max(margins):.3f}; repair {repair} "
-              f"recovered={rep.functional_recovery} max dev {rep.max_gain_deviation_db:.4f} dB "
-              f"(formula {gain_dev:.4f}), {rep.max_phase_deviation_deg:.3f} deg (formula {phase_dev:.3f})")
+        print(
+            f"\n[C6] {nominal} {truth}: truth worst dev/tol {max(margins):.3f}; repair {repair} "
+            f"recovered={rep.functional_recovery} max dev {rep.max_gain_deviation_db:.4f} dB "
+            f"(formula {gain_dev:.4f}), {rep.max_phase_deviation_deg:.3f} deg "
+            f"(formula {phase_dev:.3f})"
+        )
     finally:
         rig.service.close()
         rig.store.close()

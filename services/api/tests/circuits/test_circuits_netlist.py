@@ -186,9 +186,7 @@ _RC = {"R1": 1e3, "C1": 1e-7}
         CircuitSpec(
             "rc_highpass", {"R1": 1e3, "C1": math.nan}, _TONE, disconnected=frozenset({"C1"})
         ),
-        CircuitSpec(
-            "rc_lowpass", {"R1": 1e3, "L1": 1.0}, _TONE, disconnected=frozenset({"C1"})
-        ),
+        CircuitSpec("rc_lowpass", {"R1": 1e3, "L1": 1.0}, _TONE, disconnected=frozenset({"C1"})),
         CircuitSpec("rc_highpass", {"C1": 1e-7}, _TONE, disconnected=frozenset({"C1"})),
         CircuitSpec("rc_highpass", {"R1": 1e3}, _TONE),  # C1 missing but connected
         CircuitSpec("rc_lowpass", {"R1": 1e3}, _source(frequency_hz=440, amplitude_v=1)),

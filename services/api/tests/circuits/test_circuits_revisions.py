@@ -78,9 +78,7 @@ def test_both_families_are_offered_with_graph_derived_descriptions() -> None:
     low_bounds = {c.id: c.bounds for c in low.components}
     assert all(by_id[cid].bounds == low_bounds[cid] for cid in ("R1", "C1"))  # same bounds
     assert by_id["C1"].description == "C1 — capacitor — 100 nF — connected between Input and Output"
-    assert (
-        by_id["R1"].description == "R1 — resistor — 10 kΩ — connected between Output and Ground"
-    )
+    assert by_id["R1"].description == "R1 — resistor — 10 kΩ — connected between Output and Ground"
     assert "50 Hz + 440 Hz" in by_id["V1"].description
     assert high_template.summary.startswith(
         "A capacitor (C1) from Input to Output and a resistor (R1) from Output to Ground."
@@ -458,9 +456,7 @@ def _switch_proposal(
 
 def test_applying_a_family_switch_proposal(store: DocumentStore) -> None:
     low = create_revision(store, "s1", _req(template_id="rc_lowpass"))
-    proposal = _switch_proposal(
-        store, "s1", low.id, "rc_highpass", {"C1": 100e-9, "R1": 7500.0}
-    )
+    proposal = _switch_proposal(store, "s1", low.id, "rc_highpass", {"C1": 100e-9, "R1": 7500.0})
     rev = create_revision(
         store,
         "s1",
@@ -478,9 +474,7 @@ def test_family_switch_proposal_with_matching_request_template_and_values(
     store: DocumentStore,
 ) -> None:
     low = create_revision(store, "s1", _req(template_id="rc_lowpass"))
-    proposal = _switch_proposal(
-        store, "s1", low.id, "rc_highpass", {"C1": 100e-9, "R1": 7500.0}
-    )
+    proposal = _switch_proposal(store, "s1", low.id, "rc_highpass", {"C1": 100e-9, "R1": 7500.0})
     rev = create_revision(
         store,
         "s1",

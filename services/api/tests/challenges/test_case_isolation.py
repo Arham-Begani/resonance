@@ -130,9 +130,7 @@ def run_flow(
         flow.payloads.append((label, body))
         return body
 
-    case = record(
-        "create", client.post("/api/cases", json={"template_id": flow.template_id}), 201
-    )
+    case = record("create", client.post("/api/cases", json={"template_id": flow.template_id}), 201)
     assert case["intended_revision"]["template_id"] == flow.template_id
     cid = flow.case_id = case["id"]
     base = f"/api/cases/{cid}"

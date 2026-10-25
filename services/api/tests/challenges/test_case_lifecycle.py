@@ -492,14 +492,21 @@ async def test_available_actions_for_the_owning_run(rig: Rig) -> None:
     assert svc.available_actions_for_run(S, case.id, run) == ["run_experiment", "submit_diagnosis"]
     assert svc.available_actions_for_run(S, case.id, "run_someone_else") == []
     for i in range(3):
-        await svc.run_experiment(S, case.id, req("output_voltage_sweep", key=f"own-run-{i:04d}"),
-                                 requested_by="agent", agent_run_id=run)
+        await svc.run_experiment(
+            S,
+            case.id,
+            req("output_voltage_sweep", key=f"own-run-{i:04d}"),
+            requested_by="agent",
+            agent_run_id=run,
+        )
     assert svc.available_actions_for_run(S, case.id, run) == ["submit_diagnosis"]
-    await svc.submit_diagnosis(S, case.id, abstain("r1_increased", "c1_increased"),
-                               submitted_by="agent", agent_run_id=run)
+    await svc.submit_diagnosis(
+        S, case.id, abstain("r1_increased", "c1_increased"), submitted_by="agent", agent_run_id=run
+    )
     assert svc.available_actions_for_run(S, case.id, run) == ["propose_repair"]
-    await svc.propose_repair(S, case.id, RepairProposalInput(component_id="R1"),
-                             proposed_by="agent", agent_run_id=run)
+    await svc.propose_repair(
+        S, case.id, RepairProposalInput(component_id="R1"), proposed_by="agent", agent_run_id=run
+    )
     assert svc.available_actions_for_run(S, case.id, run) == ["propose_repair", "verify_repair"]
     await svc.verify_repair(S, case.id, requested_by="agent", agent_run_id=run)
     assert svc.available_actions_for_run(S, case.id, run) == []
@@ -521,12 +528,18 @@ async def test_run_ownership_is_checked_before_status(rig: Rig) -> None:
     ]
     for awaitable in user_calls:
         assert (await error_of(awaitable)).error.code == ErrorCode.RUN_IN_PROGRESS
-    await svc.submit_diagnosis(S, case.id, abstain("r1_increased", "c1_increased"),
-                               submitted_by="agent", agent_run_id="run_order12345")
+    await svc.submit_diagnosis(
+        S,
+        case.id,
+        abstain("r1_increased", "c1_increased"),
+        submitted_by="agent",
+        agent_run_id="run_order12345",
+    )
     after_dx = [
         svc.run_experiment(S, case.id, req("output_voltage_sweep"), requested_by="user"),
-        svc.submit_diagnosis(S, case.id, abstain("r1_increased", "c1_increased"),
-                             submitted_by="user"),
+        svc.submit_diagnosis(
+            S, case.id, abstain("r1_increased", "c1_increased"), submitted_by="user"
+        ),
         svc.verify_repair(S, case.id),
     ]
     for awaitable in after_dx:

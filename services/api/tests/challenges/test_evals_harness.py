@@ -108,8 +108,11 @@ def test_frozen_heldout_set_is_balanced_and_reproducible() -> None:
 
 async def test_baseline_smoke_run_and_report(settings: Settings, tmp_path: Path) -> None:
     dev = casesets.load("dev_v1")
-    wanted = {("rc_lowpass", "r1_increased"), ("rc_highpass", "c1_disconnected"),
-              ("rc_lowpass", "no_fault")}
+    wanted = {
+        ("rc_lowpass", "r1_increased"),
+        ("rc_highpass", "c1_disconnected"),
+        ("rc_lowpass", "no_fault"),
+    }
     specs = [c for c in dev.cases if (c.template_id, c.expected_condition) in wanted]
     assert len(specs) == 3
     lines: list[str] = []

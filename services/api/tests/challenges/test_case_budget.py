@@ -258,6 +258,7 @@ async def test_failure_messages_mention_the_retry_only_when_it_ran(
             S, case.id, req("source_current_sweep", "noretry-02"), requested_by="user"
         )
     assert "even after one automatic retry" in retried.value.error.message
-    assert "even after one automatic retry" in rig.service.get_case(S, case.id).observations[
-        -1
-    ].summary
+    assert (
+        "even after one automatic retry"
+        in rig.service.get_case(S, case.id).observations[-1].summary
+    )
