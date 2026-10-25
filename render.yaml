@@ -1,0 +1,21 @@
+# Render blueprint: one Docker web service serving the API and the built web app.
+# Deploy: Render dashboard → New → Blueprint → select this repository, then set the
+# NEBIUS_API_KEY secret when prompted. Run a single instance (case locks, cancellation and
+# agent event streams are in-process).
+services:
+  - type: web
+    name: resonance
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: starter
+    numInstances: 1
+    healthCheckPath: /api/health
+    envVars:
+      - key: NEBIUS_API_KEY
+        sync: false
+      - key: NEBIUS_BASE_URL
+        value: https://api.tokenfactory.nebius.com/v1/
+      - key: NEBIUS_MODEL
+        value: nvidia/nemotron-3-super-120b-a12b
+      - key: SESSION_COOKIE_SECURE
+        value: "true"
