@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import json
 import os
+import sys
 import time
 from typing import Any
 
@@ -30,6 +31,12 @@ pytestmark = [
         os.environ.get("RESONANCE_LIVE_AI") != "1", reason="set RESONANCE_LIVE_AI=1 to run"
     ),
 ]
+
+
+def _say(text: str) -> None:
+    """Print a live report even on consoles whose code page lacks model punctuation."""
+    encoding = sys.stdout.encoding or "utf-8"
+    print(text.encode(encoding, "backslashreplace").decode(encoding))
 
 
 @pytest.fixture
@@ -62,7 +69,7 @@ async def test_live_configured_model_is_listed(live_settings: Settings) -> None:
     finally:
         await client.aclose()
     nemotron = sorted(m for m in models if "nemotron" in m.lower())
-    print(f"\n[live] {len(models)} models visible; Nemotron models: {nemotron}")
+    _say(f"\n[live] {len(models)} models visible; Nemotron models: {nemotron}")
     assert live_settings.nebius_model in models
 
 
@@ -96,7 +103,7 @@ def test_live_tool_call_round_trip_shape(live_settings: Settings) -> None:
     choice = data["choices"][0]
     calls = [c["function"]["name"] for c in message.get("tool_calls") or []]
     think = "<think>" in content or "</think>" in content
-    print(
+    _say(
         f"\n[live] status=200 latency_s={elapsed:.2f} finish={choice.get('finish_reason')} "
         f"message_fields={sorted(message)} usage={data.get('usage')} tool_calls={calls} "
         f"content_has_think_tag={think}"
@@ -106,7 +113,7 @@ def test_live_tool_call_round_trip_shape(live_settings: Settings) -> None:
 
     # Does the endpoint accept parallel_tool_calls=false (verification V-02)?
     status_p, data_p, _ = _raw_chat(live_settings, {**body, "parallel_tool_calls": False})
-    print(f"[live] parallel_tool_calls=false accepted: {status_p == 200} (HTTP {status_p})")
+    _say(f"[live] parallel_tool_calls=false accepted: {status_p == 200} (HTTP {status_p})")
 
 
 async def test_live_investigation_run(live_settings: Settings, store: Any) -> None:
@@ -125,7 +132,7 @@ async def test_live_investigation_run(live_settings: Settings, store: Any) -> No
     handle = service.handle_for(SESSION, run.id)
     final = handle.snapshot()
     tools = [(e.tool, e.ok) for e in handle.events if e.type == "tool_result"]
-    print(
+    _say(
         f"\n[live] run status={final.status} wall_s={elapsed:.1f} usage={final.usage.model_dump()}"
         f"\n[live] tools={tools}"
         f"\n[live] diagnosis={cases.diagnosis.submission.model_dump() if cases.diagnosis else None}"
