@@ -1,0 +1,261 @@
+{
+  "run_id": "nemotron-dev_v1-20261025T115222Z",
+  "runner": "nemotron",
+  "model": "nvidia/nemotron-3-super-120b-a12b",
+  "case_set": {
+    "name": "dev_v1",
+    "sha256": "24d9f0d49ab42c5525eee2f60129b19ae5db7c4246c3e1ac7413ac00e98bc09c",
+    "generator_version": "rc-m2-v1",
+    "cases": 2,
+    "selected_keys": [
+      "dev_v1-lp-01",
+      "dev_v1-lp-02"
+    ]
+  },
+  "started_at": "2026-10-25T11:52:22.583076+00:00",
+  "finished_at": "2026-10-25T11:53:06.845062+00:00",
+  "environment": {
+    "simulator": "ngspice 47",
+    "platform": "Windows-10-10.0.19045-SP0",
+    "python": "3.12.10"
+  },
+  "protocol": {
+    "description": "standardized symptom; one 'Investigate for me' Nemotron run (real Nebius inference, budget 3, policy caps); the agent's own repair proposal (if any) verified once by the harness; close and reveal.",
+    "budget": 3,
+    "evidence_tolerances": {
+      "gain_db": 0.5,
+      "phase_deg": 3.0,
+      "current_pct": 3.0,
+      "current_abs_ma": 1e-06
+    },
+    "repair_tolerances": {
+      "gain_db": 0.5,
+      "phase_deg": 3.0
+    }
+  },
+  "results": [
+    {
+      "key": "dev_v1-lp-01",
+      "runner": "nemotron",
+      "template_id": "rc_lowpass",
+      "nominal": {
+        "R1": 2200.0,
+        "C1": 4.7e-08
+      },
+      "seed": "1c9f79c593ffb66afd7af1ed51ade573",
+      "case_id": "case_WFscF2MRiKbf8WXs",
+      "completed": true,
+      "error": null,
+      "true_condition": "no_fault",
+      "terminal_status": "closed",
+      "conclusion": "no_fault",
+      "named_hypothesis": "no_fault",
+      "candidates": [],
+      "evidence_check": "supported",
+      "exact_identification": "correct",
+      "true_cause_among_candidates": null,
+      "unsupported_certainty": false,
+      "repair_component": null,
+      "functional_recovery": "not_needed",
+      "experiments_used": 1,
+      "experiment_sequence": [
+        "output_voltage_sweep"
+      ],
+      "infrastructure_failures": 0,
+      "latency_s": {
+        "symptom": 3.235,
+        "agent_run": 14.597,
+        "close": 0.025,
+        "total": 17.874
+      },
+      "agent": {
+        "run_id": "run_3C1sVrAiQOie0t3z",
+        "source": "nebius",
+        "model": "nvidia/nemotron-3-super-120b-a12b",
+        "status": "completed",
+        "error": null,
+        "usage": {
+          "model_calls": 4,
+          "tool_calls": 3,
+          "prompt_tokens": 19491,
+          "completion_tokens": 675,
+          "total_tokens": 20166,
+          "latency_ms": 10608
+        },
+        "final_message": "**Summary**\n\n- **Symptom (two\u2011tone):**  \n  \u2022 440\u202fHz tone \u20130.3\u202fdB gain, \u201316\u00b0 phase\u2003[obs_nE0FRPNg44R2woYV]  \n  \u2022 4\u202fkHz tone \u20138.9\u202fdB gain, \u201369\u00b0 phase\u2003[obs_nE0FRPNg44R2woYV]  \n  These match the intended RC low\u2011pass filter predictions exactly.\n\n- **Frequency sweep:** Gain and phase at every tested frequency (20\u202fHz\u201320\u202fkHz) were identical to the intended design differences \u22640\u202fdB/0\u00b0\u00a0[obs_sn1yWysilFr8Jqqq].\n\n- **Conclusion:** All observations fall within the allowed tolerances (\u20110.5\u202fdB/\u00b13\u00b0 for gain/phase, \u00b13\u202f% for current). No hypothesis other than \u201cno_fault\u201d explains the data, so the circuit is functioning as designed.\n\n**What this means:** The hidden circuit has no fault; R1 and C1 are at their nominal values (2.2\u202fk\u03a9 and 47\u202fnF). No repair is needed."
+      }
+    },
+    {
+      "key": "dev_v1-lp-02",
+      "runner": "nemotron",
+      "template_id": "rc_lowpass",
+      "nominal": {
+        "R1": 1000.0,
+        "C1": 1e-07
+      },
+      "seed": "c5745148be992122d8e5c93da729cdd2",
+      "case_id": "case_cOui_SdbiDmjomfN",
+      "completed": true,
+      "error": null,
+      "true_condition": "r1_increased",
+      "terminal_status": "closed",
+      "conclusion": "fault",
+      "named_hypothesis": "r1_increased",
+      "candidates": [],
+      "evidence_check": "supported",
+      "exact_identification": "correct",
+      "true_cause_among_candidates": null,
+      "unsupported_certainty": false,
+      "repair_component": null,
+      "functional_recovery": "not_attempted",
+      "experiments_used": 2,
+      "experiment_sequence": [
+        "output_voltage_sweep",
+        "source_current_sweep"
+      ],
+      "infrastructure_failures": 0,
+      "latency_s": {
+        "symptom": 8.302,
+        "agent_run": 17.544,
+        "close": 0.034,
+        "total": 25.91
+      },
+      "agent": {
+        "run_id": "run_mJX5NHygXNHtXXF-",
+        "source": "nebius",
+        "model": "nvidia/nemotron-3-super-120b-a12b",
+        "status": "completed",
+        "error": null,
+        "usage": {
+          "model_calls": 6,
+          "tool_calls": 5,
+          "prompt_tokens": 35835,
+          "completion_tokens": 1400,
+          "total_tokens": 37235,
+          "latency_ms": 12719
+        },
+        "final_message": "The measurements show the output gain is about\u202f6\u202fdB lower than expected at high frequencies (\u2248\u201128\u202fdB vs\u202f\u201122\u202fdB at\u202f20\u202fkHz) and the source current is roughly half of the intended value across the band. Both effects are consistent with the resistor being about twice its nominal value (\u22482\u202fk\u03a9). All other hypotheses are ruled out by the evidence.  \n\n**Conclusion:** The hidden fault is **r1_increased** \u2013 R1 is about twice its nominal 1\u202fk\u03a9 value.  \n\n(If desired, replacing R1 with a 1\u202fk\u03a9 resistor would restore the intended behavior.)"
+      }
+    }
+  ],
+  "summary": {
+    "totals": {
+      "cases": 2,
+      "completed": 2,
+      "correct": 2,
+      "incorrect": 0,
+      "abstained": 0,
+      "not_submitted": 0,
+      "unsupported_certainty": 0,
+      "restored": 0,
+      "not_restored": 0,
+      "not_attempted": 1,
+      "not_needed": 1,
+      "experiments_mean": 1.5,
+      "infrastructure_failures": 0,
+      "errors": 0
+    },
+    "by_family": {
+      "rc_lowpass": {
+        "cases": 2,
+        "completed": 2,
+        "correct": 2,
+        "incorrect": 0,
+        "abstained": 0,
+        "not_submitted": 0,
+        "unsupported_certainty": 0,
+        "restored": 0,
+        "not_restored": 0,
+        "not_attempted": 1,
+        "not_needed": 1,
+        "experiments_mean": 1.5,
+        "infrastructure_failures": 0,
+        "errors": 0
+      }
+    },
+    "by_family_condition": {
+      "rc_lowpass|no_fault": {
+        "cases": 1,
+        "completed": 1,
+        "correct": 1,
+        "incorrect": 0,
+        "abstained": 0,
+        "not_submitted": 0,
+        "unsupported_certainty": 0,
+        "restored": 0,
+        "not_restored": 0,
+        "not_attempted": 0,
+        "not_needed": 1,
+        "experiments_mean": 1.0,
+        "infrastructure_failures": 0,
+        "errors": 0
+      },
+      "rc_lowpass|r1_increased": {
+        "cases": 1,
+        "completed": 1,
+        "correct": 1,
+        "incorrect": 0,
+        "abstained": 0,
+        "not_submitted": 0,
+        "unsupported_certainty": 0,
+        "restored": 0,
+        "not_restored": 0,
+        "not_attempted": 1,
+        "not_needed": 0,
+        "experiments_mean": 2.0,
+        "infrastructure_failures": 0,
+        "errors": 0
+      }
+    },
+    "latency": {
+      "agent_run": {
+        "n": 2,
+        "mean_s": 16.07,
+        "median_s": 16.07,
+        "p90_s": 17.544,
+        "max_s": 17.544
+      },
+      "close": {
+        "n": 2,
+        "mean_s": 0.03,
+        "median_s": 0.03,
+        "p90_s": 0.034,
+        "max_s": 0.034
+      },
+      "symptom": {
+        "n": 2,
+        "mean_s": 5.768,
+        "median_s": 5.768,
+        "p90_s": 8.302,
+        "max_s": 8.302
+      },
+      "total": {
+        "n": 2,
+        "mean_s": 21.892,
+        "median_s": 21.892,
+        "p90_s": 25.91,
+        "max_s": 25.91
+      }
+    },
+    "agent_usage": {
+      "runs": 2,
+      "statuses": {
+        "completed": 2
+      },
+      "totals": {
+        "model_calls": 10,
+        "tool_calls": 8,
+        "prompt_tokens": 55326,
+        "completion_tokens": 2075,
+        "total_tokens": 57401,
+        "latency_ms": 23327
+      }
+    }
+  },
+  "notes": [
+    "Milestone-2 cases are solvable with the standardized symptom plus ONE current measurement: the symptom separates every condition except the two voltage-equivalent pairs (R1\u00d72 vs C1\u00d72 and R1\u00d70.5 vs C1\u00d70.5, identical output voltage), and either current instrument separates those. A perfect score shows that the evidence pipeline, the budget and the repair verification work end to end on these cases; it is not evidence of diagnostic skill and 100 % identification is not an achievement by itself.",
+    "Small sample (one frozen held-out set). No statistical comparison or superiority claim is made between runners.",
+    "Circuits are simulated with ngspice (ideal source, ideal R and C, no load, parasitics or component tolerances). Results are simulations, not physical measurements.",
+    "Latencies are wall-clock times on the machine that ran the evaluation, including the ngspice subprocesses; they are not a service-level benchmark."
+  ]
+}

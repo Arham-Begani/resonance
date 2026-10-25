@@ -1,0 +1,1606 @@
+{
+  "run_id": "nemotron-heldout_v1-20261025T115418Z",
+  "runner": "nemotron",
+  "model": "nvidia/nemotron-3-super-120b-a12b",
+  "case_set": {
+    "name": "heldout_v1",
+    "sha256": "c84b0d8996dcebe182c19c23fba80e6a715aadcae1e69b42fa84b2ea0225c118",
+    "generator_version": "rc-m2-v1",
+    "cases": 24,
+    "selected_keys": [
+      "heldout_v1-lp-01",
+      "heldout_v1-lp-02",
+      "heldout_v1-lp-03",
+      "heldout_v1-lp-04",
+      "heldout_v1-lp-05",
+      "heldout_v1-lp-06",
+      "heldout_v1-lp-07",
+      "heldout_v1-lp-08",
+      "heldout_v1-lp-09",
+      "heldout_v1-lp-10",
+      "heldout_v1-lp-11",
+      "heldout_v1-lp-12",
+      "heldout_v1-hp-01",
+      "heldout_v1-hp-02",
+      "heldout_v1-hp-03",
+      "heldout_v1-hp-04",
+      "heldout_v1-hp-05",
+      "heldout_v1-hp-06",
+      "heldout_v1-hp-07",
+      "heldout_v1-hp-08",
+      "heldout_v1-hp-09",
+      "heldout_v1-hp-10",
+      "heldout_v1-hp-11",
+      "heldout_v1-hp-12"
+    ]
+  },
+  "started_at": "2026-10-25T11:54:18.216124+00:00",
+  "finished_at": "2026-10-25T12:05:40.496134+00:00",
+  "environment": {
+    "simulator": "ngspice 47",
+    "platform": "Windows-10-10.0.19045-SP0",
+    "python": "3.12.10"
+  },
+  "protocol": {
+    "description": "standardized symptom; one 'Investigate for me' Nemotron run (real Nebius inference, budget 3, policy caps); the agent's own repair proposal (if any) verified once by the harness; close and reveal.",
+    "budget": 3,
+    "evidence_tolerances": {
+      "gain_db": 0.5,
+      "phase_deg": 3.0,
+      "current_pct": 3.0,
+      "current_abs_ma": 1e-06
+    },
+    "repair_tolerances": {
+      "gain_db": 0.5,
+      "phase_deg": 3.0
+    }
+  },
+  "results": [
+    {
+      "key": "heldout_v1-lp-01",
+      "runner": "nemotron",
+      "template_id": "rc_lowpass",
+      "nominal": {
+        "R1": 6800.0,
+        "C1": 2.2e-07
+      },
+      "seed": "ab35be81bee8d6cee4e24ab3ddf53cb6",
+      "case_id": "case_CSqOPecc8Q34bqKh",
+      "completed": true,
+      "error": null,
+      "true_condition": "no_fault",
+      "terminal_status": "closed",
+      "conclusion": null,
+      "named_hypothesis": null,
+      "candidates": [],
+      "evidence_check": null,
+      "exact_identification": "not_submitted",
+      "true_cause_among_candidates": null,
+      "unsupported_certainty": false,
+      "repair_component": null,
+      "functional_recovery": "not_needed",
+      "experiments_used": 2,
+      "experiment_sequence": [
+        "output_voltage_sweep",
+        "source_current_sweep"
+      ],
+      "infrastructure_failures": 0,
+      "latency_s": {
+        "symptom": 3.71,
+        "agent_run": 14.887,
+        "close": 0.049,
+        "total": 18.677
+      },
+      "agent": {
+        "run_id": "run_oMtkzbW7_NwQtbjn",
+        "source": "nebius",
+        "model": "nvidia/nemotron-3-super-120b-a12b",
+        "status": "completed",
+        "error": null,
+        "usage": {
+          "model_calls": 5,
+          "tool_calls": 4,
+          "prompt_tokens": 28039,
+          "completion_tokens": 878,
+          "total_tokens": 28917,
+          "latency_ms": 10890
+        },
+        "final_message": "**What was observed**\n\n| Observation | What we saw | How it compares to the intended design |\n|-------------|--------------|----------------------------------------|\n| **Symptom \u2013 two\u2011tone capture (unverified citation)** | 440\u202fHz musical tone: \u201112.6\u202fdB, \u201176\u00b0 ; 4\u202fkHz whistle: \u201131.6\u202fdB, \u201188\u00b0 | Exactly matches the reference values (both gain and phase). |\n| **Output\u2011voltage sweep (obs_nz5ShcW\u2011C_sGzfx4)** | Gain and phase followed the expected curve across all 31 frequencies; biggest deviation was 0\u202fdB/0\u00b0. | Matches the intended design everywhere. |\n| **Source\u2011current sweep (obs_llXm5u2SdZZkcHtG)** | Current magnitude and phase matched the reference curve at every frequency; biggest deviation was 0\u202f%. | Also matches the intended design. |\n\nAll three independent checks (two\u2011tone test, AC voltage sweep, AC current sweep) show the hidden circuit behaving exactly as the nominal RC low\u2011pass filter with R1\u202f=\u202f6.8\u202fk\u03a9 and C1\u202f=\u202f220\u202fnF.\n\n**What remains possible**\n\nRunning `assess_evidence` gave the status \u201csupported\u201d only for **no_fault**; every other hypothesis (\u2011\u2011 increased/decreased R1, C1, or open C1) was contradicted by the data (they would shift the cutoff frequency and therefore change the gains/currents outside the \u00b10.5\u202fdB / \u00b13\u00b0 tolerance).\n\n**Conclusion**\n\nSince the evidence uniquely points to the intended design, I conclude there is **no fault**.\n\n*(No repair needed.)*  \n\n**Citations**:  \n- Symptom: `unverified citation` (gain and phase of both tones).  \n- Voltage sweep: `obs_nz5ShcW-C_sGzfx4` (gain and phase vs. frequency).  \n- Current sweep: `obs_llXm5u2SdZZkcHtG` (current magnitude and phase vs. frequency)."
+      }
+    },
+    {
+      "key": "heldout_v1-lp-02",
+      "runner": "nemotron",
+      "template_id": "rc_lowpass",
+      "nominal": {
+        "R1": 4700.0,
+        "C1": 1.5e-07
+      },
+      "seed": "cc8057e33f0aed4d639c7794d8ebc71f",
+      "case_id": "case_3dSQnmK4MZgne4ji",
+      "completed": true,
+      "error": null,
+      "true_condition": "r1_increased",
+      "terminal_status": "closed",
+      "conclusion": "fault",
+      "named_hypothesis": "r1_increased",
+      "candidates": [],
+      "evidence_check": "supported",
+      "exact_identification": "correct",
+      "true_cause_among_candidates": null,
+      "unsupported_certainty": false,
+      "repair_component": null,
+      "functional_recovery": "not_attempted",
+      "experiments_used": 2,
+      "experiment_sequence": [
+        "source_current_sweep",
+        "output_voltage_sweep"
+      ],
+      "infrastructure_failures": 0,
+      "latency_s": {
+        "symptom": 4.193,
+        "agent_run": 20.02,
+        "close": 0.036,
+        "total": 24.278
+      },
+      "agent": {
+        "run_id": "run_1sbBTQ-aQyjpjHJA",
+        "source": "nebius",
+        "model": "nvidia/nemotron-3-super-120b-a12b",
+        "status": "completed",
+        "error": null,
+        "usage": {
+          "model_calls": 7,
+          "tool_calls": 6,
+          "prompt_tokens": 41665,
+          "completion_tokens": 2261,
+          "total_tokens": 43926,
+          "latency_ms": 19016
+        },
+        "final_message": "**Summary**\n\n- **Observed symptoms:**  \n  - Two\u2011tone capture showed the musical tone (440\u202fHz) at \u201312.1\u202fdB (\u201176\u00b0) instead of the expected \u20136.8\u202fdB (\u201163\u00b0) and the whistle (4\u202fkHz) at \u201331.0\u202fdB (\u201188\u00b0) instead of \u201325.0\u202fdB (\u201187\u00b0)\u3010obs_E7IUuKhnwOjv1dhE\u3011.  \n  - Source\u2011current sweep gave about half the expected current at high frequencies (\u22480.106\u202fmA vs. 0.213\u202fmA at 20\u202fkHz) and a phase shift up to ~19.5\u00b0\u3010obs_ymssaDeSVi8XzD_a\u3011.  \n  - Output\u2011voltage sweep showed roughly 6\u202fdB extra attenuation across the band (e.g., \u201341.0\u202fdB measured vs. \u201334.9\u202fdB expected at 12.6\u202fkHz) and similar phase differences\u3010obs_vyqvGAEeJ4Hh2Bxf\u3011.\n\n- **Evidence assessment:** After the sweeps, only the hypothesis **R1 about twice its nominal value** remained consistent with all measurements; every other hypothesis was contradicted\u3010assess_evidence\u3011.\n\n- **Conclusion:** The hidden circuit has a fault where **R1 is approximately doubled** (\u22489.4\u202fk\u03a9 instead of 4.7\u202fk\u03a9).\n\n**Next step (optional):** If you wish to verify the fix, you could propose replacing R1 with a component of its nominal 4.7\u202fk\u03a9 value. Let me know if you\u2019d like to do that."
+      }
+    },
+    {
+      "key": "heldout_v1-lp-03",
+      "runner": "nemotron",
+      "template_id": "rc_lowpass",
+      "nominal": {
+        "R1": 680.0,
+        "C1": 6.8e-07
+      },
+      "seed": "e67e2bdfccd9e91473ccf93c89e51f3d",
+      "case_id": "case_QjS_XgRieiPLDSc4",
+      "completed": true,
+      "error": null,
+      "true_condition": "r1_decreased",
+      "terminal_status": "closed",
+      "conclusion": "fault",
+      "named_hypothesis": "r1_decreased",
+      "candidates": [],
+      "evidence_check": "supported",
+      "exact_identification": "correct",
+      "true_cause_among_candidates": null,
+      "unsupported_certainty": false,
+      "repair_component": "R1",
+      "functional_recovery": "restored",
+      "experiments_used": 2,
+      "experiment_sequence": [
+        "output_voltage_sweep",
+        "source_current_sweep"
+      ],
+      "infrastructure_failures": 0,
+      "latency_s": {
+        "symptom": 2.864,
+        "agent_run": 19.722,
+        "verify_repair": 3.748,
+        "close": 0.04,
+        "total": 26.403
+      },
+      "agent": {
+        "run_id": "run_NMU6_5cYvyNXi14s",
+        "source": "nebius",
+        "model": "nvidia/nemotron-3-super-120b-a12b",
+        "status": "completed",
+        "error": null,
+        "usage": {
+          "model_calls": 8,
+          "tool_calls": 7,
+          "prompt_tokens": 50443,
+          "completion_tokens": 1686,
+          "total_tokens": 52129,
+          "latency_ms": 18625
+        },
+        "final_message": "**Summary:**  \nThe musical\u2011tone output was \u20131.5\u202fdB (\u201133\u00b0) instead of the expected \u20134.2\u202fdB (\u201152\u00b0); the whistle was \u201315.5\u202fdB (\u201180\u00b0) instead of \u201321.4\u202fdB (\u201185\u00b0)\u3010obs_xe7We-LHBPtD4aw_\u3011. Sweeping the output showed up to\u202f+6\u202fdB less attenuation at high frequencies (\u201329.3\u202fdB vs \u201335.3\u202fdB at 20\u202fkHz)\u3010obs_r-aG94266EcyMNUd\u3011, and sweeping the source current showed roughly double the current at high frequencies (2.94\u202fmA vs 1.47\u202fmA at 20\u202fkHz)\u3010obs_IlwjYGdwY01VrgON\u3011. These observations indicate lower series resistance, matching only the hypothesis \u201cR1 is about half its nominal value\u201d after assessing all evidence. Therefore we conclude a fault: **R1 decreased**. We proposed repairing by replacing R1 with its nominal 680\u202f\u03a9 value."
+      }
+    },
+    {
+      "key": "heldout_v1-lp-04",
+      "runner": "nemotron",
+      "template_id": "rc_lowpass",
+      "nominal": {
+        "R1": 1500.0,
+        "C1": 1.5e-07
+      },
+      "seed": "6caaa23a2eb4fd1976085a76f27ac5b3",
+      "case_id": "case_ZRlbibxeXjbyoDYf",
+      "completed": true,
+      "error": null,
+      "true_condition": "c1_increased",
+      "terminal_status": "closed",
+      "conclusion": "fault",
+      "named_hypothesis": "c1_increased",
+      "candidates": [],
+      "evidence_check": "supported",
+      "exact_identification": "correct",
+      "true_cause_among_candidates": null,
+      "unsupported_certainty": false,
+      "repair_component": "C1",
+      "functional_recovery": "restored",
+      "experiments_used": 1,
+      "experiment_sequence": [
+        "source_current_sweep"
+      ],
+      "infrastructure_failures": 0,
+      "latency_s": {
+        "symptom": 3.191,
+        "agent_run": 16.006,
+        "verify_repair": 3.059,
+        "close": 0.02,
+        "total": 22.291
+      },
+      "agent": {
+        "run_id": "run_s055cWkuNpj9f6Cs",
+        "source": "nebius",
+        "model": "nvidia/nemotron-3-super-120b-a12b",
+        "status": "completed",
+        "error": null,
+        "usage": {
+          "model_calls": 6,
+          "tool_calls": 5,
+          "prompt_tokens": 31854,
+          "completion_tokens": 1777,
+          "total_tokens": 33631,
+          "latency_ms": 15184
+        },
+        "final_message": "**What we saw**\n\n- Standard symptom (two\u2011tone output):  \n  \u2013 440\u202fHz tone\u202f\u2013\u202f\u20114.1\u202fdB, \u201151\u00b0\u2003(obs_5h\u20119RBGAXMMxlfdc)  \n  \u2013 4\u202fkHz tone\u202f\u2013\u202f\u201121.1\u202fdB, \u201185\u00b0\u2003(obs_5h\u20119RBGAXMMxlfdc)  \nBoth gains are lower than the design\u2019s \u20111.4\u202fdB / \u201115.2\u202fdB.\n\n- Source\u2011current sweep (low frequencies):  \n  At 20\u202fHz the current is **0.03764\u202fmA**, whereas the intended design gives **0.01884\u202fmA** (\u2248+100%). This shows the circuit draws roughly twice the expected current at low\u202ffreq (obs_iKHmJRD7I8ou--xm).\n\n**Assessing the possibilities**\n\nUsing those observations with the stated tolerances:\n\n| Hypothesis | Status |\n|------------|--------|\n| no_fault | contradicted |\n| r1_increased | unresolved |\n| r1_decreased | contradicted |\n| c1_increased | **unresolved** |\n| c1_decreased | contradicted |\n| c1_disconnected | contradicted |\n\nOnly \u201cR1 about twice nominal\u201d (**r1_increased**) and \u201cC1 about twice nominal\u201d (**c1_increased**) remain possible.\n\n**Experiment to separate them**\n\nA source\u2011current sweep (already run) showed the low\u2011frequency current is **double** the intended value.  \n- If R1 were doubled, the impedance would rise \u2192 current would *drop*.  \n- If C1 were doubled, the capacitive reactance falls \u2192 low\u2011frequency current *rises*.\n\nThus the observed increase in current points to **C1 being about twice its nominal value**.\n\n**Conclusion**\n\n- **Fault:** `c1_increased` (C1 \u2248 2\u202f\u00d7\u202f150\u202fnF).  \n- Evidence cited: obs_5h\u20119RBGAXMMxlfdc (tone gains), obs_iKHmJRD7I8ou--xm (source current at 20\u202fHz).\n\n**Repair suggestion**\n\nReplace C1 with a component of its intended nominal value (150\u202fnF). After replacement the low\u2011frequency current should return to ~0.0188\u202fmA and the tone gains should move toward the design predictions."
+      }
+    },
+    {
+      "key": "heldout_v1-lp-05",
+      "runner": "nemotron",
+      "template_id": "rc_lowpass",
+      "nominal": {
+        "R1": 4700.0,
+        "C1": 2.2e-08
+      },
+      "seed": "ca66f79616b41f02ec13a42fb3d9fa3d",
+      "case_id": "case_1S373eUgOCq9dWsJ",
+      "completed": true,
+      "error": null,
+      "true_condition": "c1_decreased",
+      "terminal_status": "closed",
+      "conclusion": "fault",
+      "named_hypothesis": "c1_decreased",
+      "candidates": [],
+      "evidence_check": "supported",
+      "exact_identification": "correct",
+      "true_cause_among_candidates": null,
+      "unsupported_certainty": false,
+      "repair_component": "C1",
+      "functional_recovery": "restored",
+      "experiments_used": 1,
+      "experiment_sequence": [
+        "source_current_sweep"
+      ],
+      "infrastructure_failures": 0,
+      "latency_s": {
+        "symptom": 2.653,
+        "agent_run": 24.895,
+        "verify_repair": 2.768,
+        "close": 0.022,
+        "total": 30.352
+      },
+      "agent": {
+        "run_id": "run__8xakIez0h83hQzw",
+        "source": "nebius",
+        "model": "nvidia/nemotron-3-super-120b-a12b",
+        "status": "completed",
+        "error": null,
+        "usage": {
+          "model_calls": 6,
+          "tool_calls": 5,
+          "prompt_tokens": 32956,
+          "completion_tokens": 2100,
+          "total_tokens": 35056,
+          "latency_ms": 23104
+        },
+        "final_message": "**Observed:**  \n- Two\u2011tone symptom: musical tone (440\u202fHz) gain \u20130.09\u202fdB, phase \u20138\u00b0 (expected \u20130.34\u202fdB, \u201316\u00b0); whistle (4\u202fkHz) gain \u20134.32\u202fdB, phase \u201353\u00b0 (expected \u20138.94\u202fdB, \u201369\u00b0)\u3010obs__0xBtN-_PEoeRPd_\u3011.  \n- Source\u2011current sweep at 20\u202fHz shows current \u22480.00138\u202fmA versus intended 0.00276\u202fmA (\u201150%)\u3010obs_J1cI4DKn-hJgd65C\u3011.\n\n**Explanations that fit the evidence:** only **c1_decreased** (C1 \u2248 half its nominal value).\n\n**Conclusion:** The hidden circuit has a capacitor about half the intended 22\u202fnF. Replacing C1 with a 22\u202fnF part should restore the correct low\u2011pass behavior. Repair proposed."
+      }
+    },
+    {
+      "key": "heldout_v1-lp-06",
+      "runner": "nemotron",
+      "template_id": "rc_lowpass",
+      "nominal": {
+        "R1": 3300.0,
+        "C1": 1.5e-08
+      },
+      "seed": "af0db7348b0c9dd01d72629e7fb53d14",
+      "case_id": "case_atJqFPA6IFJwtuG3",
+      "completed": true,
+      "error": null,
+      "true_condition": "c1_disconnected",
+      "terminal_status": "closed",
+      "conclusion": "fault",
+      "named_hypothesis": "c1_disconnected",
+      "candidates": [],
+      "evidence_check": "supported",
+      "exact_identification": "correct",
+      "true_cause_among_candidates": null,
+      "unsupported_certainty": false,
+      "repair_component": "C1",
+      "functional_recovery": "restored",
+      "experiments_used": 1,
+      "experiment_sequence": [
+        "output_voltage_sweep"
+      ],
+      "infrastructure_failures": 0,
+      "latency_s": {
+        "symptom": 2.777,
+        "agent_run": 18.236,
+        "verify_repair": 4.643,
+        "close": 0.03,
+        "total": 25.706
+      },
+      "agent": {
+        "run_id": "run_enF87xwewfCQSa8T",
+        "source": "nebius",
+        "model": "nvidia/nemotron-3-super-120b-a12b",
+        "status": "completed",
+        "error": null,
+        "usage": {
+          "model_calls": 5,
+          "tool_calls": 4,
+          "prompt_tokens": 25636,
+          "completion_tokens": 1670,
+          "total_tokens": 27306,
+          "latency_ms": 17559
+        },
+        "final_message": "**Observations:**  \n- Two\u2011tone capture (output voltage) showed 0\u202fdB gain for both the 440\u202fHz tone (expected \u20130.1\u202fdB) and the 4\u202fkHz tone (expected \u20134.1\u202fdB) [obs_vblVWQN57Y2f7_Wd].  \n- Output\u2011voltage sweep from 20\u202fHz to 20\u202fkHz gave essentially 0\u202fdB gain at every frequency, whereas the intended design should roll off to about \u201316\u202fdB at 20\u202fkHz (largest error +16\u202fdB) [obs_pl2JN_rL4ZXEcDIu].\n\n**Reasoning:** With no attenuation across the audio band, the shunt capacitor to ground is not conducting. An open (disconnected) C1 removes the low\u2011pass element, making the output follow the input exactly\u2014consistent with all measurements.\n\n**Conclusion:** The circuit fault is **c1_disconnected** (capacitor C1 open).\n\n**Repair:** Replace C1 with a 15\u202fnF capacitor (its nominal value) to restore the intended RC low\u2011pass filter. The learner can apply this repair and verify normal operation."
+      }
+    },
+    {
+      "key": "heldout_v1-lp-07",
+      "runner": "nemotron",
+      "template_id": "rc_lowpass",
+      "nominal": {
+        "R1": 1500.0,
+        "C1": 1.5e-07
+      },
+      "seed": "e6a5267c93236fdeac6c602fec904639",
+      "case_id": "case_NFTo-6p3JaI4ZOqr",
+      "completed": true,
+      "error": null,
+      "true_condition": "no_fault",
+      "terminal_status": "closed",
+      "conclusion": "no_fault",
+      "named_hypothesis": "no_fault",
+      "candidates": [],
+      "evidence_check": "supported",
+      "exact_identification": "correct",
+      "true_cause_among_candidates": null,
+      "unsupported_certainty": false,
+      "repair_component": null,
+      "functional_recovery": "not_needed",
+      "experiments_used": 1,
+      "experiment_sequence": [
+        "source_current_sweep"
+      ],
+      "infrastructure_failures": 0,
+      "latency_s": {
+        "symptom": 4.153,
+        "agent_run": 15.216,
+        "close": 0.027,
+        "total": 19.413
+      },
+      "agent": {
+        "run_id": "run_054tIopzf5FNy6QN",
+        "source": "nebius",
+        "model": "nvidia/nemotron-3-super-120b-a12b",
+        "status": "completed",
+        "error": null,
+        "usage": {
+          "model_calls": 4,
+          "tool_calls": 3,
+          "prompt_tokens": 19836,
+          "completion_tokens": 1109,
+          "total_tokens": 20945,
+          "latency_ms": 12810
+        },
+        "final_message": "The symptom showed the musical tone at \u20131.4\u202fdB (\u201132\u00b0) and the whistle at \u201315.2\u202fdB (\u201180\u00b0), exactly matching the intended RC low\u2011pass filter.  \nThe source\u2011current sweep gave the same magnitudes and phases as the design at all frequencies (e.g., 0.01884\u202fmA at 20\u202fHz, 0.666\u202fmA at 20\u202fkHz).  \nBoth observations lie within the stated tolerances, so **no fault** explains the data \u2013 the circuit matches its nominal R1\u202f=\u202f1.5\u202fk\u03a9 and C1\u202f=\u202f150\u202fnF.  \n\nAll other hypotheses (changed resistance or capacitance, or an open capacitor) are ruled out because they would shift the cutoff frequency and alter gains or currents beyond tolerance.  \n\nThus the circuit is healthy; no repair is needed."
+      }
+    },
+    {
+      "key": "heldout_v1-lp-08",
+      "runner": "nemotron",
+      "template_id": "rc_lowpass",
+      "nominal": {
+        "R1": 4700.0,
+        "C1": 2.2e-08
+      },
+      "seed": "49c19101121d977cef5ec03fd11007cd",
+      "case_id": "case_s5nOauNunU-bO_QH",
+      "completed": true,
+      "error": null,
+      "true_condition": "r1_increased",
+      "terminal_status": "closed",
+      "conclusion": "fault",
+      "named_hypothesis": "r1_increased",
+      "candidates": [],
+      "evidence_check": "supported",
+      "exact_identification": "correct",
+      "true_cause_among_candidates": null,
+      "unsupported_certainty": false,
+      "repair_component": null,
+      "functional_recovery": "not_attempted",
+      "experiments_used": 1,
+      "experiment_sequence": [
+        "source_current_sweep"
+      ],
+      "infrastructure_failures": 0,
+      "latency_s": {
+        "symptom": 13.885,
+        "agent_run": 25.822,
+        "close": 0.027,
+        "total": 39.758
+      },
+      "agent": {
+        "run_id": "run_QIUazceaQd5cmWOJ",
+        "source": "nebius",
+        "model": "nvidia/nemotron-3-super-120b-a12b",
+        "status": "completed",
+        "error": null,
+        "usage": {
+          "model_calls": 6,
+          "tool_calls": 5,
+          "prompt_tokens": 31756,
+          "completion_tokens": 1963,
+          "total_tokens": 33719,
+          "latency_ms": 22749
+        },
+        "final_message": "The symptom showed the 440\u202fHz tone attenuated to \u20131.2\u202fdB (instead of \u20130.3\u202fdB) and the 4\u202fkHz tone to \u201314.5\u202fdB (instead of \u20138.9\u202fdB), indicating excess loss. The source\u2011current sweep revealed the current at high frequencies was about half the expected value (0.106\u202fmA vs 0.212\u202fmA at 20\u202fkHz), and the phase lag was larger than normal. These observations fit only the hypothesis that R1 is roughly twice its nominal 4.7\u202fk\u03a9; all other hypotheses (no fault, changed C1, or open C1) are contradicted by the data. Therefore the circuit fault is an increased resistance R1. To restore the intended behavior, replace R1 with a 4.7\u202fk\u03a9 resistor."
+      }
+    },
+    {
+      "key": "heldout_v1-lp-09",
+      "runner": "nemotron",
+      "template_id": "rc_lowpass",
+      "nominal": {
+        "R1": 3300.0,
+        "C1": 1.5e-08
+      },
+      "seed": "b8bda0351c64985a34359954802abf39",
+      "case_id": "case_R_z7Uz_XZmXiOhEm",
+      "completed": true,
+      "error": null,
+      "true_condition": "r1_decreased",
+      "terminal_status": "closed",
+      "conclusion": "fault",
+      "named_hypothesis": "c1_decreased",
+      "candidates": [],
+      "evidence_check": "contradicted",
+      "exact_identification": "incorrect",
+      "true_cause_among_candidates": null,
+      "unsupported_certainty": true,
+      "repair_component": null,
+      "functional_recovery": "not_attempted",
+      "experiments_used": 2,
+      "experiment_sequence": [
+        "output_voltage_sweep",
+        "source_current_sweep"
+      ],
+      "infrastructure_failures": 0,
+      "latency_s": {
+        "symptom": 13.806,
+        "agent_run": 30.384,
+        "close": 0.162,
+        "total": 44.423
+      },
+      "agent": {
+        "run_id": "run_i31LwA0zRc0z0BDq",
+        "source": "nebius",
+        "model": "nvidia/nemotron-3-super-120b-a12b",
+        "status": "completed",
+        "error": null,
+        "usage": {
+          "model_calls": 7,
+          "tool_calls": 6,
+          "prompt_tokens": 41978,
+          "completion_tokens": 2353,
+          "total_tokens": 44331,
+          "latency_ms": 22639
+        },
+        "final_message": "**What we saw**\n\n1. **Symptom (two\u2011tone output)** \u2013 At 440\u202fHz the output was essentially unchanged (\u20110.02\u202fdB \u2248\u202f0\u202fdB), as expected.  \n   At 4\u202fkHz the output was only \u20111.4\u202fdB down, whereas the intact RC low\u2011pass should give about \u20114.1\u202fdB. This indicates the circuit is letting more high\u2011frequency signal through than it should.\n\n2. **Output\u2011voltage sweep** \u2013 Across 20\u202fHz\u201320\u202fkHz the gain curve was shifted upward by roughly +5\u202fdB at the highest frequencies (e.g., \u201110.3\u202fdB measured vs \u201116.0\u202fdB intended at 20\u202fkHz).\n\n3. **Source\u2011current sweep** \u2013 The source current at very low frequencies (20\u202fHz) matched the intended value (0.001885\u202fmA). If R1 had been halved, the low\u2011frequency current would have doubled (~0.0038\u202fmA), which we did **not** see.\n\n**What fits the data**\n\n- *R1 decreased* (\u2248\u00bd\u202f\u00d7\u202f3.3\u202fk\u03a9) would raise the cutoff frequency **and** double the low\u2011frequency current. The low\u2011frequency current observation rules this out.\n- *C1 decreased* (\u2248\u00bd\u202f\u00d7\u202f15\u202fnF) also raises the cutoff frequency by the same factor but **does not** change the low\u2011frequency current (the capacitor is open at DC). This matches all three observations.\n\nSince only the \u201cC1 decreased\u201d hypothesis remains consistent with the evidence, we conclude a fault: the capacitor is about half its nominal value.\n\n**Conclusion:** Fault \u2013 hypothesis_id **c1_decreased**.\n\n(If you wish to verify, replace C1 with a 15\u202fnF capacitor; the circuit should then return to the intended response.)"
+      }
+    },
+    {
+      "key": "heldout_v1-lp-10",
+      "runner": "nemotron",
+      "template_id": "rc_lowpass",
+      "nominal": {
+        "R1": 6800.0,
+        "C1": 2.2e-07
+      },
+      "seed": "f51b19e4c272242c842103216357f472",
+      "case_id": "case_zA-QGm-cV4dwA4d3",
+      "completed": true,
+      "error": null,
+      "true_condition": "c1_increased",
+      "terminal_status": "closed",
+      "conclusion": "fault",
+      "named_hypothesis": "c1_increased",
+      "candidates": [],
+      "evidence_check": "supported",
+      "exact_identification": "correct",
+      "true_cause_among_candidates": null,
+      "unsupported_certainty": false,
+      "repair_component": "C1",
+      "functional_recovery": "restored",
+      "experiments_used": 1,
+      "experiment_sequence": [
+        "source_current_sweep"
+      ],
+      "infrastructure_failures": 0,
+      "latency_s": {
+        "symptom": 12.449,
+        "agent_run": 19.311,
+        "verify_repair": 19.342,
+        "close": 0.041,
+        "total": 51.162
+      },
+      "agent": {
+        "run_id": "run_sEvFYd8fjnD1-zGn",
+        "source": "nebius",
+        "model": "nvidia/nemotron-3-super-120b-a12b",
+        "status": "completed",
+        "error": null,
+        "usage": {
+          "model_calls": 6,
+          "tool_calls": 5,
+          "prompt_tokens": 32638,
+          "completion_tokens": 1828,
+          "total_tokens": 34466,
+          "latency_ms": 16075
+        },
+        "final_message": "The two\u2011tone symptom showed the musical tone at \u201318.4\u202fdB (instead of \u201312.6\u202fdB) and the whistle at \u201337.6\u202fdB (instead of \u201331.6\u202fdB) [obs_WH2kf6quodV9gr5U]. The source\u2011current sweep measured roughly double the expected current at low frequencies (e.g., 0.0518\u202fmA vs 0.0272\u202fmA at 20\u202fHz) [obs_L29zvEo1QCyzyWWV]. These observations are inconsistent with no fault, resistor changes, or a disconnected capacitor, but match the prediction for a capacitor about twice its nominal value (C1 increased) [assess_evidence]. Therefore the fault is C1 increased. I propose replacing C1 with its intended 220\u202fnF part. After repair, the circuit should return to the expected gains and currents."
+      }
+    },
+    {
+      "key": "heldout_v1-lp-11",
+      "runner": "nemotron",
+      "template_id": "rc_lowpass",
+      "nominal": {
+        "R1": 4700.0,
+        "C1": 1.5e-07
+      },
+      "seed": "24b637e2226a18b60b6d15abc588b12f",
+      "case_id": "case_20OA7VNzxRdDb9iN",
+      "completed": true,
+      "error": null,
+      "true_condition": "c1_decreased",
+      "terminal_status": "closed",
+      "conclusion": "fault",
+      "named_hypothesis": "c1_decreased",
+      "candidates": [],
+      "evidence_check": "supported",
+      "exact_identification": "correct",
+      "true_cause_among_candidates": null,
+      "unsupported_certainty": false,
+      "repair_component": "C1",
+      "functional_recovery": "restored",
+      "experiments_used": 2,
+      "experiment_sequence": [
+        "output_voltage_sweep",
+        "source_current_sweep"
+      ],
+      "infrastructure_failures": 0,
+      "latency_s": {
+        "symptom": 8.91,
+        "agent_run": 35.216,
+        "verify_repair": 4.504,
+        "close": 0.035,
+        "total": 48.695
+      },
+      "agent": {
+        "run_id": "run_tFgwiDGMqAS58_TI",
+        "source": "nebius",
+        "model": "nvidia/nemotron-3-super-120b-a12b",
+        "status": "completed",
+        "error": null,
+        "usage": {
+          "model_calls": 7,
+          "tool_calls": 6,
+          "prompt_tokens": 44049,
+          "completion_tokens": 2465,
+          "total_tokens": 46514,
+          "latency_ms": 28060
+        },
+        "final_message": "**Observed:**  \n- Two\u2011tone output showed the musical tone (\u20112.9\u202fdB, \u201144\u00b0) and whistle (\u201119.0\u202fdB, \u201184\u00b0) were both **higher** (less attenuated) than the intended values.  \n- Output\u2011voltage sweep gave up to **+6\u202fdB** more gain at high frequencies (e.g., \u201132.9\u202fdB vs. \u201138.9\u202fdB at 20\u202fkHz) and phase errors up to\u202f19.5\u00b0.  \n- Source\u2011current sweep showed the current was **about \u201350\u202f%** lower at low frequencies (0.0094\u202fmA vs. 0.0188\u202fmA at 20\u202fHz).\n\n**What fits the data:**  \nAll hypotheses except \u201cC1 decreased\u201d are contradicted by at least one measurement beyond the allowed tolerances. The assessment code reports that only **c1_decreased** (C1 \u2248 half its nominal value) remains consistent with every observation.\n\n**Conclusion:**  \nThe hidden circuit has a capacitor about **half** its nominal value (\u224875\u202fnF). This raises the cutoff frequency, giving the observed excess gain and reduced source current.\n\n**Repair:**  \nReplace C1 with a capacitor of its intended nominal value (**150\u202fnF**) to restore the correct cutoff and eliminate the fault. After you install the part, verify that the output tone levels return close to the intended \u20136.8\u202fdB/\u201163\u00b0 (440\u202fHz) and \u201325.0\u202fdB/\u201187\u00b0 (4\u202fkHz)."
+      }
+    },
+    {
+      "key": "heldout_v1-lp-12",
+      "runner": "nemotron",
+      "template_id": "rc_lowpass",
+      "nominal": {
+        "R1": 680.0,
+        "C1": 6.8e-07
+      },
+      "seed": "baf26ce4ccff07335d59b073022bfe92",
+      "case_id": "case_YIylr9YywDUUd1yR",
+      "completed": true,
+      "error": null,
+      "true_condition": "c1_disconnected",
+      "terminal_status": "closed",
+      "conclusion": "fault",
+      "named_hypothesis": "c1_disconnected",
+      "candidates": [],
+      "evidence_check": "supported",
+      "exact_identification": "correct",
+      "true_cause_among_candidates": null,
+      "unsupported_certainty": false,
+      "repair_component": "C1",
+      "functional_recovery": "restored",
+      "experiments_used": 1,
+      "experiment_sequence": [
+        "output_voltage_sweep"
+      ],
+      "infrastructure_failures": 0,
+      "latency_s": {
+        "symptom": 3.759,
+        "agent_run": 15.456,
+        "verify_repair": 5.044,
+        "close": 0.025,
+        "total": 24.303
+      },
+      "agent": {
+        "run_id": "run_yftXoyGFj_dC9RV3",
+        "source": "nebius",
+        "model": "nvidia/nemotron-3-super-120b-a12b",
+        "status": "completed",
+        "error": null,
+        "usage": {
+          "model_calls": 6,
+          "tool_calls": 5,
+          "prompt_tokens": 32086,
+          "completion_tokens": 1075,
+          "total_tokens": 33161,
+          "latency_ms": 14105
+        },
+        "final_message": "**Summary**\n\nFrom the initial symptom (two\u2011tone capture of the output voltage) both the 440\u202fHz musical tone and the 4\u202fkHz whistle were present at full amplitude (0\u202fdB gain) whereas they should have been attenuated (\u20114.2\u202fdB and \u201121.4\u202fdB respectively)\u3010obs_fJM-R6m2lJ-t6ImV\u3011.  \nAn output\u2011voltage sweep showed the output gain staying near 0\u202fdB across the entire 20\u202fHz\u201320\u202fkHz range\u2014approximately +35\u202fdB higher than the intended low\u2011pass response\u2014and the phase remained close to 0\u00b0 instead of the large negative shifts expected\u3010obs_wN3RtoQADLooAFV2\u3011.  \n\nRunning **assess_evidence** indicated that all hypotheses except \u201cC1 disconnected (open)\u201d were contradicted, leaving only the open\u2011capacitor model fitting every recorded measurement.\n\n**Conclusion:** Fault \u2013 `c1_disconnected` (C1 is open).\n\n**Repair proposal:** Replace capacitor C1 with a new 680\u202fnF component (its intended nominal value) to restore the designed RC low\u2011pass characteristic. The learner will apply and verify this repair."
+      }
+    },
+    {
+      "key": "heldout_v1-hp-01",
+      "runner": "nemotron",
+      "template_id": "rc_highpass",
+      "nominal": {
+        "R1": 4700.0,
+        "C1": 6.8e-07
+      },
+      "seed": "8e721d67e9b195ec3aa629f45727266e",
+      "case_id": "case_HexmfV647zYBySOk",
+      "completed": true,
+      "error": null,
+      "true_condition": "no_fault",
+      "terminal_status": "closed",
+      "conclusion": "no_fault",
+      "named_hypothesis": "no_fault",
+      "candidates": [],
+      "evidence_check": "supported",
+      "exact_identification": "correct",
+      "true_cause_among_candidates": null,
+      "unsupported_certainty": false,
+      "repair_component": null,
+      "functional_recovery": "not_needed",
+      "experiments_used": 2,
+      "experiment_sequence": [
+        "output_voltage_sweep",
+        "source_current_sweep"
+      ],
+      "infrastructure_failures": 0,
+      "latency_s": {
+        "symptom": 3.995,
+        "agent_run": 18.21,
+        "close": 0.037,
+        "total": 22.27
+      },
+      "agent": {
+        "run_id": "run_7kOroViF7YNSvj65",
+        "source": "nebius",
+        "model": "nvidia/nemotron-3-super-120b-a12b",
+        "status": "completed",
+        "error": null,
+        "usage": {
+          "model_calls": 7,
+          "tool_calls": 6,
+          "prompt_tokens": 44727,
+          "completion_tokens": 1614,
+          "total_tokens": 46341,
+          "latency_ms": 16686
+        },
+        "final_message": "**Observations**\n\n- Standard two\u2011tone symptom (output voltage):  \n  \u2022 50\u202fHz \u2013 gain\u202f\u20112.993\u202fdB, phase\u202f44.88\u00b0\u2003[obs_N8cbHqK9YODW6AJN, tone_gain_db, tone_phase_deg]  \n  \u2022 440\u202fHz \u2013 gain\u202f\u20110.055\u202fdB, phase\u202f6.46\u00b0\u2003[obs_N8cbHqK9YODW6AJN, tone_gain_db, tone_phase_deg]\n\n- Sweep of output voltage vs. frequency: gain at 20\u202fHz\u202f\u20118.573\u202fdB, matching the intended design\u2003[obs_vyOa\u2011JZUv1WsYqoy, output_gain_db]\n\n- Sweep of source current vs. frequency: current at 20\u202fHz\u202f0.0793\u202fmA, matching the intended design\u2003[obs_ypcLCxFius4iiNt5, source_current_ma]\n\nAll measured gains, phases and currents agree with the predictions for the nominal RC high\u2011pass filter within the declared tolerances (0.5\u202fdB, 3\u00b0, 3\u202f%). No observation contradicts any of the fault hypotheses.\n\n**Conclusion**\n\nThe evidence supports **no_fault**: the hidden circuit matches the intended design (nominal R1\u202f=\u202f4.7\u202fk\u03a9, C1\u202f=\u202f680\u202fnF).\n\nSince no fault is found, no repair is proposed. The learner can continue using the circuit as is."
+      }
+    },
+    {
+      "key": "heldout_v1-hp-02",
+      "runner": "nemotron",
+      "template_id": "rc_highpass",
+      "nominal": {
+        "R1": 10000.0,
+        "C1": 2.2e-07
+      },
+      "seed": "65f2844931e2a92f216dd5d8703bcebb",
+      "case_id": "case_wSDhR73H92wubxn0",
+      "completed": true,
+      "error": null,
+      "true_condition": "r1_increased",
+      "terminal_status": "closed",
+      "conclusion": null,
+      "named_hypothesis": null,
+      "candidates": [],
+      "evidence_check": null,
+      "exact_identification": "not_submitted",
+      "true_cause_among_candidates": null,
+      "unsupported_certainty": false,
+      "repair_component": null,
+      "functional_recovery": "not_attempted",
+      "experiments_used": 1,
+      "experiment_sequence": [
+        "source_current_sweep"
+      ],
+      "infrastructure_failures": 0,
+      "latency_s": {
+        "symptom": 3.312,
+        "agent_run": 18.953,
+        "close": 0.02,
+        "total": 22.299
+      },
+      "agent": {
+        "run_id": "run_CrxlxqU2S7Bg-f8l",
+        "source": "nebius",
+        "model": "nvidia/nemotron-3-super-120b-a12b",
+        "status": "completed",
+        "error": null,
+        "usage": {
+          "model_calls": 4,
+          "tool_calls": 3,
+          "prompt_tokens": 19460,
+          "completion_tokens": 1365,
+          "total_tokens": 20825,
+          "latency_ms": 17996
+        },
+        "final_message": "**What we saw**\n\n- Standard symptom (two\u2011tone output):  \n  * 50\u202fHz mains hum \u20131.8\u202fdB,\u202f36\u00b0\u2003[intended \u20134.9\u202fdB,\u202f55\u00b0] **[obs_qYRkPp2AlHFOmiKJ]**  \n  * 440\u202fHz tone \u20130.0\u202fdB,\u202f5\u00b0\u2003[intended \u20130.1\u202fdB,\u202f9\u00b0] **[obs_qYRkPp2AlHFOmiKJ]**\n\n- Source\u2011current sweep showed the circuit draws about **half** the expected current at high frequencies (\u201150\u202f% at 20\u202fkHz: 0.05\u202fmA vs. 0.10\u202fmA) and the phase is off by up to ~19\u00b0 around 50\u202fHz **[obs_y6ciiJcQPxCEL37H]**.\n\n**What the evidence tells us**\n\nRunning `assess_evidence` against the two observations shows that only one hypothesis remains possible: **R1 is about twice its nominal value**. All other possibilities (no fault, R1 decreased, C1 changed in any way, or C1 open) are contradicted by the measured gain/phase/current data.\n\n**Conclusion**\n\nThe hidden circuit has a fault: **R1 \u2248\u202f2\u202f\u00d7\u202f10\u202fk\u03a9 (\u224820\u202fk\u03a9)**.\n\n```\nsubmit_diagnosis {\n  conclusion: \"fault\",\n  hypothesis_id: \"r1_increased\",\n  citations: [\n    {observation_id: \"obs_qYRkPp2AlHFOmiKJ\", quantity: \"output_gain_db\"},\n    {observation_id: \"obs_qYRkPp2AlHFOmiKJ\", quantity: \"output_phase_deg\"},\n    {observation_id: \"obs_y6ciiJcQPxCEL37H\", quantity: \"source_current_ma\"}\n  ],\n  explanation: \"The output is less attenuated than expected at low frequencies and the source current is roughly half of what it should be, which matches a resistor twice as large.\"\n}\n```\n\n*(No further experiments needed; the evidence already pins down a single explanation.)*"
+      }
+    },
+    {
+      "key": "heldout_v1-hp-03",
+      "runner": "nemotron",
+      "template_id": "rc_highpass",
+      "nominal": {
+        "R1": 2200.0,
+        "C1": 3.3e-07
+      },
+      "seed": "a284a8d4d2779ff0d1d48aed9549f8b8",
+      "case_id": "case_9bYom0j9JU7GC-On",
+      "completed": true,
+      "error": null,
+      "true_condition": "r1_decreased",
+      "terminal_status": "closed",
+      "conclusion": "fault",
+      "named_hypothesis": "r1_decreased",
+      "candidates": [],
+      "evidence_check": "supported",
+      "exact_identification": "correct",
+      "true_cause_among_candidates": null,
+      "unsupported_certainty": false,
+      "repair_component": null,
+      "functional_recovery": "not_attempted",
+      "experiments_used": 1,
+      "experiment_sequence": [
+        "source_current_sweep"
+      ],
+      "infrastructure_failures": 0,
+      "latency_s": {
+        "symptom": 2.99,
+        "agent_run": 17.137,
+        "close": 0.022,
+        "total": 20.163
+      },
+      "agent": {
+        "run_id": "run_vjLllnCyLl95Zc0B",
+        "source": "nebius",
+        "model": "nvidia/nemotron-3-super-120b-a12b",
+        "status": "completed",
+        "error": null,
+        "usage": {
+          "model_calls": 5,
+          "tool_calls": 4,
+          "prompt_tokens": 25993,
+          "completion_tokens": 1443,
+          "total_tokens": 27436,
+          "latency_ms": 15997
+        },
+        "final_message": "**What was observed:**  \n- The two\u2011tone symptom showed the 50\u202fHz hum at \u201318.9\u202fdB (\u201113.1\u202fdB expected) and the 440\u202fHz tone at \u20133.0\u202fdB (\u20111.0\u202fdB expected). Both gains were lower than normal, indicating less attenuation at low frequency.  \n- The source\u2011current sweep measured roughly double the expected current across the whole frequency range (e.g., ~0.91\u202fmA vs. ~0.45\u202fmA at 20\u202fkHz) with phase shifts up to ~20\u00b0.\n\n**What still fits the evidence:**  \nOnly the hypothesis **r1_decreased** (R1 about half its nominal value) remains consistent with all measurements; every other explanation is contradicted.\n\n**Conclusion:**  \nThe circuit has a fault: the resistor R1 is approximately half its intended 2.2\u202fk\u03a9 value (~1.1\u202fk\u03a9).\n\n**[Optional repair suggestion]** Replace R1 with a component of its nominal 2.2\u202fk\u03a9 value. This should restore the correct cutoff frequency and gain/phase response."
+      }
+    },
+    {
+      "key": "heldout_v1-hp-04",
+      "runner": "nemotron",
+      "template_id": "rc_highpass",
+      "nominal": {
+        "R1": 10000.0,
+        "C1": 3.3e-08
+      },
+      "seed": "cab79a516fcb234f57aa3df67cf770d8",
+      "case_id": "case_QF-CjZKXzT_JFnAG",
+      "completed": true,
+      "error": null,
+      "true_condition": "c1_increased",
+      "terminal_status": "closed",
+      "conclusion": "fault",
+      "named_hypothesis": "c1_increased",
+      "candidates": [],
+      "evidence_check": "supported",
+      "exact_identification": "correct",
+      "true_cause_among_candidates": null,
+      "unsupported_certainty": false,
+      "repair_component": null,
+      "functional_recovery": "not_attempted",
+      "experiments_used": 1,
+      "experiment_sequence": [
+        "source_current_sweep"
+      ],
+      "infrastructure_failures": 0,
+      "latency_s": {
+        "symptom": 3.363,
+        "agent_run": 24.437,
+        "close": 0.023,
+        "total": 27.835
+      },
+      "agent": {
+        "run_id": "run_QbRvC1l36TbIgobz",
+        "source": "nebius",
+        "model": "nvidia/nemotron-3-super-120b-a12b",
+        "status": "completed",
+        "error": null,
+        "usage": {
+          "model_calls": 6,
+          "tool_calls": 5,
+          "prompt_tokens": 31663,
+          "completion_tokens": 1811,
+          "total_tokens": 33474,
+          "latency_ms": 20449
+        },
+        "final_message": "**Observed:**  \n- Two\u2011tone capture (output voltage): mains hum\u202f(50\u202fHz) \u201313.8\u202fdB (\u201119.7\u202fdB expected) at 78\u00b0; musical tone\u202f(440\u202fHz) \u20131.1\u202fdB (\u20113.4\u202fdB expected) at 29\u00b0. Both gains are higher (less attenuated) than the nominal design expects.  \n- Source\u2011current sweep: at 20\u202fHz the current is 0.00827\u202fmA, about twice the intended 0.00414\u202fmA (+99%). Phase also deviates up to ~19\u00b0.  \n\n**Evidence assessment:**  \nUsing the tolerance tables, only the hypothesis **c1_increased** (capacitor about twice its nominal value) remains consistent with all measurements. All other hypotheses are contradicted.  \n\n**Conclusion:** Fault \u2013 the capacitor C1 is approximately doubled (\u224866\u202fnF).  \n\n*Suggested repair:* Replace C1 with a component of its intended nominal value (33\u202fnF). This should restore the expected attenuation and phase response."
+      }
+    },
+    {
+      "key": "heldout_v1-hp-05",
+      "runner": "nemotron",
+      "template_id": "rc_highpass",
+      "nominal": {
+        "R1": 680.0,
+        "C1": 3.3e-07
+      },
+      "seed": "3c8a3022cb7f601a32c05cf2d2743361",
+      "case_id": "case_DeGRXx4H9dg7J8XL",
+      "completed": true,
+      "error": null,
+      "true_condition": "c1_decreased",
+      "terminal_status": "closed",
+      "conclusion": "fault",
+      "named_hypothesis": "c1_decreased",
+      "candidates": [],
+      "evidence_check": "supported",
+      "exact_identification": "correct",
+      "true_cause_among_candidates": null,
+      "unsupported_certainty": false,
+      "repair_component": "C1",
+      "functional_recovery": "restored",
+      "experiments_used": 2,
+      "experiment_sequence": [
+        "output_voltage_sweep",
+        "source_current_sweep"
+      ],
+      "infrastructure_failures": 0,
+      "latency_s": {
+        "symptom": 8.932,
+        "agent_run": 32.255,
+        "verify_repair": 7.863,
+        "close": 0.034,
+        "total": 49.106
+      },
+      "agent": {
+        "run_id": "run_jV09qpReHdeVYzbT",
+        "source": "nebius",
+        "model": "nvidia/nemotron-3-super-120b-a12b",
+        "status": "completed",
+        "error": null,
+        "usage": {
+          "model_calls": 7,
+          "tool_calls": 6,
+          "prompt_tokens": 42644,
+          "completion_tokens": 2542,
+          "total_tokens": 45186,
+          "latency_ms": 27685
+        },
+        "final_message": "**Summary**\n\n- **Symptom**: Two\u2011tone capture showed mains hum at \u201329\u202fdB/88\u00b0 (expected \u201323\u202fdB/86\u00b0) and musical tone at \u201310.6\u202fdB/73\u00b0 (expected \u20135.6\u202fdB/58\u00b0) \u2192 both tones attenuated \u22486\u202fdB more than normal.\n- **Output\u2011voltage sweep**: Gain was ~6\u202fdB lower across the band, especially at low frequencies (\u201137\u202fdB vs \u201131\u202fdB at 20\u202fHz); phase shifted up to ~19\u00b0 off.\n- **Source\u2011current sweep**: Current was roughly half the expected value at low frequencies (0.0207\u202fmA vs 0.0415\u202fmA at 20\u202fHz) but matched the design at high frequencies (\u22652\u202fkHz).\n\nThese results point to the capacitive reactance being doubled, which happens when **C1 is about half its nominal value (\u2248165\u202fnF)**, while R1 remains unchanged. All other hypotheses were contradicted by the data.\n\n**Conclusion**: Fault \u2013 hypothesis **c1_decreased**.\n\n**Repair proposal**: Replace C1 with its intended nominal value (330\u202fnF). This should restore the correct cutoff (~709\u202fHz) and eliminate the excess attenuation."
+      }
+    },
+    {
+      "key": "heldout_v1-hp-06",
+      "runner": "nemotron",
+      "template_id": "rc_highpass",
+      "nominal": {
+        "R1": 6800.0,
+        "C1": 1.5e-08
+      },
+      "seed": "c684fc682a62c77fc82fd2b989f98080",
+      "case_id": "case_wSwHevcNUHzOmjmk",
+      "completed": true,
+      "error": null,
+      "true_condition": "c1_disconnected",
+      "terminal_status": "closed",
+      "conclusion": "fault",
+      "named_hypothesis": "c1_disconnected",
+      "candidates": [],
+      "evidence_check": "supported",
+      "exact_identification": "correct",
+      "true_cause_among_candidates": null,
+      "unsupported_certainty": false,
+      "repair_component": null,
+      "functional_recovery": "not_attempted",
+      "experiments_used": 2,
+      "experiment_sequence": [
+        "output_voltage_sweep",
+        "source_current_sweep"
+      ],
+      "infrastructure_failures": 0,
+      "latency_s": {
+        "symptom": 7.446,
+        "agent_run": 17.259,
+        "close": 0.031,
+        "total": 24.758
+      },
+      "agent": {
+        "run_id": "run_vQOi48SNQgAXylsD",
+        "source": "nebius",
+        "model": "nvidia/nemotron-3-super-120b-a12b",
+        "status": "completed",
+        "error": null,
+        "usage": {
+          "model_calls": 6,
+          "tool_calls": 5,
+          "prompt_tokens": 34084,
+          "completion_tokens": 1179,
+          "total_tokens": 35263,
+          "latency_ms": 14233
+        },
+        "final_message": "**What we observed**\n\n- Standard symptom (two\u2011tone capture):  \n  * At 50\u202fHz \u2013 \u201cbelow floor\u201d \u2192 no measurable output (\u2011\u221e\u202fdB).  \n  * At 440\u202fHz \u2013 \u201cbelow floor\u201d \u2192 no measurable output (\u2011\u221e\u202fdB).\u2003[obs_Ra0oQd3Xc3AeB7wz]\n\n- Output\u2011voltage sweep (20\u202fHz\u201320\u202fkHz): every frequency showed \u201cbelow floor\u201d (\u2265\u2011120\u202fdB) on the gain column.\u2003[obs_p0rB9v4qdR6rMbX7]\n\n- Source\u2011current sweep (20\u202fHz\u201320\u202fkHz): every frequency showed \u201cbelow floor\u201d (\u22641\u202fnA) on the current column.\u2003[obs_Mw8_aVfcBXsyfFsg]\n\nThese results were obtained before exhausting the experiment budget (2/3 runs used).\n\n**Assessment of hypotheses**\n\nUsing the declared tolerances, the trustworthy code evaluated each possible fault against the three observations:\n\n| Hypothesis | Status |\n|------------|--------|\n| no_fault | contradicted |\n| r1_increased | contradicted |\n| r1_decreased | contradicted |\n| c1_increased | contradicted |\n| c1_decreased | contradicted |\n| **c1_disconnected** | **supported** |\n\nAll other explanations conflict with at least one measurement (they predict some output or current, whereas we see none across the entire band). Only the open\u2011capacitor model predicts zero output and zero current at every frequency, matching the data.\n\n**Conclusion**\n\nThe hidden circuit contains an **open capacitor C1** (disconnected). This fault alone explains all recorded observations.\n\n**Suggested repair (optional)**  \nReplace C1 with a component of its nominal value (15\u202fnF). After replacement the circuit should behave as intended: gain rises above \u2013120\u202fdB for frequencies \u2273\u202f1\u202fkHz and the source current becomes measurable.   \n\n---  \n\n*Diagnosis submitted successfully.*"
+      }
+    },
+    {
+      "key": "heldout_v1-hp-07",
+      "runner": "nemotron",
+      "template_id": "rc_highpass",
+      "nominal": {
+        "R1": 10000.0,
+        "C1": 3.3e-08
+      },
+      "seed": "832bc38c30b467b119fcab89c19ed3ec",
+      "case_id": "case_LtwfrtiRRIlE4RV-",
+      "completed": true,
+      "error": null,
+      "true_condition": "no_fault",
+      "terminal_status": "closed",
+      "conclusion": null,
+      "named_hypothesis": null,
+      "candidates": [],
+      "evidence_check": null,
+      "exact_identification": "not_submitted",
+      "true_cause_among_candidates": null,
+      "unsupported_certainty": false,
+      "repair_component": null,
+      "functional_recovery": "not_needed",
+      "experiments_used": 1,
+      "experiment_sequence": [
+        "output_voltage_sweep"
+      ],
+      "infrastructure_failures": 0,
+      "latency_s": {
+        "symptom": 4.341,
+        "agent_run": 7.379,
+        "close": 0.027,
+        "total": 11.764
+      },
+      "agent": {
+        "run_id": "run_4oA6C7gM7kmzUKvm",
+        "source": "nebius",
+        "model": "nvidia/nemotron-3-super-120b-a12b",
+        "status": "completed",
+        "error": null,
+        "usage": {
+          "model_calls": 4,
+          "tool_calls": 3,
+          "prompt_tokens": 19350,
+          "completion_tokens": 443,
+          "total_tokens": 19793,
+          "latency_ms": 6531
+        },
+        "final_message": "**What we saw:**  \n\u2011 Symptom (two\u2011tone): mains hum\u202f(50\u202fHz) \u201319.7\u202fdB\u202f@\u202f84\u00b0, musical tone\u202f(440\u202fHz) \u20133.4\u202fdB\u202f@\u202f48\u00b0\u2003[obs_9QEFzDRzdbhtSEmw].  \n\u2011 Sweep (20\u202fHz\u201320\u202fkHz): gain matched the intended design at every frequency (\u201127.6\u202fdB down to \u20110.003\u202fdB) and phase differed by \u22640\u00b0 throughout\u2003[obs_BlKall6lAfyMuCiZ].\n\n**Evidence check:** Using the declared tolerances, all hypotheses except \u201cno_fault\u201d were contradicted; only \u201cno_fault\u201d remained supported.\n\n**Conclusion:** The hidden circuit shows **no fault**; it behaves exactly as the nominal high\u2011pass RC filter.\n\n*(Total budget used: 1 of 3 runs.)*"
+      }
+    },
+    {
+      "key": "heldout_v1-hp-08",
+      "runner": "nemotron",
+      "template_id": "rc_highpass",
+      "nominal": {
+        "R1": 680.0,
+        "C1": 3.3e-07
+      },
+      "seed": "f923aa291251381663a9454ffb135d6b",
+      "case_id": "case_G9ly5P76uREr27jc",
+      "completed": true,
+      "error": null,
+      "true_condition": "r1_increased",
+      "terminal_status": "closed",
+      "conclusion": "fault",
+      "named_hypothesis": "r1_increased",
+      "candidates": [],
+      "evidence_check": "supported",
+      "exact_identification": "correct",
+      "true_cause_among_candidates": null,
+      "unsupported_certainty": false,
+      "repair_component": null,
+      "functional_recovery": "not_attempted",
+      "experiments_used": 2,
+      "experiment_sequence": [
+        "output_voltage_sweep",
+        "source_current_sweep"
+      ],
+      "infrastructure_failures": 0,
+      "latency_s": {
+        "symptom": 3.893,
+        "agent_run": 25.844,
+        "close": 0.037,
+        "total": 29.8
+      },
+      "agent": {
+        "run_id": "run_koUH2ZsE3ZgdNV2m",
+        "source": "nebius",
+        "model": "nvidia/nemotron-3-super-120b-a12b",
+        "status": "completed",
+        "error": null,
+        "usage": {
+          "model_calls": 6,
+          "tool_calls": 5,
+          "prompt_tokens": 34644,
+          "completion_tokens": 2193,
+          "total_tokens": 36837,
+          "latency_ms": 23464
+        },
+        "final_message": "**What we observed:**  \n- Two\u2011tone output showed mains hum (\u201117.1\u202fdB @\u202f50\u202fHz) and musical tone (\u20112.2\u202fdB @\u202f440\u202fHz) \u2013 gains were less attenuated than expected, hinting the circuit passes low frequencies better.  \n- Sweeping the output gave a gain ~+6\u202fdB higher than intended at 20\u202fHz (\u201125\u202fdB measured vs \u201131\u202fdB intended) and similar shifts up to \u2248+5\u20136\u202fdB across low frequencies, moving the corner downwards.  \n- Measuring source current revealed roughly half the expected current around 20\u202fkHz (0.735\u202fmA measured vs 1.47\u202fmA intended) and similar reductions throughout the band, implying larger series impedance.\n\n**Evidence assessment:**  \nAll hypotheses except \u201cR1 increased\u201d (~2\u00d7 nominal) and \u201cC1 increased\u201d (~2\u00d7) were contradicted. The data alone could not distinguish those two because doubling either R or C yields the same factor\u2011of\u20112 increase in the time constant \u03c4 = R\u00b7C, producing matching gain/phase shifts in our limited observations.\n\n**Conclusion:**  \nSince the pattern of *lower* current together with *less* attenuation at low frequencies points specifically to a larger resistance (not a larger capacitance\u2014larger C would raise current), we conclude **R1 is about twice its nominal value**. This fault explains all recorded observations within tolerance, so we submitted a fault diagnosis with hypothesis `r1_increased`."
+      }
+    },
+    {
+      "key": "heldout_v1-hp-09",
+      "runner": "nemotron",
+      "template_id": "rc_highpass",
+      "nominal": {
+        "R1": 6800.0,
+        "C1": 1.5e-08
+      },
+      "seed": "3c7a1f023b4f01340c94071c84d873fd",
+      "case_id": "case_bzlitFkQ_5AnSEaq",
+      "completed": true,
+      "error": null,
+      "true_condition": "r1_decreased",
+      "terminal_status": "closed",
+      "conclusion": "fault",
+      "named_hypothesis": "r1_decreased",
+      "candidates": [],
+      "evidence_check": "supported",
+      "exact_identification": "correct",
+      "true_cause_among_candidates": null,
+      "unsupported_certainty": false,
+      "repair_component": null,
+      "functional_recovery": "not_attempted",
+      "experiments_used": 1,
+      "experiment_sequence": [
+        "source_current_sweep"
+      ],
+      "infrastructure_failures": 0,
+      "latency_s": {
+        "symptom": 4.74,
+        "agent_run": 16.732,
+        "close": 0.02,
+        "total": 21.503
+      },
+      "agent": {
+        "run_id": "run_R7BY6kZ34dBvAcBt",
+        "source": "nebius",
+        "model": "nvidia/nemotron-3-super-120b-a12b",
+        "status": "completed",
+        "error": null,
+        "usage": {
+          "model_calls": 5,
+          "tool_calls": 4,
+          "prompt_tokens": 25110,
+          "completion_tokens": 1762,
+          "total_tokens": 26872,
+          "latency_ms": 15108
+        },
+        "final_message": "**What we observed**\n\n- Standardized symptom (two\u2011tone output): mains hum (\u201135.9\u202fdB, 89\u00b0) and 440\u202fHz tone (\u201117.1\u202fdB, 82\u00b0) \u2013 both gains were deeper than the intended design\u2019s predictions (\u201129.9\u202fdB/88\u00b0 and \u201111.3\u202fdB/74\u00b0).  \n- Source\u2011current sweep: at 20\u202fHz the measured current matched the intended value (\u22480.0019\u202fmA), but at 20\u202fkHz it was \u22480.291\u202fmA, almost **double** the intended current (\u22480.147\u202fmA).\n\n**What still fit the evidence**\n\nBefore the current sweep, two hypotheses could explain the symptom: *R1 about half nominal* or *C1 about half nominal*. Both gave similar changes in the two\u2011tone gains.\n\n**Why we chose a fault**\n\nThe current sweep tells us how the circuit draws current from the source. Halving the resistance makes the circuit draw more current at high frequencies, while keeping low\u2011frequency current essentially unchanged (because the capacitor blocks DC). Halving the capacitance would reduce low\u2011frequency current, which we did **not** see. Therefore the data support **R1 being about half its nominal value**.\n\n**Diagnosis**\n\nConclusion: **fault** \u2013 hypothesis_id **r1_decreased**.  \nCitations: obs_HkAMFhxilLygy4Qw (source_current_ma @20\u202fkHz, +98\u202f%); obs_HkAMFhxilLygy4Qw (source_current_ma @20\u202fHz, matches intended).\n\n**Next step (repair)**  \nReplace R1 with a resistor of its intended nominal value (6.8\u202fk\u03a9). After the repair, the circuit should behave as designed."
+      }
+    },
+    {
+      "key": "heldout_v1-hp-10",
+      "runner": "nemotron",
+      "template_id": "rc_highpass",
+      "nominal": {
+        "R1": 4700.0,
+        "C1": 6.8e-07
+      },
+      "seed": "f90c9cd71e9f9ff865855fe58ea70f0b",
+      "case_id": "case_Hoj_rQSWYiDnJejL",
+      "completed": true,
+      "error": null,
+      "true_condition": "c1_increased",
+      "terminal_status": "closed",
+      "conclusion": "fault",
+      "named_hypothesis": "c1_increased",
+      "candidates": [],
+      "evidence_check": "supported",
+      "exact_identification": "correct",
+      "true_cause_among_candidates": null,
+      "unsupported_certainty": false,
+      "repair_component": null,
+      "functional_recovery": "not_attempted",
+      "experiments_used": 1,
+      "experiment_sequence": [
+        "source_current_sweep"
+      ],
+      "infrastructure_failures": 0,
+      "latency_s": {
+        "symptom": 4.485,
+        "agent_run": 18.68,
+        "close": 0.021,
+        "total": 23.199
+      },
+      "agent": {
+        "run_id": "run_xbIythfYLs30xS7w",
+        "source": "nebius",
+        "model": "nvidia/nemotron-3-super-120b-a12b",
+        "status": "completed",
+        "error": null,
+        "usage": {
+          "model_calls": 5,
+          "tool_calls": 4,
+          "prompt_tokens": 25980,
+          "completion_tokens": 1843,
+          "total_tokens": 27823,
+          "latency_ms": 17408
+        },
+        "final_message": "**What we observed**\n\n1. **Symptom (two\u2011tone output)** \u2013 At 50\u202fHz the gain was \u20130.96\u202fdB (phase\u202f\u2248\u202f26\u00b0) instead of the expected \u20133.0\u202fdB (45\u00b0).  \n   At 440\u202fHz the gain was \u20130.01\u202fdB (\u2248\u202f3\u00b0) versus the expected \u20130.06\u202fdB (\u2248\u202f6\u00b0)\u00a0[obs_N2414gsHAlD41sxo].\n\n2. **Source\u2011current sweep** \u2013 From 20\u202fHz upward the source supplied noticeably more current than the design predicts; the biggest deviation was +68\u202f% at 20\u202fHz (0.133\u202fmA measured vs\u202f0.079\u202fmA expected)\u00a0[obs_DY9BRjHWY9gdCxDb].\n\nThese results show less attenuation at low frequency and higher low\u2011frequency current draw.\n\n**Which explanations still fit?**  \nUsing the declared tolerances, only the hypothesis **c1_increased** (C1 \u2248\u202f2\u202f\u00d7\u202fits nominal value) matches all observations; every other hypothesis is contradicted.\n\n**Conclusion**  \nThe hidden circuit has a capacitor about twice its nominal size (C1 increased).\n\n**Suggested repair** (optional): Replace C1 with a part of its intended nominal value (680\u202fnF). This should restore the original cutoff (~50\u202fHz) and the expected gains/currents. \n\n--- \n\n*Note: All numbers above are taken directly from the recorded observations cited.*"
+      }
+    },
+    {
+      "key": "heldout_v1-hp-11",
+      "runner": "nemotron",
+      "template_id": "rc_highpass",
+      "nominal": {
+        "R1": 10000.0,
+        "C1": 2.2e-07
+      },
+      "seed": "18a4a46c39bdee40b8e54200598ae439",
+      "case_id": "case_7uG9EahrKB8rEaut",
+      "completed": true,
+      "error": null,
+      "true_condition": "c1_decreased",
+      "terminal_status": "closed",
+      "conclusion": "fault",
+      "named_hypothesis": "c1_decreased",
+      "candidates": [],
+      "evidence_check": "supported",
+      "exact_identification": "correct",
+      "true_cause_among_candidates": null,
+      "unsupported_certainty": false,
+      "repair_component": "C1",
+      "functional_recovery": "restored",
+      "experiments_used": 2,
+      "experiment_sequence": [
+        "source_current_sweep",
+        "output_voltage_sweep"
+      ],
+      "infrastructure_failures": 0,
+      "latency_s": {
+        "symptom": 4.766,
+        "agent_run": 27.95,
+        "verify_repair": 5.329,
+        "close": 0.043,
+        "total": 38.117
+      },
+      "agent": {
+        "run_id": "run_9NR2V8fQm9_0FdkL",
+        "source": "nebius",
+        "model": "nvidia/nemotron-3-super-120b-a12b",
+        "status": "completed",
+        "error": null,
+        "usage": {
+          "model_calls": 8,
+          "tool_calls": 7,
+          "prompt_tokens": 49736,
+          "completion_tokens": 2017,
+          "total_tokens": 51753,
+          "latency_ms": 25496
+        },
+        "final_message": "**What we observed**\n\n1. **Symptom (two\u2011tone capture)** \u2013 Mains hum at 50\u202fHz was \u20139.7\u202fdB (71\u00b0) instead of the expected \u20134.9\u202fdB (55\u00b0); the 440\u202fHz tone was \u20130.4\u202fdB (18\u00b0) vs. expected \u20130.1\u202fdB (9\u00b0)\u3010obs_Rnq0_Wv0sYRhT1_n\u3011.  \n2. **Source\u2011current sweep** \u2013 At 20\u202fHz the source current was 0.0137\u202fmA, about 49\u202f% lower than the intended 0.0267\u202fmA\u3010obs_L9E0e6YNPXA0UNtu\u3011.  \n3. **Output\u2011voltage sweep** \u2013 At 20\u202fHz the gain was \u201317.3\u202fdB, about 5.8\u202fdB lower than the intended \u201311.5\u202fdB\u3010obs_P05DfH4flDYwXkrQ\u3011.\n\nAll measurements deviate toward *more attenuation* at low frequencies.\n\n**Which explanations still fit?**  \nAfter the three experiments the evidence left only one hypothesis consistent with every observation: **C1 about half its nominal value** (c1_decreased). All others were contradicted (\u22650.5\u202fdB or \u22653\u00b0 outside tolerance).\n\n**Conclusion**  \nThe hidden circuit has a capacitor whose value is roughly half of the design value (\u2248110\u202fnF instead of 220\u202fnF). This raises the cutoff frequency, causing the observed extra attenuation of the 50\u202fHz hum and the slight extra attenuation of the 440\u202fHz tone, as well as the reduced source current and output gain at low frequencies.\n\n**Repair suggestion**  \nReplace C1 with a component of its intended nominal value (220\u202fnF). Doing so should restore the original cutoff (~72\u202fHz) and eliminate the observed discrepancies. (Proposed repair issued.)"
+      }
+    },
+    {
+      "key": "heldout_v1-hp-12",
+      "runner": "nemotron",
+      "template_id": "rc_highpass",
+      "nominal": {
+        "R1": 2200.0,
+        "C1": 3.3e-07
+      },
+      "seed": "e1e298118203436828be2d313d2e976d",
+      "case_id": "case_hg6Sb6Klr6UfOUt2",
+      "completed": true,
+      "error": null,
+      "true_condition": "c1_disconnected",
+      "terminal_status": "closed",
+      "conclusion": "fault",
+      "named_hypothesis": "c1_disconnected",
+      "candidates": [],
+      "evidence_check": "supported",
+      "exact_identification": "correct",
+      "true_cause_among_candidates": null,
+      "unsupported_certainty": false,
+      "repair_component": null,
+      "functional_recovery": "not_attempted",
+      "experiments_used": 1,
+      "experiment_sequence": [
+        "output_voltage_sweep"
+      ],
+      "infrastructure_failures": 0,
+      "latency_s": {
+        "symptom": 3.955,
+        "agent_run": 11.583,
+        "close": 0.023,
+        "total": 15.576
+      },
+      "agent": {
+        "run_id": "run_2mTtiqnTzMAossIM",
+        "source": "nebius",
+        "model": "nvidia/nemotron-3-super-120b-a12b",
+        "status": "completed",
+        "error": null,
+        "usage": {
+          "model_calls": 4,
+          "tool_calls": 3,
+          "prompt_tokens": 18927,
+          "completion_tokens": 1117,
+          "total_tokens": 20044,
+          "latency_ms": 10466
+        },
+        "final_message": "**What was observed**\n\n- **Symptom (two\u2011tone capture, output voltage):** At 50\u202fHz (mains hum) and 440\u202fHz (musical tone) the output voltage was \u201cbelow floor\u201d \u2013 i.e., no measurable signal ([obs_xjQo1fb78Zsjas31]).\n- **Full\u2011range AC sweep:** Across the whole 20\u202fHz\u201320\u202fkHz range, the output gain was also \u201cbelow floor\u201d (\u2011120\u202fdB or less) at every frequency tested ([obs_GLG_p250HqtO9fqa]).\n\n**Which explanations still fit**\n\nAll hypotheses except **c1_disconnected** predict some finite gain (\u2265\u202f\u201120\u202fdB) across the band because either the resistor or capacitor would allow some signal through. Those predictions conflict with the observed absence of any signal, so they are ruled out under the declared tolerances. Only **c1_disconnected** remains consistent.\n\n**Conclusion**\n\nThe circuit behaves as if the series capacitor C\u2081 is open (disconnected). With C\u2081 removed, there is no path from the input to the output, giving no measurable output at any frequency\u2014exactly what the measurements show.\n\n*Suggested repair:* Replace C\u2081 with a 330\u202fnF capacitor (its nominal value) to restore the intended high\u2011pass behavior."
+      }
+    }
+  ],
+  "summary": {
+    "totals": {
+      "cases": 24,
+      "completed": 24,
+      "correct": 20,
+      "incorrect": 1,
+      "abstained": 0,
+      "not_submitted": 3,
+      "unsupported_certainty": 1,
+      "restored": 9,
+      "not_restored": 0,
+      "not_attempted": 11,
+      "not_needed": 4,
+      "experiments_mean": 1.42,
+      "infrastructure_failures": 0,
+      "errors": 0
+    },
+    "by_family": {
+      "rc_highpass": {
+        "cases": 12,
+        "completed": 12,
+        "correct": 10,
+        "incorrect": 0,
+        "abstained": 0,
+        "not_submitted": 2,
+        "unsupported_certainty": 0,
+        "restored": 2,
+        "not_restored": 0,
+        "not_attempted": 8,
+        "not_needed": 2,
+        "experiments_mean": 1.42,
+        "infrastructure_failures": 0,
+        "errors": 0
+      },
+      "rc_lowpass": {
+        "cases": 12,
+        "completed": 12,
+        "correct": 10,
+        "incorrect": 1,
+        "abstained": 0,
+        "not_submitted": 1,
+        "unsupported_certainty": 1,
+        "restored": 7,
+        "not_restored": 0,
+        "not_attempted": 3,
+        "not_needed": 2,
+        "experiments_mean": 1.42,
+        "infrastructure_failures": 0,
+        "errors": 0
+      }
+    },
+    "by_family_condition": {
+      "rc_highpass|no_fault": {
+        "cases": 2,
+        "completed": 2,
+        "correct": 1,
+        "incorrect": 0,
+        "abstained": 0,
+        "not_submitted": 1,
+        "unsupported_certainty": 0,
+        "restored": 0,
+        "not_restored": 0,
+        "not_attempted": 0,
+        "not_needed": 2,
+        "experiments_mean": 1.5,
+        "infrastructure_failures": 0,
+        "errors": 0
+      },
+      "rc_highpass|r1_increased": {
+        "cases": 2,
+        "completed": 2,
+        "correct": 1,
+        "incorrect": 0,
+        "abstained": 0,
+        "not_submitted": 1,
+        "unsupported_certainty": 0,
+        "restored": 0,
+        "not_restored": 0,
+        "not_attempted": 2,
+        "not_needed": 0,
+        "experiments_mean": 1.5,
+        "infrastructure_failures": 0,
+        "errors": 0
+      },
+      "rc_highpass|r1_decreased": {
+        "cases": 2,
+        "completed": 2,
+        "correct": 2,
+        "incorrect": 0,
+        "abstained": 0,
+        "not_submitted": 0,
+        "unsupported_certainty": 0,
+        "restored": 0,
+        "not_restored": 0,
+        "not_attempted": 2,
+        "not_needed": 0,
+        "experiments_mean": 1.0,
+        "infrastructure_failures": 0,
+        "errors": 0
+      },
+      "rc_highpass|c1_increased": {
+        "cases": 2,
+        "completed": 2,
+        "correct": 2,
+        "incorrect": 0,
+        "abstained": 0,
+        "not_submitted": 0,
+        "unsupported_certainty": 0,
+        "restored": 0,
+        "not_restored": 0,
+        "not_attempted": 2,
+        "not_needed": 0,
+        "experiments_mean": 1.0,
+        "infrastructure_failures": 0,
+        "errors": 0
+      },
+      "rc_highpass|c1_decreased": {
+        "cases": 2,
+        "completed": 2,
+        "correct": 2,
+        "incorrect": 0,
+        "abstained": 0,
+        "not_submitted": 0,
+        "unsupported_certainty": 0,
+        "restored": 2,
+        "not_restored": 0,
+        "not_attempted": 0,
+        "not_needed": 0,
+        "experiments_mean": 2.0,
+        "infrastructure_failures": 0,
+        "errors": 0
+      },
+      "rc_highpass|c1_disconnected": {
+        "cases": 2,
+        "completed": 2,
+        "correct": 2,
+        "incorrect": 0,
+        "abstained": 0,
+        "not_submitted": 0,
+        "unsupported_certainty": 0,
+        "restored": 0,
+        "not_restored": 0,
+        "not_attempted": 2,
+        "not_needed": 0,
+        "experiments_mean": 1.5,
+        "infrastructure_failures": 0,
+        "errors": 0
+      },
+      "rc_lowpass|no_fault": {
+        "cases": 2,
+        "completed": 2,
+        "correct": 1,
+        "incorrect": 0,
+        "abstained": 0,
+        "not_submitted": 1,
+        "unsupported_certainty": 0,
+        "restored": 0,
+        "not_restored": 0,
+        "not_attempted": 0,
+        "not_needed": 2,
+        "experiments_mean": 1.5,
+        "infrastructure_failures": 0,
+        "errors": 0
+      },
+      "rc_lowpass|r1_increased": {
+        "cases": 2,
+        "completed": 2,
+        "correct": 2,
+        "incorrect": 0,
+        "abstained": 0,
+        "not_submitted": 0,
+        "unsupported_certainty": 0,
+        "restored": 0,
+        "not_restored": 0,
+        "not_attempted": 2,
+        "not_needed": 0,
+        "experiments_mean": 1.5,
+        "infrastructure_failures": 0,
+        "errors": 0
+      },
+      "rc_lowpass|r1_decreased": {
+        "cases": 2,
+        "completed": 2,
+        "correct": 1,
+        "incorrect": 1,
+        "abstained": 0,
+        "not_submitted": 0,
+        "unsupported_certainty": 1,
+        "restored": 1,
+        "not_restored": 0,
+        "not_attempted": 1,
+        "not_needed": 0,
+        "experiments_mean": 2.0,
+        "infrastructure_failures": 0,
+        "errors": 0
+      },
+      "rc_lowpass|c1_increased": {
+        "cases": 2,
+        "completed": 2,
+        "correct": 2,
+        "incorrect": 0,
+        "abstained": 0,
+        "not_submitted": 0,
+        "unsupported_certainty": 0,
+        "restored": 2,
+        "not_restored": 0,
+        "not_attempted": 0,
+        "not_needed": 0,
+        "experiments_mean": 1.0,
+        "infrastructure_failures": 0,
+        "errors": 0
+      },
+      "rc_lowpass|c1_decreased": {
+        "cases": 2,
+        "completed": 2,
+        "correct": 2,
+        "incorrect": 0,
+        "abstained": 0,
+        "not_submitted": 0,
+        "unsupported_certainty": 0,
+        "restored": 2,
+        "not_restored": 0,
+        "not_attempted": 0,
+        "not_needed": 0,
+        "experiments_mean": 1.5,
+        "infrastructure_failures": 0,
+        "errors": 0
+      },
+      "rc_lowpass|c1_disconnected": {
+        "cases": 2,
+        "completed": 2,
+        "correct": 2,
+        "incorrect": 0,
+        "abstained": 0,
+        "not_submitted": 0,
+        "unsupported_certainty": 0,
+        "restored": 2,
+        "not_restored": 0,
+        "not_attempted": 0,
+        "not_needed": 0,
+        "experiments_mean": 1.0,
+        "infrastructure_failures": 0,
+        "errors": 0
+      }
+    },
+    "latency": {
+      "agent_run": {
+        "n": 24,
+        "mean_s": 20.483,
+        "median_s": 18.816,
+        "p90_s": 30.384,
+        "max_s": 35.216
+      },
+      "close": {
+        "n": 24,
+        "mean_s": 0.035,
+        "median_s": 0.028,
+        "p90_s": 0.043,
+        "max_s": 0.162
+      },
+      "symptom": {
+        "n": 24,
+        "mean_s": 5.524,
+        "median_s": 4.074,
+        "p90_s": 12.449,
+        "max_s": 13.885
+      },
+      "total": {
+        "n": 24,
+        "mean_s": 28.41,
+        "median_s": 24.53,
+        "p90_s": 48.695,
+        "max_s": 51.162
+      },
+      "verify_repair": {
+        "n": 9,
+        "mean_s": 6.256,
+        "median_s": 4.643,
+        "p90_s": 19.342,
+        "max_s": 19.342
+      }
+    },
+    "agent_usage": {
+      "runs": 24,
+      "statuses": {
+        "completed": 24
+      },
+      "totals": {
+        "model_calls": 140,
+        "tool_calls": 116,
+        "prompt_tokens": 785254,
+        "completion_tokens": 40494,
+        "total_tokens": 825748,
+        "latency_ms": 432335
+      }
+    }
+  },
+  "notes": [
+    "Milestone-2 cases are solvable with the standardized symptom plus ONE current measurement: the symptom separates every condition except the two voltage-equivalent pairs (R1\u00d72 vs C1\u00d72 and R1\u00d70.5 vs C1\u00d70.5, identical output voltage), and either current instrument separates those. A perfect score shows that the evidence pipeline, the budget and the repair verification work end to end on these cases; it is not evidence of diagnostic skill and 100 % identification is not an achievement by itself.",
+    "Small sample (one frozen held-out set). No statistical comparison or superiority claim is made between runners.",
+    "Circuits are simulated with ngspice (ideal source, ideal R and C, no load, parasitics or component tolerances). Results are simulations, not physical measurements.",
+    "Latencies are wall-clock times on the machine that ran the evaluation, including the ngspice subprocesses; they are not a service-level benchmark."
+  ]
+}
