@@ -1,7 +1,7 @@
 // Explore "lab notes" panel: goal, AI results and proposal previews, and experiment history.
 import type { EditProposal } from "../../api/types";
 import { Badge, Button, Callout } from "../../components/ui/primitives";
-import { formatDb, formatHz } from "../../lib/format";
+import { capitalize, formatDb, formatHz } from "../../lib/format";
 import { FAMILY_LABEL } from "../../lib/family";
 import { FOCUS, focusWhenReady } from "../../lib/focus";
 import { experimentOrdinal, revisionOrdinal, shownRecord, useWorkbench } from "../../state/workbench";
@@ -23,7 +23,7 @@ function ProposalCard({ proposal }: { proposal: EditProposal }) {
     <article className="proposal" aria-label="Proposed change">
       <div className="panel-card__header">
         <h3 className="panel-card__title">Proposed change</h3>
-        <Badge tone="accent" icon={null}>
+        <Badge tone="prediction" icon={null}>
           Preview
         </Badge>
       </div>
@@ -81,20 +81,7 @@ export function ExplorePanel() {
 
   return (
     <div className="panel-stack">
-      <GoalCard
-        goal={state.goal}
-        feasibility={state.feasibility}
-        record={record}
-        experimentLabel={label}
-        saving={state.pending === "goal"}
-        error={state.error?.op === "goal" ? state.error.error : null}
-        onSave={wb.setGoal}
-        notice={state.goalNotice}
-        onDismissNotice={wb.dismissGoalNotice}
-      >
-        <SuggestPanel />
-      </GoalCard>
-
+      {/* Live work first: an AI run and the changes it proposes need the learner's attention. */}
       <AgentRunLog
         title="AI lab partner"
         view={view}
@@ -112,7 +99,45 @@ export function ExplorePanel() {
         <ProposalCard key={p.id} proposal={p} />
       ))}
 
+      <GoalCard
+        goal={state.goal}
+        record={record}
+        experimentLabel={label}
+        saving={state.pending === "goal"}
+        error={state.error?.op === "goal" ? state.error.error : null}
+        onSave={wb.setGoal}
+        notice={state.goalNotice}
+        onDismissNotice={wb.dismissGoalNotice}
+      />
+
       <HistoryPanel />
+
+      <DesignHelp />
     </div>
+  );
+}
+
+/** The analytical feasibility of the goal and standard-part suggestions, both predictions. */
+function DesignHelp() {
+  const { state } = useWorkbench();
+  const feasibility = state.feasibility;
+  if (!state.goal) return null;
+  return (
+    <section className="panel-card" aria-labelledby="design-help-heading">
+      <div className="panel-card__header">
+        <h2 id="design-help-heading" className="panel-card__title">
+          Design help
+        </h2>
+        <Badge tone="prediction" icon={null}>
+          Analytical
+        </Badge>
+      </div>
+      {feasibility ? (
+        <Callout tone={feasibility.feasible ? "neutral" : "warning"} title="Prediction">
+          {capitalize(feasibility.explanation.replace(/^Prediction:\s*/i, ""))}
+        </Callout>
+      ) : null}
+      <SuggestPanel />
+    </section>
   );
 }

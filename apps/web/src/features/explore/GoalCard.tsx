@@ -1,9 +1,9 @@
 // Current goal with measured pass/fail per constraint (from the shown experiment's goal
-// evaluation) and the analytical feasibility, labelled as a prediction. Includes an editor.
-import { useId, useState, type FormEvent, type ReactNode } from "react";
-import type { ExperimentRecord, FeasibilityAnalysis, Goal, GoalConstraint, GoalInput } from "../../api/types";
+// evaluation) and an editor. The analytical feasibility lives in Explore's "Design help".
+import { useId, useState, type FormEvent } from "react";
+import type { ExperimentRecord, Goal, GoalConstraint, GoalInput } from "../../api/types";
 import { Badge, Button, Callout, ErrorCallout } from "../../components/ui/primitives";
-import { capitalize, formatDb, formatHz, num } from "../../lib/format";
+import { formatDb, formatHz, num } from "../../lib/format";
 import type { ApiFailure } from "../../api/client";
 import { FOCUS, focusWhenReady } from "../../lib/focus";
 
@@ -15,20 +15,17 @@ function requirement(c: GoalConstraint): string {
 
 interface GoalCardProps {
   goal: Goal | null;
-  feasibility: FeasibilityAnalysis | null;
   record: ExperimentRecord | null;
   experimentLabel: string | null;
   saving: boolean;
   error: ApiFailure | null;
   onSave: (input: GoalInput) => Promise<boolean>;
-  /** Extra tools shown under the goal (e.g. design suggestions), hidden while editing. */
-  children?: ReactNode;
   /** Why the goal changed without an edit (e.g. a family switch); shown until dismissed. */
   notice?: string | null;
   onDismissNotice?: () => void;
 }
 
-export function GoalCard({ goal, feasibility, record, experimentLabel, saving, error, onSave, children, notice, onDismissNotice }: GoalCardProps) {
+export function GoalCard({ goal, record, experimentLabel, saving, error, onSave, notice, onDismissNotice }: GoalCardProps) {
   const [editing, setEditing] = useState(false);
   if (!goal) return null;
   const evaluation = record?.goal && record.goal.goal_id === goal.id ? record.goal : null;
@@ -140,17 +137,11 @@ export function GoalCard({ goal, feasibility, record, experimentLabel, saving, e
           ) : (
             <p className="panel-card__note">Run the experiment to measure these constraints.</p>
           )}
-          {feasibility ? (
-            <Callout tone={feasibility.feasible ? "neutral" : "warning"} title="Prediction">
-              {capitalize(feasibility.explanation.replace(/^Prediction:\s*/i, ""))}
-            </Callout>
-          ) : null}
           <div className="row">
             <Button id={FOCUS.editGoal} size="sm" icon="edit" onClick={() => setEditing(true)}>
               Edit goal
             </Button>
           </div>
-          {children}
         </>
       )}
     </section>

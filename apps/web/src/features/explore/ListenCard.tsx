@@ -3,6 +3,7 @@
 // Playback is always user initiated and goes through the one shared player (single source).
 import type { AudioComparison, ExperimentRecord, Tone, ToneLevel } from "../../api/types";
 import { usePlayback } from "../../components/audio/PlaybackProvider";
+import { Icon } from "../../components/ui/Icon";
 import { Button } from "../../components/ui/primitives";
 import { formatDb, formatHz, num } from "../../lib/format";
 import { lowToneNote } from "../../lib/family";
@@ -24,7 +25,21 @@ export function listenHint(tones: Tone[]): string {
 
 const ROLE_WORD: Record<ToneLevel["role"], string> = { wanted: "Keep", interference: "Reduce" };
 
-export function ToneLevels({ tones, pending = false }: { tones: ToneLevel[]; pending?: boolean }) {
+/** The measured goal verdict for one tone (from the experiment's own goal evaluation). */
+export interface ToneGoal {
+  frequency_hz: number;
+  kind: "preserve" | "attenuate";
+  limit_db: number;
+  passed: boolean;
+  margin_db: number;
+}
+
+function goalText(g: ToneGoal): string {
+  const req = g.kind === "preserve" ? `lose at most ${num(g.limit_db, 1)} dB` : `cut at least ${num(g.limit_db, 1)} dB`;
+  return `${g.passed ? "Goal met" : "Goal not met"} · ${req}`;
+}
+
+export function ToneLevels({ tones, pending = false, goals = [] }: { tones: ToneLevel[]; pending?: boolean; goals?: ToneGoal[] }) {
   return (
     // While a new measurement runs, these stay at full contrast (dimmed text would fail 4.5:1);
     // the card's eyebrow says "Measuring…" and the list is marked busy instead.
@@ -42,6 +57,14 @@ export function ToneLevels({ tones, pending = false }: { tones: ToneLevel[]; pen
             {num(t.output_amplitude_v, 3)} V of {num(t.input_amplitude_v, 3)} V peak
           </p>
           <p className="tone-level__detail num">AC check {formatDb(t.ac_gain_db, 2)}</p>
+          {goals
+            .filter((g) => Math.abs(g.frequency_hz - t.frequency_hz) < 1e-6)
+            .map((g) => (
+              <p key={`${g.kind}-${g.limit_db}`} className={`tone-level__goal ${g.passed ? "is-pass" : "is-fail"}`}>
+                <Icon name={g.passed ? "check" : "x"} size={14} />
+                {goalText(g)}
+              </p>
+            ))}
         </li>
       ))}
     </ul>
@@ -60,7 +83,6 @@ function TonePlaceholders({ tones, loading }: { tones: Tone[]; loading: boolean 
           </p>
           {loading ? <div className="skeleton tone-level__skeleton" aria-hidden="true" /> : <p className="tone-level__value tone-level__value--empty">Not measured</p>}
           <p className="tone-level__detail">{loading ? "Simulating…" : "Run the experiment"}</p>
-          <p className="tone-level__detail" aria-hidden="true">&nbsp;</p>
         </li>
       ))}
     </ul>
@@ -72,11 +94,10 @@ export function PlayClipButtons({ audio, title, verb = "Play" }: { audio: AudioC
   if (!audio?.clips.length) return null;
   return (
     <>
-      {audio.clips.map((clip, i) => (
+      {audio.clips.map((clip) => (
         <Button
           key={clip.artifact_id}
           size="sm"
-          variant={i === 0 ? "primary" : "secondary"}
           icon="play"
           onClick={() => playback.playClip(audio, title, clip.artifact_id)}
         >
@@ -94,9 +115,11 @@ interface ListenCardProps {
   audioTitle: string;
   eyebrow: string;
   running: boolean;
+  /** Measured goal verdicts for the shown experiment (empty when it has none for this goal). */
+  goals?: ToneGoal[];
 }
 
-export function ListenCard({ invitation, tones, record, audioTitle, eyebrow, running }: ListenCardProps) {
+export function ListenCard({ invitation, tones, record, audioTitle, eyebrow, running, goals = [] }: ListenCardProps) {
   const note = lowToneNote(tones);
   const measured = record?.tones?.length ? record.tones : null;
   return (
@@ -110,13 +133,13 @@ export function ListenCard({ invitation, tones, record, audioTitle, eyebrow, run
           {record?.audio ? listenHint(tones) : running ? "Rendering audio from the simulation…" : "Audio appears after the first measurement."}
           {note ? <span className="listen__note"> {note}</span> : null}
         </p>
+        {record?.audio ? (
+          <div className="listen__actions">
+            <PlayClipButtons audio={record.audio} title={audioTitle} />
+          </div>
+        ) : null}
       </div>
-      {record?.audio ? (
-        <div className="listen__actions">
-          <PlayClipButtons audio={record.audio} title={audioTitle} />
-        </div>
-      ) : null}
-      {measured ? <ToneLevels tones={measured} pending={running} /> : <TonePlaceholders tones={tones} loading={running} />}
+      {measured ? <ToneLevels tones={measured} pending={running} goals={goals} /> : <TonePlaceholders tones={tones} loading={running} />}
     </section>
   );
 }

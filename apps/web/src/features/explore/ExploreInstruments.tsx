@@ -21,7 +21,7 @@ import {
   useWorkbench,
   type Probe,
 } from "../../state/workbench";
-import { ListenCard } from "./ListenCard";
+import { ListenCard, type ToneGoal } from "./ListenCard";
 
 export { ToneLevels } from "./ListenCard";
 
@@ -66,7 +66,7 @@ export function responsePanels(record: ExperimentRecord, view: "voltage" | "curr
         id: "gain",
         title: "Gain (dB)",
         series: [{ id: "out", label: "Output", kind: "primary", y: r.gain_db }],
-        height: 124,
+        height: 116,
         valueFormat: (v) => formatDb(v, 2),
         tickFormat: (v) => num(v, 0),
         domain: gainDomain(r.gain_db, goalLimits(goal).map((l) => l.y)),
@@ -77,7 +77,7 @@ export function responsePanels(record: ExperimentRecord, view: "voltage" | "curr
         id: "phase",
         title: "Phase (°)",
         series: [{ id: "out", label: "Output", kind: "primary", y: r.phase_deg }],
-        height: 88,
+        height: 76,
         valueFormat: (v) => formatDeg(v),
         tickFormat: (v) => num(v, 0),
         include: [0],
@@ -89,7 +89,7 @@ export function responsePanels(record: ExperimentRecord, view: "voltage" | "curr
       id: "current",
       title: "Source current (mA, 1 V source)",
       series: [{ id: "i", label: "I(V1)", kind: "primary", y: r.source_current_ma }],
-      height: 124,
+      height: 116,
       valueFormat: (v) => formatMa(v),
       tickFormat: (v) => num(v, 2),
       domain: magnitudeDomain(r.source_current_ma),
@@ -98,7 +98,7 @@ export function responsePanels(record: ExperimentRecord, view: "voltage" | "curr
       id: "iphase",
       title: "Current phase (°)",
       series: [{ id: "i", label: "I(V1)", kind: "primary", y: r.source_current_phase_deg }],
-      height: 88,
+      height: 76,
       valueFormat: (v) => formatDeg(v),
       tickFormat: (v) => num(v, 0),
       include: [0],
@@ -159,6 +159,15 @@ export function ExploreInstruments() {
   const sameFamily = !record || revisionById(state, record.revision_id)?.template_id === revision?.template_id;
   const markers = tones.map((t) => ({ x: t.frequency_hz, label: formatHz(t.frequency_hz) }));
   const panels = record ? responsePanels(record, view, sameFamily ? state.goal : null) : [];
+  // The shown experiment's own measured verdicts for the CURRENT goal (never another goal's).
+  const evaluation = record?.goal && state.goal && sameFamily && record.goal.goal_id === state.goal.id ? record.goal : null;
+  const toneGoals: ToneGoal[] = (evaluation?.results ?? []).map((r) => ({
+    frequency_hz: r.constraint.frequency_hz,
+    kind: r.constraint.kind,
+    limit_db: r.constraint.limit_db,
+    passed: r.passed,
+    margin_db: r.margin_db,
+  }));
   const opening = Boolean(revision && !revision.parent_id && !revision.changes?.length && !isStaleRevision);
   const eyebrow = opening ? "Opening experiment" : record ? `Experiment ${expOrdinal} · Revision ${recRevOrdinal}` : `Revision ${curRevOrdinal ?? ""}`;
 
@@ -220,7 +229,7 @@ export function ExploreInstruments() {
           <div className="skeleton listen__skeleton" />
         </div>
       ) : (
-        <ListenCard invitation={invitationFor(state.goal, revision)} tones={tones} record={record} audioTitle={audioTitle} eyebrow={eyebrow} running={running} />
+        <ListenCard invitation={invitationFor(state.goal, revision)} tones={tones} record={record} audioTitle={audioTitle} eyebrow={eyebrow} running={running} goals={toneGoals} />
       )}
 
       <div className="instruments__grid">
@@ -251,7 +260,8 @@ export function ExploreInstruments() {
           <WaveformChart
             title="Time domain"
             toolbar={scopeSwitch}
-            height={212}
+            height={196}
+            zoomMs={5}
             sampleRateHz={record?.waveform?.sample_rate_hz ?? 48_000}
             startS={record?.waveform?.start_s ?? 0}
             series={
