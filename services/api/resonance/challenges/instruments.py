@@ -11,8 +11,11 @@ with an open capacitor can produce an exactly zero output (high-pass) or zero so
 - an output gain at or below ``MEASUREMENT_FLOOR_DB`` (−120 dB) means "no measurable output";
 - a current magnitude at or below ``CURRENT_FLOOR_MA`` (1e-6 mA = 1 nA) means "no measurable
   current";
-- the phase of such a reading is undefined: it is published as 0° and never evaluated as
-  evidence. dB values are additionally clamped at ``policy.DB_FLOOR`` (−200 dB).
+- such a reading is published on the floor so every displayed number is arithmetically
+  consistent (finding M2-02/M2-03): gains are clamped at −120 dB, below-floor amplitudes and
+  currents are published as exactly 0, and the (undefined) phase as 0°; the phase is never
+  evaluated as evidence. Both floors are also published in ``EvidencePolicy``
+  (``measurement_floor_db``, ``current_floor_ma``) so clients can render "no measurable output".
 
 Every non-zero response the case designs can produce is far above these floors (gain ≥ −60 dB,
 current ≥ 4e-4 mA), so the floors only ever classify true zeros.
@@ -83,8 +86,9 @@ def case_transient_settings(tones: Sequence[Tone] = DEFAULT_TONES) -> TransientS
 
 _FLOOR_TEXT = (
     f"A gain at or below {MEASUREMENT_FLOOR_DB:g} dB (or a current at or below "
-    f"{CURRENT_FLOOR_MA:g} mA) means no measurable signal; its phase is undefined, is reported "
-    "as 0°, and is never used as evidence."
+    f"{CURRENT_FLOOR_MA * 1e6:g} nA) means no measurable signal: it is reported as "
+    f"{MEASUREMENT_FLOOR_DB:g} dB (an amplitude or current of 0), its phase is undefined, is "
+    "reported as 0°, and is never used as evidence."
 )
 
 

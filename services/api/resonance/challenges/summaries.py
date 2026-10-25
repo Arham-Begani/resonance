@@ -38,8 +38,7 @@ def _phase_text(sweep: SweepObservation, measurable: Sequence[bool]) -> str:
     }
     k = max(comparable, key=lambda i: diffs[i])
     return (
-        f" Largest phase difference: {diffs[k]:.1f}° at "
-        f"{format_frequency(sweep.frequency_hz[k])}."
+        f" Largest phase difference: {diffs[k]:.1f}° at {format_frequency(sweep.frequency_hz[k])}."
     )
 
 
@@ -78,7 +77,7 @@ def sweep_summary(sweep: SweepObservation) -> str:
     if not any(measurable):
         return (
             f"Source current measured at {n} frequencies from {span} with a 1 V source: no "
-            f"measurable current at any of them (at or below {CURRENT_FLOOR_MA:g} mA). The "
+            f"measurable current at any of them (at or below {CURRENT_FLOOR_MA * 1e6:g} nA). The "
             f"intended design draws {min(sweep.expected_magnitude):.4g} mA to "
             f"{max(sweep.expected_magnitude):.4g} mA. Phase is not defined without a current."
         )

@@ -23,7 +23,7 @@ from challenges_testkit import SESSION_A, Rig, seed_for
 
 from resonance.challenges import hypotheses
 from resonance.challenges.evaluator import faults
-from resonance.challenges.instruments import CURRENT_FLOOR_MA, MEASUREMENT_FLOOR_DB
+from resonance.challenges.instruments import MEASUREMENT_FLOOR_DB
 from resonance.contracts.circuits import TemplateId
 from resonance.contracts.investigation import (
     CaseExperimentRequest,
@@ -100,8 +100,8 @@ async def test_open_capacitor_case_on_real_ngspice(
         assert tone.gain_db is not None
         if template_id == "rc_lowpass":  # C1 open: R1 carries no current, V(out) = V(in)
             assert abs(tone.gain_db) <= 0.05 and abs(tone.phase_deg) <= 0.5, tone
-        else:  # C1 open: nothing drives the output
-            assert tone.gain_db <= MEASUREMENT_FLOOR_DB and tone.phase_deg == 0.0, tone
+        else:  # C1 open: nothing drives the output (published on the floor, M2-02)
+            assert tone.gain_db == MEASUREMENT_FLOOR_DB and tone.phase_deg == 0.0, tone
             assert tone.amplitude == 0.0
     if template_id == "rc_highpass":
         assert "no measurable output" in symptom.summary
@@ -110,18 +110,22 @@ async def test_open_capacitor_case_on_real_ngspice(
 
     # Both current instruments measure no current (phase undefined → reported as 0°).
     await svc.set_mode(s, case.id, "guide")
-    sweep = await svc.run_experiment(s, case.id, _req("source_current_sweep", "open-cur-1"),
-                                     requested_by="user")
+    sweep = await svc.run_experiment(
+        s, case.id, _req("source_current_sweep", "open-cur-1"), requested_by="user"
+    )
     assert sweep.observation.sweep is not None
-    assert max(sweep.observation.sweep.magnitude) <= CURRENT_FLOOR_MA
+    assert set(sweep.observation.sweep.magnitude) == {0.0}  # exact zero, never solver noise
     assert set(sweep.observation.sweep.phase_deg) == {0.0}
     assert "no measurable current" in sweep.observation.summary
     tran = await svc.run_experiment(
-        s, case.id, _req("transient_capture", "open-cur-2", "source_current"),
+        s,
+        case.id,
+        _req("transient_capture", "open-cur-2", "source_current"),
         requested_by="user",
     )
     assert tran.observation.transient is not None
-    assert all(t.amplitude <= CURRENT_FLOOR_MA for t in tran.observation.transient.tones)
+    # Real ngspice leaves ~1e-17 mA of round-off for the low-pass: published as exactly 0 (M2-03).
+    assert all((t.amplitude, t.phase_deg) == (0.0, 0.0) for t in tran.observation.transient.tones)
     assert tran.case.evidence.remaining == [OPEN]
     assert _truth_margin(tran.case, OPEN) <= 0.25
 
@@ -139,7 +143,10 @@ async def test_open_capacitor_case_on_real_ngspice(
     )
     assert case.diagnosis is not None and case.diagnosis.evidence_check.status == "supported"
     await svc.propose_repair(
-        s, case.id, RepairProposalInput(component_id=repair), proposed_by="user"  # type: ignore[arg-type]
+        s,
+        case.id,
+        RepairProposalInput(component_id=repair),
+        proposed_by="user",  # type: ignore[arg-type]
     )
     case = await svc.verify_repair(s, case.id)
     assert case.repair is not None and case.repair.functional_recovery is restores
@@ -173,12 +180,15 @@ async def test_highpass_r_vs_c_ambiguity_and_current_resolves_it(ngspice_rig: Ri
     for i, truth in enumerate(("r1_increased", "c1_increased")):
         s = f"{SESSION_A}hp{i}"
         case = await svc.harness_create_case(
-            s, seed_for(truth, nominal, "rc_highpass"), "rc_highpass"  # type: ignore[arg-type]
+            s,
+            seed_for(truth, nominal, "rc_highpass"),
+            "rc_highpass",  # type: ignore[arg-type]
         )
         assert case.evidence.remaining == ["r1_increased", "c1_increased"]  # symptom only
         await svc.set_mode(s, case.id, "guide")
-        volt = await svc.run_experiment(s, case.id, _req("output_voltage_sweep", f"hp-volt-{i}0"),
-                                        requested_by="user")
+        volt = await svc.run_experiment(
+            s, case.id, _req("output_voltage_sweep", f"hp-volt-{i}0"), requested_by="user"
+        )
         assert volt.case.evidence.remaining == ["r1_increased", "c1_increased"]
         assert _status(volt.case)[truth] == "unresolved"
         assert volt.case.evidence.distinguishing_instruments is None  # withheld while observing

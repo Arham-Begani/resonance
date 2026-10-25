@@ -19,10 +19,13 @@ Boundary contract (docs/contracts.md "Hidden/public boundary", V-04):
 - Every measured value (hidden runs AND the matching intended reference) is quantized at this
   boundary to the declared resolutions in ``evaluator.quantize`` (A-01): full-precision solver
   round-off would otherwise fingerprint voltage-equivalent hidden circuits.
-- A zero phasor has no phase: where a magnitude is at or below the declared measurement floor
-  (``instruments.MEASUREMENT_FLOOR_DB`` / ``CURRENT_FLOOR_MA``, e.g. an open capacitor) the
-  published phase is 0 degrees by convention, for hidden and reference runs alike, instead of
-  solver noise. dB values are clamped at ``policy.DB_FLOOR``.
+- Measurement floors (findings M2-02/M2-03): a reading at or below the declared floor
+  (``instruments.MEASUREMENT_FLOOR_DB`` / ``CURRENT_FLOOR_MA``, e.g. an open capacitor) is
+  published ON the floor, for hidden and reference runs alike: gains are clamped at the
+  measurement floor (−120 dB, not ``policy.DB_FLOOR``), below-floor amplitudes and currents are
+  exactly 0, and the (undefined) phase is 0 degrees by convention. Solver noise below the floor
+  is never published, and every displayed number (levels, evidence deviations, repair
+  deviations) is arithmetically consistent.
 - An open component (``c1_disconnected``) is simulated by removing it from the netlist
   (``CircuitSpec.disconnected``); a repair that replaces it reconnects it.
 - Simulator errors propagate as ``SimulationError`` with a fixed learner-safe message; any other
@@ -79,7 +82,6 @@ from ...contracts.policy import (
     CASE_SWEEP_POINTS_PER_DECADE,
     CASE_SWEEP_START_HZ,
     CASE_SWEEP_STOP_HZ,
-    DB_FLOOR,
     WAVEFORM_WINDOW_MAX_SAMPLES,
 )
 from ...store.artifacts import ArtifactStore
@@ -198,8 +200,14 @@ class _ReferenceCache[V]:
 
 
 def _db(x: float) -> float:
-    """Clamp at the declared floor, then quantize to the declared dB resolution."""
-    return q_db(max(DB_FLOOR, float(x)))
+    """Clamp at the declared measurement floor, then quantize to the declared dB resolution."""
+    return q_db(max(MEASUREMENT_FLOOR_DB, float(x)))
+
+
+def _current(x: float) -> float:
+    """A current magnitude (mA) at the declared resolution; exactly 0 at or below the floor."""
+    value = q_sig(x)
+    return value if value > CURRENT_FLOOR_MA else 0.0
 
 
 class Evaluator:
@@ -408,7 +416,7 @@ class Evaluator:
                 raise EvaluatorFailure()
             h = np.asarray(data.i_source) / circuit.source.ac_magnitude_v
             _check_finite_complex(h)
-            magnitude = [q_sig(x) for x in np.abs(h) * 1e3]
+            magnitude = [_current(x) for x in np.abs(h) * 1e3]
             measurable = [m > CURRENT_FLOOR_MA for m in magnitude]
         phase = [
             q_phase(x) if ok else 0.0
@@ -522,7 +530,8 @@ def _observed_tones(
     voltage = probe == "output_voltage"
 
     def level(capture: TwoToneCapture, k: int) -> tuple[float, float | None, float]:
-        """(amplitude, gain_db or None, phase) with the floor convention for zero phasors."""
+        """(amplitude, gain_db or None, phase). A reading at or below the floor is published
+        on the floor: gain = floor, amplitude 0, phase 0 (never solver noise, M2-03)."""
         raw_amplitude = capture.node(node).amplitude(k)
         raw_phase = capture.tone_phase_deg(node, k)
         _check_finite([raw_amplitude, raw_phase])  # NaN is a failure, never "no signal"
@@ -531,8 +540,9 @@ def _observed_tones(
         measurable = (
             gain > MEASUREMENT_FLOOR_DB if gain is not None else amplitude > CURRENT_FLOOR_MA
         )
-        phase = q_phase(raw_phase) if measurable else 0.0
-        return amplitude, gain, phase
+        if not measurable:
+            return 0.0, gain, 0.0
+        return amplitude, gain, q_phase(raw_phase)
 
     tones: list[ObservedTone] = []
     for k, tone in enumerate(expected.tones):

@@ -273,6 +273,18 @@ class EvidencePolicy(Contract):
     tone_gain_tolerance_db: float
     tone_phase_tolerance_deg: float
     description: str
+    measurement_floor_db: float = Field(
+        default=-120.0,
+        description="Measurement floor for output/tone gains. Published case gains are clamped "
+        "here: a value at or below it means no measurable output, and its phase (published as "
+        "0°) is undefined. Equals challenges.instruments.MEASUREMENT_FLOOR_DB.",
+    )
+    current_floor_ma: float = Field(
+        default=1e-6,
+        description="Measurement floor for currents (mA). A current at or below it is published "
+        "as exactly 0 (no measurable current), and its phase (published as 0°) is undefined. "
+        "Equals challenges.instruments.CURRENT_FLOOR_MA.",
+    )
 
 
 class EvidenceState(Contract):

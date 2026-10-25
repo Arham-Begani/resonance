@@ -692,11 +692,6 @@ def test_agent_views_never_quote_a_floor_as_a_level_or_phase(
             assert all(t["gain_db"] == views.BELOW_FLOOR for t in symptom["transient"]["tones"])
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="M2-02: evidence checks publish the -200 dB clamp as 'observed' while 'deviation' is "
-    "measured from the -120 dB floor, so observed - predicted != deviation",
-)
 def test_evidence_check_numbers_are_arithmetically_consistent_at_the_floor(
     http_flows: dict[tuple[TemplateId, HypothesisId], Flow],
 ) -> None:
@@ -800,7 +795,7 @@ def test_ngspice_case_payloads_share_one_shape_and_floors_classify_only_true_zer
                     ):
                         assert below and p == 0.0, (item.family, obs.kind, m, p)
                         if obs.sweep.quantity == "output_gain":
-                            assert m == DB_FLOOR
+                            assert m == GAIN_FLOOR_DB
                     else:
                         assert not below, (item.family, item.condition, obs.kind, m)
                 assert all(e > floor for e in obs.sweep.expected_magnitude)
@@ -842,7 +837,7 @@ def test_ngspice_case_sweeps_match_independent_formulas(
                 if obs.sweep.quantity == "output_gain":
                     he = h_model(item.family, f, r, c, open_c)
                     if abs(he) == 0.0:
-                        assert m == DB_FLOOR
+                        assert m == GAIN_FLOOR_DB
                         continue
                     assert abs(m - db(he)) <= 20 * math.log10(1.01), (item.condition, f)
                     assert angle_diff(p, deg(he)) <= 1.0
@@ -856,11 +851,6 @@ def test_ngspice_case_sweeps_match_independent_formulas(
 
 
 @pytest.mark.ngspice
-@pytest.mark.xfail(
-    strict=True,
-    reason="M2-03: below-floor solver round-off (~1e-17 mA) is published as a 6-significant-"
-    "figure tone current for the low-pass open capacitor instead of an exact zero",
-)
 def test_below_floor_magnitudes_are_published_as_exact_zero(
     ngspice_cases: tuple[Any, list[NgCase]],
 ) -> None:

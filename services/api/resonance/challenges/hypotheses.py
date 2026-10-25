@@ -17,11 +17,13 @@ Rules (docs/contracts.md "Investigation rules"):
   are predictions, never substitutes for simulation.
 - Tolerances: |Δ| ≤ 0.5 dB for output/tone gain, |wrapped Δ| ≤ 3° for every phase, and
   |Δ| ≤ abs + pct·|predicted| for currents (numpy ``isclose`` convention).
-- Floors and zeros: gains are compared after clamping both sides at
-  ``instruments.MEASUREMENT_FLOOR_DB`` (two "no measurable output" readings agree); a zero
-  current is handled by the absolute current tolerance. A phase is evaluated only where the
-  prediction has a defined phase (non-zero magnitude) AND the observation measured a non-zero
-  magnitude; a zero phasor's phase is never marked consistent or contradicted.
+- Floors and zeros: gains are compared on the published scale, clamped at
+  ``instruments.MEASUREMENT_FLOOR_DB`` (two "no measurable output" readings agree), and currents
+  at or below ``instruments.CURRENT_FLOOR_MA`` count as 0. A check reports observed and
+  predicted on that same scale, so |observed − predicted| = deviation (finding M2-02). A phase
+  is evaluated only where the prediction has a defined phase (non-zero magnitude) AND the
+  observation measured a non-zero magnitude; a zero phasor's phase is never marked consistent
+  or contradicted.
 - Only successful, non-replay observations are evaluated.
 """
 
@@ -53,7 +55,6 @@ from ..contracts.investigation import (
     TransientProbe,
 )
 from ..contracts.policy import (
-    DB_FLOOR,
     DEFAULT_TONES,
     EVIDENCE_CURRENT_ABS_TOLERANCE_MA,
     EVIDENCE_CURRENT_TOLERANCE_PCT,
@@ -154,6 +155,8 @@ def evidence_policy() -> EvidencePolicy:
         current_abs_tolerance_ma=EVIDENCE_CURRENT_ABS_TOLERANCE_MA,
         tone_gain_tolerance_db=EVIDENCE_TONE_GAIN_TOLERANCE_DB,
         tone_phase_tolerance_deg=EVIDENCE_TONE_PHASE_TOLERANCE_DEG,
+        measurement_floor_db=MEASUREMENT_FLOOR_DB,
+        current_floor_ma=CURRENT_FLOOR_MA,
         description=(
             "Each explanation predicts every measurement with first-order RC equations for this "
             "circuit family (an open capacitor is modeled as removed from the circuit). It is "
@@ -163,9 +166,11 @@ def evidence_policy() -> EvidencePolicy:
             f"{EVIDENCE_PHASE_TOLERANCE_DEG:g}° (sweep phase), "
             f"{EVIDENCE_TONE_PHASE_TOLERANCE_DEG:g}° (tone phase), or "
             f"{EVIDENCE_CURRENT_TOLERANCE_PCT:g}% of the predicted current plus "
-            f"{EVIDENCE_CURRENT_ABS_TOLERANCE_MA:g} mA (currents). Gains at or below "
-            f"{MEASUREMENT_FLOOR_DB:g} dB count as no measurable output and agree with each "
-            "other. A phase is compared only where both the prediction and the measurement "
+            f"{EVIDENCE_CURRENT_ABS_TOLERANCE_MA:g} mA (currents). A gain at or below "
+            f"{MEASUREMENT_FLOOR_DB:g} dB (or a current at or below {CURRENT_FLOOR_MA * 1e6:g} nA) "
+            f"is no measurable signal: it is shown as {MEASUREMENT_FLOOR_DB:g} dB (or 0 mA) and "
+            "two such readings agree. A phase is compared only where both the prediction and "
+            "the measurement "
             "have a non-zero magnitude (a zero signal has no phase). An explanation is "
             "supported only when it is the single explanation consistent with every "
             "measurement. Missing measurements never rule an explanation out."
@@ -206,9 +211,7 @@ def transfer(
     disconnected: Set[str] = frozenset(),
 ) -> NDArray[np.complex128]:
     """V(out)/V(in) predicted by the first-order RC equations."""
-    return analytic.transfer(
-        template_id, np.asarray(freqs, dtype=np.float64), values, disconnected
-    )
+    return analytic.transfer(template_id, np.asarray(freqs, dtype=np.float64), values, disconnected)
 
 
 def source_current(
@@ -248,7 +251,8 @@ def current_measurable(current_ma: float) -> bool:
 class Prediction:
     """One predicted quantity with its declared consistency tolerance.
 
-    ``floor``: magnitudes are compared after clamping both sides at this floor (dB gains).
+    ``floor``: the measurement floor of a magnitude. Both sides are compared on the published
+    scale (``level``): a dB gain is clamped at the floor, a current at or below it is 0.
     ``defined``: False for the phase of a zero-magnitude prediction; it is never compared."""
 
     quantity: QuantityName
@@ -260,12 +264,18 @@ class Prediction:
     floor: float | None = None
     defined: bool = True
 
+    def level(self, x: float) -> float:
+        """``x`` on the published scale of this quantity (floor convention applied)."""
+        if self.angle or self.floor is None:
+            return x
+        if self.unit == "dB":
+            return max(x, self.floor)
+        return 0.0 if abs(x) <= self.floor else x
+
     def deviation(self, observed: float) -> float:
         if self.angle:
             return abs(float(wrap_deg(observed - self.value)))
-        if self.floor is not None:
-            return abs(max(observed, self.floor) - max(self.value, self.floor))
-        return abs(observed - self.value)
+        return abs(self.level(observed) - self.level(self.value))
 
     def disjoint(self, other: Prediction) -> bool:
         """True if no single measurement can be consistent with both predictions."""
@@ -282,7 +292,7 @@ def _gain_pair(
     gain_tol: float,
     phase_tol: float,
 ) -> list[Prediction]:
-    gain = float(analytic.gain_db(h, floor_db=DB_FLOOR))
+    gain = float(analytic.gain_db(h, floor_db=MEASUREMENT_FLOOR_DB))
     defined = gain_measurable(gain)
     phase = float(analytic.phase_deg(h)) if defined else 0.0
     return [
@@ -298,11 +308,13 @@ def _current_pair(
     current_ma: complex,
     phase_tol: float,
 ) -> list[Prediction]:
-    magnitude = abs(current_ma)
-    defined = current_measurable(magnitude)
+    defined = current_measurable(abs(current_ma))
+    magnitude = abs(current_ma) if defined else 0.0
     phase = float(analytic.phase_deg(current_ma)) if defined else 0.0
     return [
-        Prediction(quantity, "mA", f, magnitude, current_tolerance_ma(magnitude)),
+        Prediction(
+            quantity, "mA", f, magnitude, current_tolerance_ma(magnitude), floor=CURRENT_FLOOR_MA
+        ),
         Prediction(phase_quantity, "deg", f, phase, phase_tol, angle=True, defined=defined),
     ]
 
@@ -507,8 +519,9 @@ def _check(obs: Observation, pairs: list[tuple[float, Prediction]]) -> Hypothesi
         consistent=all(p.deviation(o) <= p.tolerance for o, p in pairs),
         quantity=worst.quantity,
         frequency_hz=worst.frequency_hz,
-        observed=observed,
-        predicted=worst.value,
+        # Both on the published (floor) scale, so |observed - predicted| = deviation.
+        observed=worst.level(observed),
+        predicted=worst.level(worst.value),
         deviation=worst.deviation(observed),
         tolerance=worst.tolerance,
         unit=worst.unit,
@@ -554,9 +567,7 @@ def assess(
         checks = [
             c
             for c in (
-                _check(
-                    o, _observed_and_predicted(template_id, intended_values, hyp.id, o, tones)
-                )
+                _check(o, _observed_and_predicted(template_id, intended_values, hyp.id, o, tones))
                 for o in usable
             )
             if c is not None

@@ -37,17 +37,20 @@ from resonance.contracts.common import SimulatorInfo, new_id
 from resonance.contracts.internal import AcData
 from resonance.contracts.investigation import (
     CaseExperimentRequest,
+    DiagnosisSubmission,
+    EvidenceCitation,
+    EvidencePolicy,
     HypothesisId,
     InstrumentKind,
     Observation,
     ObservationSettings,
     ObservedTone,
     ObservedWaveform,
+    RepairProposalInput,
     SweepObservation,
     TransientObservation,
     TransientProbe,
 )
-from resonance.contracts.policy import DB_FLOOR
 
 FAMILIES: tuple[TemplateId, ...] = ("rc_lowpass", "rc_highpass")
 OPEN: HypothesisId = "c1_disconnected"
@@ -122,7 +125,10 @@ def _obs(
         ),
     )
     return Observation(
-        kind="symptom", probe=probe, transient=transient, **common  # type: ignore[arg-type]
+        kind="symptom",
+        probe=probe,
+        transient=transient,
+        **common,  # type: ignore[arg-type]
     )
 
 
@@ -154,7 +160,7 @@ def test_open_capacitor_predictions_per_family() -> None:
                 assert all(m.value == 0.0 for m in magnitudes)
                 assert all(p.defined and p.value == 0.0 for p in phases)
             elif voltage:
-                assert all(m.value == DB_FLOOR for m in magnitudes)
+                assert all(m.value == MEASUREMENT_FLOOR_DB for m in magnitudes)
                 assert not any(p.defined for p in phases)
             else:
                 assert all(m.value == 0.0 for m in magnitudes)
@@ -265,17 +271,24 @@ def test_undefined_phases_never_decide_anything(phase: float) -> None:
 
 def test_floor_semantics_for_gains_and_currents() -> None:
     gain = hypotheses.Prediction(
-        "output_gain_db", "dB", 20.0, DB_FLOOR, 0.5, floor=MEASUREMENT_FLOOR_DB
+        "output_gain_db", "dB", 20.0, MEASUREMENT_FLOOR_DB, 0.5, floor=MEASUREMENT_FLOOR_DB
     )
-    assert gain.deviation(-200.0) == 0.0
+    assert gain.deviation(-200.0) == 0.0  # e.g. an old payload clamped at policy.DB_FLOOR
     assert gain.deviation(-150.0) == 0.0  # both below the floor: "no measurable output"
     assert gain.deviation(-60.0) == pytest.approx(60.0)
+    assert gain.level(-200.0) == MEASUREMENT_FLOOR_DB and gain.level(-60.0) == -60.0
+    current = hypotheses.Prediction(
+        "source_current_ma", "mA", 20.0, 0.0, 1e-6, floor=CURRENT_FLOOR_MA
+    )
+    assert current.level(1e-17) == 0.0 and current.deviation(1e-17) == 0.0
+    assert current.level(4e-4) == 4e-4 and current.deviation(4e-4) == pytest.approx(4e-4)
     assert not hypotheses.gain_measurable(MEASUREMENT_FLOOR_DB)
     assert hypotheses.gain_measurable(-60.0)
     assert not hypotheses.current_measurable(CURRENT_FLOOR_MA)
     assert hypotheses.current_measurable(4e-4)
-    undefined = hypotheses.Prediction("output_phase_deg", "deg", 20.0, 0.0, 3.0, angle=True,
-                                      defined=False)
+    undefined = hypotheses.Prediction(
+        "output_phase_deg", "deg", 20.0, 0.0, 3.0, angle=True, defined=False
+    )
     defined = hypotheses.Prediction("output_phase_deg", "deg", 20.0, 90.0, 3.0, angle=True)
     assert not undefined.disjoint(defined) and not defined.disjoint(undefined)
     assert hypotheses.separation_ratio([undefined], [defined]) == 0.0
@@ -331,6 +344,93 @@ async def test_non_finite_simulator_output_is_a_failure_not_a_zero_signal(
         assert after.observations[-1].status == "failed"
         assert after.observations[-1].sweep is None
         assert after.budget.used == 0
+    finally:
+        rig.service.close()
+        rig.store.close()
+
+
+async def test_published_floor_values_are_exact_and_arithmetically_consistent(
+    settings: Settings,
+) -> None:
+    """M2-02/M2-03: a high-pass open capacitor publishes its silence ON the declared floors
+    (gain = -120 dB, amplitudes and currents exactly 0, phase 0), every evidence check reports
+    observed and predicted on the scale its deviation uses, a still-silent repair reports a
+    deviation consistent with the published points, and the floors are in EvidencePolicy."""
+    assert EvidencePolicy.model_fields["measurement_floor_db"].default == MEASUREMENT_FLOOR_DB
+    assert EvidencePolicy.model_fields["current_floor_ma"].default == CURRENT_FLOOR_MA
+    rig = build_rig(settings, AnalyticTestSimulator())
+    s = SESSION_A
+    try:
+        seed = seed_for(OPEN, (1000.0, 100e-9), "rc_highpass")
+        case = await rig.service.harness_create_case(s, seed, "rc_highpass")
+        assert case.policy.measurement_floor_db == MEASUREMENT_FLOOR_DB
+        assert case.policy.current_floor_ma == CURRENT_FLOOR_MA
+        await rig.service.set_mode(s, case.id, "guide")
+        plan = [
+            ("output_voltage_sweep", None),
+            ("source_current_sweep", None),
+            ("transient_capture", "source_current"),
+        ]
+        for i, (instrument, probe) in enumerate(plan):
+            case = (
+                await rig.service.run_experiment(
+                    s,
+                    case.id,
+                    CaseExperimentRequest.model_validate(
+                        {
+                            "instrument": instrument,
+                            "probe": probe,
+                            "client_request_id": f"floor-check-{i}",
+                        }
+                    ),
+                    requested_by="user",
+                )
+            ).case
+        for obs in case.observations:
+            if obs.sweep is not None:
+                floor_value = MEASUREMENT_FLOOR_DB if obs.sweep.magnitude_unit == "dB" else 0.0
+                assert set(obs.sweep.magnitude) == {floor_value}, obs.kind
+                assert set(obs.sweep.phase_deg) == {0.0}
+                assert min(obs.sweep.expected_magnitude) > floor_value  # the reference is real
+            else:
+                assert obs.transient is not None
+                for tone in obs.transient.tones:
+                    assert (tone.amplitude, tone.phase_deg) == (0.0, 0.0), tone
+                    if tone.gain_db is not None:
+                        assert tone.gain_db == MEASUREMENT_FLOOR_DB
+        checks = [c for a in case.evidence.assessments for c in a.checks]
+        assert any(c.unit == "dB" and c.deviation > 50 for c in checks)  # e.g. no_fault
+        for check in checks:
+            assert math.isclose(
+                abs(check.observed - check.predicted), check.deviation, abs_tol=1e-9
+            ), check
+            if check.unit == "dB":
+                assert check.observed >= MEASUREMENT_FLOOR_DB
+                assert check.predicted >= MEASUREMENT_FLOOR_DB
+        symptom = case.observations[0]
+        await rig.service.submit_diagnosis(
+            s,
+            case.id,
+            DiagnosisSubmission(
+                conclusion="fault",
+                hypothesis_id="r1_increased",  # wrong on purpose: the repair stays silent
+                citations=[EvidenceCitation(observation_id=symptom.id, quantity="tone_gain_db")],
+                explanation="test",
+            ),
+            submitted_by="user",
+        )
+        await rig.service.propose_repair(
+            s, case.id, RepairProposalInput(component_id="R1"), proposed_by="user"
+        )
+        case = await rig.service.verify_repair(s, case.id)
+        repair = case.repair
+        assert repair is not None and repair.functional_recovery is False
+        assert {p.repaired_gain_db for p in repair.points} == {MEASUREMENT_FLOOR_DB}
+        worst = max(abs(p.repaired_gain_db - p.expected_gain_db) for p in repair.points)
+        assert repair.max_gain_deviation_db == pytest.approx(worst, abs=1e-3)
+        assert repair.max_gain_deviation_db is not None and repair.max_gain_deviation_db < 120
+        assert repair.max_phase_deviation_deg == 0.0  # undefined phases are not compared
+        assert "no measurable output" in repair.summary
     finally:
         rig.service.close()
         rig.store.close()
