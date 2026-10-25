@@ -297,7 +297,7 @@ describe("Learn mode", { timeout: INTEGRATION_TIMEOUT_MS }, () => {
     await userEvent.click(within(screen.getByRole("navigation", { name: "Workbench mode" })).getByRole("button", { name: "Learn" }));
 
     const form = await screen.findByRole("form", { name: "Make a prediction" });
-    expect(within(form).getByRole("radio", { name: /If we double C1/ })).toBeChecked();
+    expect(within(form).getByRole("radio", { name: /^Double C1/ })).toBeChecked();
     // One prediction is missing: nothing is sent and focus lands on the unanswered tone.
     const tone = within(form).getByRole("group", { name: /Musical tone/ });
     await userEvent.click(within(tone).getByRole("radio", { name: "About the same" }));

@@ -41,11 +41,9 @@
 
 .prediction.is-missing .prediction__choices {
   border-color: var(--color-danger);
+  box-shadow: 0 0 0 1px var(--color-danger);
 }
 
-.learn-result {
-  border-color: var(--color-accent-border);
-}
 
 .learn-result__change {
   font-size: var(--text-sm);
@@ -74,7 +72,7 @@
   flex-direction: column;
   gap: 2px;
   padding-bottom: var(--space-3);
-  border-bottom: 1px solid var(--color-border);
+  border-bottom: 1px solid var(--color-divider);
 }
 
 .graded__head {
@@ -124,8 +122,8 @@
 }
 
 .attempts__item.is-shown {
-  border-color: var(--color-accent-border);
   background: var(--color-raised);
+  box-shadow: inset 2px 0 0 var(--color-accent);
 }
 
 .attempts__title {
@@ -133,6 +131,135 @@
 }
 
 .attempts__meta {
+  color: var(--color-text-secondary);
+  font-size: var(--text-xs);
+}
+
+/* ---------- Stepped lesson ----------
+   Numbered steps joined by a thin rail, so the form reads as a sequence rather than a list. */
+.lesson {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+}
+
+.lesson-step {
+  position: relative;
+  padding-bottom: var(--space-6);
+}
+
+.lesson-step:last-child {
+  padding-bottom: 0;
+}
+
+/* The connecting rail between step numbers. */
+.lesson-step:not(:last-child)::before {
+  content: "";
+  position: absolute;
+  top: 28px;
+  bottom: 4px;
+  left: 11px;
+  width: 2px;
+  border-radius: 1px;
+  background: var(--color-divider);
+}
+
+.lesson-step__title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  font-size: var(--text-sm);
+}
+
+.lesson-step__num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--color-raised);
+  color: var(--color-text);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-strong);
+  font-variant-numeric: tabular-nums;
+}
+
+.lesson-step__num {
+  flex: none;
+}
+
+.lesson-step__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin: var(--space-3) 0 0 36px;
+}
+
+.lesson-question {
+  color: var(--color-text-secondary);
+  line-height: var(--leading-body);
+}
+
+/* Change choices: a 2-column grid of selectable tiles (radio inputs stay native and focusable). */
+.choice-tiles {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-2);
+}
+
+.choice-tile {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-height: 52px;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border-soft);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  cursor: pointer;
+  transition:
+    background-color var(--motion-fast) var(--ease-out),
+    border-color var(--motion-fast) var(--ease-out);
+}
+
+.choice-tile:hover {
+  background: var(--color-raised);
+}
+
+.choice-tile input {
+  position: absolute;
+  opacity: 0;
+  inset: 0;
+  margin: 0;
+  cursor: pointer;
+}
+
+.choice-tile:has(input:checked) {
+  border-color: var(--color-accent);
+  background: var(--color-accent-subtle);
+}
+
+.choice-tile:has(input:focus-visible) {
+  outline: var(--focus-ring);
+  outline-offset: 2px;
+}
+
+.choice-tile:has(input:disabled) {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.choice-tile__title {
+  font-weight: var(--weight-strong);
+}
+
+.choice-tile:has(input:checked) .choice-tile__title {
+  color: var(--color-accent);
+}
+
+.choice-tile__meta {
   color: var(--color-text-secondary);
   font-size: var(--text-xs);
 }
