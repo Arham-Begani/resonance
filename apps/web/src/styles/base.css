@@ -144,7 +144,11 @@ a {
   justify-content: space-between;
 }
 
-/* ---------- Buttons ---------- */
+/* ---------- Buttons ----------
+   primary   solid cyan: the one main action of a region (Run, Submit, Start).
+   secondary filled raised surface + faint edge: ordinary actions.
+   ghost     text only until hover: tertiary actions inside dense lists.
+   danger    for Cancel/Stop while something runs. */
 
 .btn {
   display: inline-flex;
@@ -153,9 +157,9 @@ a {
   gap: var(--space-2);
   min-height: var(--control-height);
   padding: 0 var(--space-3);
-  border: 1px solid var(--color-border-strong);
+  border: 1px solid var(--color-control-border);
   border-radius: var(--radius-md);
-  background: transparent;
+  background: var(--color-control);
   color: var(--color-text);
   font-size: var(--text-sm);
   font-weight: var(--weight-strong);
@@ -164,11 +168,13 @@ a {
   cursor: pointer;
   transition:
     background-color var(--motion-fast) var(--ease-out),
-    border-color var(--motion-fast) var(--ease-out);
+    border-color var(--motion-fast) var(--ease-out),
+    color var(--motion-fast) var(--ease-out);
 }
 
 .btn:hover:not(:disabled):not([aria-busy="true"]) {
-  background: var(--color-hover);
+  border-color: rgba(232, 238, 242, 0.24);
+  background: var(--color-control-hover);
 }
 
 .btn:active:not(:disabled):not([aria-busy="true"]) {
@@ -185,7 +191,6 @@ a {
   opacity: 0.8;
 }
 
-
 .btn--primary {
   border-color: var(--color-accent);
   background: var(--color-accent);
@@ -199,11 +204,25 @@ a {
 
 .btn--ghost {
   border-color: transparent;
+  background: transparent;
+  color: var(--color-text-secondary);
+}
+
+.btn--ghost:hover:not(:disabled):not([aria-busy="true"]) {
+  border-color: transparent;
+  background: var(--color-hover);
+  color: var(--color-text);
 }
 
 .btn--danger {
-  border-color: var(--color-danger);
+  border-color: rgba(242, 139, 130, 0.45);
+  background: var(--color-danger-subtle);
   color: var(--color-danger);
+}
+
+.btn--danger:hover:not(:disabled):not([aria-busy="true"]) {
+  border-color: var(--color-danger);
+  background: rgba(242, 139, 130, 0.18);
 }
 
 .btn--lg {
@@ -212,7 +231,7 @@ a {
 }
 
 .btn--sm {
-  min-height: 28px;
+  min-height: var(--control-height-sm);
   padding: 0 var(--space-2);
   font-size: var(--text-xs);
 }
@@ -222,8 +241,19 @@ a {
   padding: 0;
 }
 
+.btn--sm.btn--icon {
+  width: var(--control-height-sm);
+}
+
 .btn svg {
   flex: none;
+}
+
+/* Toggle buttons (aria-pressed): the active state is the one place a secondary control turns cyan. */
+.btn[aria-pressed="true"] {
+  border-color: var(--color-accent-border);
+  background: var(--color-accent-subtle);
+  color: var(--color-accent);
 }
 
 .spinner {
@@ -340,7 +370,8 @@ a {
   margin-top: 3px;
 }
 
-/* ---------- Badges ---------- */
+/* ---------- Badges ----------
+   Neutral by default. Semantic tones carry an icon + text; accent is rare (live/running). */
 
 .badge {
   display: inline-flex;
@@ -348,43 +379,47 @@ a {
   gap: var(--space-1);
   min-height: 22px;
   padding: 0 var(--space-2);
-  border: 1px solid var(--color-border-soft);
+  border: 1px solid transparent;
   border-radius: var(--radius-sm);
   background: var(--color-raised);
   color: var(--color-text-secondary);
   font-size: var(--text-xs);
   font-weight: var(--weight-strong);
+  line-height: 1;
   white-space: nowrap;
 }
 
 .badge--accent {
-  border-color: var(--color-accent-border);
   background: var(--color-accent-subtle);
   color: var(--color-accent);
 }
 
 .badge--success {
-  border-color: rgba(108, 203, 148, 0.4);
   background: var(--color-success-subtle);
   color: var(--color-success);
 }
 
 .badge--warning {
-  border-color: rgba(227, 182, 94, 0.4);
   background: var(--color-warning-subtle);
   color: var(--color-warning);
 }
 
 .badge--danger {
-  border-color: rgba(242, 139, 130, 0.4);
   background: var(--color-danger-subtle);
   color: var(--color-danger);
+}
+
+/* Analytical predictions: dashed edge, like the dashed reference trace. Never a measurement. */
+.badge--prediction {
+  border: 1px dashed var(--color-border-strong);
+  background: transparent;
+  color: var(--color-text-secondary);
 }
 
 /* ---------- Cards & callouts ---------- */
 
 .card {
-  border: 1px solid var(--color-border);
+  border: 1px solid var(--color-border-faint);
   border-radius: var(--radius-lg);
   background: var(--color-surface);
   padding: var(--space-4);
@@ -399,24 +434,26 @@ a {
   font-weight: var(--weight-strong);
 }
 
+/* Callouts are tinted fills, not outlined boxes. */
 .callout {
   display: flex;
   gap: var(--space-2);
   padding: var(--space-3);
-  border: 1px solid var(--color-border-soft);
+  border: 0;
   border-radius: var(--radius-md);
   background: var(--color-raised);
   color: var(--color-text-secondary);
   font-size: var(--text-sm);
+  line-height: var(--leading-snug);
 }
 
 .callout svg {
   flex: none;
-  margin-top: 2px;
+  margin-top: 1px;
+  color: var(--color-text-secondary);
 }
 
 .callout--danger {
-  border-color: rgba(242, 139, 130, 0.4);
   background: var(--color-danger-subtle);
 }
 
@@ -425,7 +462,6 @@ a {
 }
 
 .callout--warning {
-  border-color: rgba(227, 182, 94, 0.4);
   background: var(--color-warning-subtle);
 }
 
@@ -434,7 +470,6 @@ a {
 }
 
 .callout--success {
-  border-color: rgba(108, 203, 148, 0.4);
   background: var(--color-success-subtle);
 }
 
@@ -443,7 +478,6 @@ a {
 }
 
 .callout--accent {
-  border-color: var(--color-accent-border);
   background: var(--color-accent-subtle);
 }
 
@@ -481,15 +515,30 @@ a {
 
 .data-table th,
 .data-table td {
-  padding: var(--space-1) var(--space-2);
-  border-bottom: 1px solid var(--color-border);
+  padding: 6px var(--space-2);
+  border-bottom: 1px solid var(--color-divider);
   text-align: left;
   vertical-align: top;
 }
 
-.data-table th {
+.data-table th:first-child,
+.data-table td:first-child {
+  padding-left: 0;
+}
+
+.data-table th:last-child,
+.data-table td:last-child {
+  padding-right: 0;
+}
+
+.data-table thead th {
+  border-bottom-color: var(--color-border-soft);
   font-weight: var(--weight-strong);
-  color: var(--color-text-secondary);
+  color: var(--color-text-tertiary);
+}
+
+.data-table tbody tr:last-child > * {
+  border-bottom: 0;
 }
 
 .data-table td.n,
@@ -540,10 +589,11 @@ a {
 
 .segmented {
   display: inline-flex;
+  gap: 2px;
   padding: 2px;
-  border: 1px solid var(--color-border-strong);
+  border: 1px solid var(--color-border-soft);
   border-radius: var(--radius-md);
-  background: var(--color-bg);
+  background: var(--color-track);
 }
 
 .segmented label {
@@ -558,6 +608,13 @@ a {
   font-weight: var(--weight-strong);
   cursor: pointer;
   white-space: nowrap;
+  transition:
+    background-color var(--motion-fast) var(--ease-out),
+    color var(--motion-fast) var(--ease-out);
+}
+
+.segmented label:hover {
+  color: var(--color-text);
 }
 
 .segmented input {
@@ -569,7 +626,7 @@ a {
 }
 
 .segmented label:has(input:checked) {
-  background: var(--color-raised);
+  background: var(--color-hover);
   color: var(--color-text);
   box-shadow: inset 0 0 0 1px var(--color-border-soft);
 }

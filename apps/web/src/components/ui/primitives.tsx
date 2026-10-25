@@ -54,11 +54,13 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
   );
 });
 
-export type Tone = "neutral" | "accent" | "success" | "warning" | "danger";
+/** "prediction" marks analytical (unmeasured) values: neutral text with a dashed edge. */
+export type Tone = "neutral" | "accent" | "success" | "warning" | "danger" | "prediction";
 
 const TONE_ICON: Record<Tone, IconName | null> = {
   neutral: null,
   accent: null,
+  prediction: null,
   success: "check",
   warning: "alert",
   danger: "x",
