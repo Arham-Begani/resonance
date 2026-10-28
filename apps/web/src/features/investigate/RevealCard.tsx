@@ -38,24 +38,35 @@ export function RevealCard({ c, onNew, creating, focusOnMount = false }: { c: Pu
         <h2 id="reveal-heading" ref={headingRef} tabIndex={-1} className="panel-card__title">
           Revealed
         </h2>
-        <Badge icon={null}>Case closed</Badge>
+        <Badge icon="lock">Case closed</Badge>
       </div>
-      <p className="reveal__fault">{f.description}</p>
-      {f.component_id && f.nominal_value_si != null && f.actual_value_si != null ? (
-        <p className="num muted">
-          {f.component_id}: nominal {formatSi(f.nominal_value_si, unit)} → actual {formatSi(f.actual_value_si, unit)}
-          {f.multiplier != null ? ` (${f.multiplier}×)` : ""}
-        </p>
-      ) : null}
-      <dl className="kv">
-        <dt>Exact identification</dt>
-        <dd>
-          <Badge tone={ident.tone}>{ident.text}</Badge>
-        </dd>
-        <dt>Functional recovery</dt>
-        <dd>
-          <Badge tone={recovery.tone}>{recovery.text}</Badge>
-        </dd>
+      <div className="reveal__answer">
+        <p className="eyebrow">The actual fault</p>
+        <p className="reveal__fault">{f.description}</p>
+        {f.component_id && f.nominal_value_si != null && f.actual_value_si != null ? (
+          <p className="reveal__change num">
+            {f.component_id}: nominal <span className="reveal__value">{formatSi(f.nominal_value_si, unit)}</span> → actual{" "}
+            <span className="reveal__value">{formatSi(f.actual_value_si, unit)}</span>
+            {f.multiplier != null ? ` (${f.multiplier}×)` : ""}
+          </p>
+        ) : null}
+      </div>
+      {/* Two separate outcomes: naming the cause and restoring the behaviour are scored apart. */}
+      <dl className="kv reveal__outcomes">
+        <div className={`reveal__outcome is-${ident.tone}`}>
+          <dt>Exact identification</dt>
+          <dd>
+            <Badge tone={ident.tone}>{ident.text}</Badge>
+          </dd>
+        </div>
+        <div className={`reveal__outcome is-${recovery.tone}`}>
+          <dt>Functional recovery</dt>
+          <dd>
+            <Badge tone={recovery.tone}>{recovery.text}</Badge>
+          </dd>
+        </div>
+      </dl>
+      <dl className="kv reveal__details">
         {o.true_cause_among_candidates != null ? (
           <>
             <dt>True cause among your candidates</dt>
