@@ -14,11 +14,10 @@ mkdirSync(`${OUT}/frames`, { recursive: true });
 
 const log = (...a) => console.log(new Date().toISOString().slice(11, 19), ...a);
 const browser = await chromium.launch({ args: ["--autoplay-policy=no-user-gesture-required"] });
-// 1440x816 CSS px at 4/3 scale = 1920x1088 device px; build.py crops to 1920x1080 (the bottom
-// 8 px hold the content clock).
-const VIEW = { width: 1440, height: 816 };
-const SCALE = 4 / 3;
-const context = await browser.newContext({ viewport: VIEW, deviceScaleFactor: SCALE });
+// Native 1080p: the screencast captures CSS pixels, so the viewport is 1920x1088 at scale 1;
+// build.py crops to 1920x1080 (the bottom 8 px hold the content clock).
+const VIEW = { width: 1920, height: 1088 };
+const context = await browser.newContext({ viewport: VIEW, deviceScaleFactor: 1 });
 
 // In-page: capture played audio (decoded samples + start/stop wall times), a visible cursor and
 // a caption bar. All of it is presentation for the recording only.
@@ -50,19 +49,12 @@ await context.addInitScript(() => {
     get: Object.getOwnPropertyDescriptor(AudioParam.prototype, "value").get,
   });
   const install = () => {
-    if (document.getElementById("__demo_cursor")) return;
-    const c = document.createElement("div");
-    c.id = "__demo_cursor";
-    c.setAttribute("aria-hidden", "true");
-    c.style.cssText = "position:fixed;z-index:2147483647;left:0;top:0;width:18px;height:18px;margin:-9px 0 0 -9px;border-radius:50%;background:rgba(232,238,242,.92);box-shadow:0 0 0 2px rgba(11,16,20,.85),0 0 0 6px rgba(101,197,212,.35);pointer-events:none;transition:transform .12s;";
-    document.documentElement.appendChild(c);
-    addEventListener("mousemove", (e) => { c.style.left = e.clientX + "px"; c.style.top = e.clientY + "px"; }, true);
-    addEventListener("mousedown", () => { c.style.transform = "scale(.7)"; }, true);
-    addEventListener("mouseup", () => { c.style.transform = "scale(1)"; }, true);
+    // The cursor is not drawn in the page: build.py draws it at 60 fps from cursor.json.
+    if (document.getElementById("__demo_caption")) return;
     const cap = document.createElement("div");
     cap.id = "__demo_caption";
     cap.setAttribute("aria-hidden", "true");
-    cap.style.cssText = "position:fixed;z-index:2147483646;left:50%;top:58px;transform:translateX(-50%);max-width:980px;padding:12px 20px;border-radius:12px;background:rgba(11,16,20,.94);border:1px solid rgba(101,197,212,.55);color:#E8EEF2;font:600 19px/1.45 system-ui,-apple-system,'Segoe UI',sans-serif;text-align:center;box-shadow:0 10px 30px rgba(0,0,0,.45);pointer-events:none;opacity:0;transition:opacity .2s;";
+    cap.style.cssText = "position:fixed;z-index:2147483646;left:50%;bottom:66px;transform:translateX(-50%);max-width:1240px;padding:14px 26px;border-radius:12px;background:rgba(11,16,20,.94);border:1px solid rgba(101,197,212,.55);color:#E8EEF2;font:600 24px/1.45 system-ui,-apple-system,'Segoe UI',sans-serif;text-align:center;box-shadow:0 10px 30px rgba(0,0,0,.45);pointer-events:none;opacity:0;transition:opacity .2s;";
     document.documentElement.appendChild(cap);
   };
   // Content clock: the current time (ms, low 32 bits) drawn as 32 black/white 4x4 blocks in the
@@ -110,17 +102,34 @@ const caption = async (text, ms = 0) => {
   }, text);
   if (ms) await page.waitForTimeout(ms);
 };
-let mouse = { x: 720, y: 450 };
+// Cursor path for build.py (viewport px with wall-clock times); moves are eased over ~600 ms.
+const cursor = [];
+let mouse = { x: 960, y: 540 };
+const track = (x, y, down = false) => cursor.push({ t: Date.now(), x, y, down });
 const moveTo = async (loc) => {
   await loc.scrollIntoViewIfNeeded();
   const box = await loc.boundingBox();
   if (!box) throw new Error("no box");
   const x = box.x + box.width / 2, y = box.y + box.height / 2;
-  await page.mouse.move(x, y, { steps: 18 });
+  const from = { ...mouse }, steps = 24, t0 = Date.now(), ms = 600;
+  for (let i = 1; i <= steps; i++) {
+    const k = i / steps, e = k < 0.5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2;
+    const px = from.x + (x - from.x) * e, py = from.y + (y - from.y) * e;
+    await page.mouse.move(px, py);
+    track(px, py);
+    const wait = t0 + (ms * i) / steps - Date.now();
+    if (wait > 0) await page.waitForTimeout(wait);
+  }
   mouse = { x, y };
-  await page.waitForTimeout(250);
+  await page.waitForTimeout(220);
 };
-const click = async (loc, pause = 500) => { await moveTo(loc); await loc.click(); await page.waitForTimeout(pause); };
+const click = async (loc, pause = 500) => {
+  await moveTo(loc);
+  track(mouse.x, mouse.y, true);
+  await loc.click();
+  track(mouse.x, mouse.y, false);
+  await page.waitForTimeout(pause);
+};
 const smoothScroll = async (y, ms = 1200) => {
   await page.evaluate(({ y, ms }) => new Promise((r) => {
     const from = scrollY, t0 = performance.now();
@@ -136,7 +145,8 @@ try {
   await page.goto(BASE + "/");
   await page.getByRole("heading", { level: 1 }).waitFor();
   await page.mouse.move(mouse.x, mouse.y);
-  await cdp.send("Page.startScreencast", { format: "jpeg", quality: 90, maxWidth: 1920, maxHeight: 1088, everyNthFrame: 1 });
+  track(mouse.x, mouse.y);
+  await cdp.send("Page.startScreencast", { format: "jpeg", quality: 88, maxWidth: 1920, maxHeight: 1088, everyNthFrame: 1 });
   mark("start");
 
   // ---------- 1. Landing ----------
@@ -278,7 +288,7 @@ try {
     requestAnimationFrame(() => { card.style.opacity = "1"; });
   });
   await caption("");
-  await page.mouse.move(1400, 790);
+  track(-200, -200); // hide the cursor for the closing card
   await page.waitForTimeout(7000);
   mark("end");
   // Let a lagging screencast catch up so the closing card is fully captured.
@@ -295,6 +305,8 @@ try {
   writeFileSync(`${OUT}/gains.json`, JSON.stringify(gains));
   writeFileSync(`${OUT}/frames.json`, JSON.stringify(frames));
   writeFileSync(`${OUT}/marks.json`, JSON.stringify(marks));
+  writeFileSync(`${OUT}/cursor.json`, JSON.stringify(cursor));
+  writeFileSync(`${OUT}/meta.json`, JSON.stringify(VIEW));
   log("frames", frames.length, "clips", clips.length);
   await browser.close();
 }
