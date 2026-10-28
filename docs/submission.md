@@ -25,7 +25,7 @@ person on Devpost before submission:
 | Public repository with license and third-party notices | **Done**: https://github.com/Arham-Begani/resonance (MIT `LICENSE`, `THIRD_PARTY_NOTICES.md`); CI green |
 | Nemotron via Nebius Token Factory | **Live verified 2026-10-25**: model listed, tool-call round trip 1.61 s, two full investigate runs (see `docs/ai-integration.md`) |
 | Hosted app | **Deployed**: https://resonance-lwdf.onrender.com (Render, single Docker instance). Smoke test 2026-10-25: health OK with ngspice 44.2 and AI ready; a real experiment in 3.3 s; a case created with no reveal |
-| Demo video (< 3 min) | Script below; **not recorded** (needs a human narrator and real Nemotron runs) |
+| Demo video (< 3 min) | **Recorded 2026-10-28** (118 s, 1440×892, H.264/AAC): real interactions on the live site with live Nemotron inference (the AI run took 21 s; the hidden fault was C1 at half value, identified correctly and repaired; behaviour restored). Captions are on screen; the audio is the actual clips the app played, at one shared gain. Reproduce with `apps/web/scripts/demo/` (see below). **Upload to YouTube is the owner's step** |
 | Evaluation results | **Measured** on `heldout_v1` (24 cases): baseline 24/24 correct, 20/20 restored, 4.29 s/case. Nemotron 20/24 correct, 1 incorrect, 3 not submitted, 9/20 restored (11 repairs not proposed), 28.41 s/case, 825,748 tokens |
 | Browser e2e suite | 32/32 at milestone 1; specs updated for milestone 2 but the full re-run is pending (host memory) |
 | Submission text | Draft below |
@@ -41,6 +41,21 @@ person on Devpost before submission:
 3. Record the demo following the script below, using live inference only.
 4. Fill in the hosted URL and the measured Nemotron numbers. Re-check the official rules on
    Devpost, then submit.
+
+## Recording the demo
+
+`apps/web/scripts/demo/record.mjs` drives the deployed app with Playwright and records a CDP
+screencast. It also captures every audio clip the app actually plays. The page draws a tiny
+time barcode on every frame, and `build.py` (Python with numpy and Pillow, plus ffmpeg) uses it
+to time each frame and place each clip, then crops the barcode out. Nothing on the server is
+scripted: each take is a fresh session, a fresh random mystery and live inference, so takes
+differ.
+
+```bash
+cd apps/web
+BASE=https://resonance-lwdf.onrender.com OUT=demo-take node scripts/demo/record.mjs
+python scripts/demo/build.py demo-take resonance-demo.mp4
+```
 
 ## Demo script (~150 s, actual interactions only)
 
