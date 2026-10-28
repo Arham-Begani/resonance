@@ -119,7 +119,6 @@ test("D-10 after dismissing the AI notice, setup steps are still where the UI sa
 
 test("invalid component values get a calm, field-specific message; no revision; previous results kept", async ({ page }, testInfo) => {
   await openWorkbench(page);
-  await runExploreExperiment(page, 1);
   const levels = page.getByRole("list", { name: "Measured tone levels" });
   const levelsBefore = await levels.innerText();
   const revisionCount = async () => ((await (await page.request.get("/api/workbench")).json()).revisions as { origin: string }[]).filter((r) => r.origin !== "case_intended").length;
@@ -168,7 +167,6 @@ test("invalid component values get a calm, field-specific message; no revision; 
 
 test("an invalid goal is explained per field and the saved goal and results are unchanged", async ({ page }) => {
   await openWorkbench(page);
-  await runExploreExperiment(page, 1);
   const goal = page.getByRole("region", { name: "Goal" });
   const before = await goal.locator("table").innerText();
   await goal.getByRole("button", { name: "Edit goal" }).click();
@@ -188,7 +186,6 @@ test("an invalid goal is explained per field and the saved goal and results are 
 
 test("cancelled and failed experiments are explained calmly and keep the previous result", async ({ page }, testInfo) => {
   await openWorkbench(page);
-  await runExploreExperiment(page, 1);
   const levels = page.getByRole("list", { name: "Measured tone levels" });
   const before = await levels.innerText();
   const instruments = page.getByRole("region", { name: "Instruments" });
@@ -250,7 +247,6 @@ test("cancelled and failed experiments are explained calmly and keep the previou
 
 test("D-12 a cancelled explore experiment does not reappear later as a completed experiment", async ({ page }, testInfo) => {
   await openWorkbench(page);
-  await runExploreExperiment(page, 1);
   const instruments = page.getByRole("region", { name: "Instruments" });
   await page.getByRole("button", { name: "Run experiment on Revision 1" }).click();
   await instruments.getByRole("button", { name: "Cancel" }).click();
@@ -273,7 +269,6 @@ test("D-12 a cancelled explore experiment does not reappear later as a completed
 
 test("D-05 an unexpected gateway response is explained without an HTTP status code", async ({ page }, testInfo) => {
   await openWorkbench(page);
-  await runExploreExperiment(page, 1);
   await page.route("**/api/experiments", (route) =>
     route.request().method() === "POST" ? route.fulfill({ status: 502, contentType: "text/html", body: "<html><body>Bad Gateway</body></html>" }) : route.continue(),
   );
@@ -389,19 +384,26 @@ test("D-08 'Not enough evidence' pre-ticks only the explanations that still fit"
   }
   expect(atSymptom.length, "a case whose symptom is ambiguous").toBeGreaterThan(1);
   await chooseGuideMe(page);
+  const observationsBefore = ((await getCase(page, caseId)).observations as unknown[]).length;
   await runCaseInstrument(page, "Output response sweep");
   await runCaseInstrument(page, "Source current sweep");
+  // Compare against the settled server state: both experiments recorded (under heavy load the
+  // UI can show the new budget a moment before a separate GET sees the second observation).
+  await expect.poll(async () => ((await getCase(page, caseId)).observations as unknown[]).length, { timeout: 30_000 }).toBe(observationsBefore + 2);
   const c = await getCase(page, caseId);
   const remaining = c.evidence.remaining as string[];
   const dx = page.getByRole("form", { name: "Submit a diagnosis" });
   await dx.getByRole("radio", { name: /^Not enough evidence/ }).check();
-  const ticked: string[] = [];
-  for (const h of c.hypotheses as { id: string; label: string }[]) {
-    if (await dx.getByRole("checkbox", { name: h.label, exact: true }).isChecked()) ticked.push(h.id);
-  }
-  testInfo.annotations.push({ type: "candidates", description: JSON.stringify({ atSymptom, remainingNow: remaining, ticked }) });
+  const tickedNow = async () => {
+    const ticked: string[] = [];
+    for (const h of c.hypotheses as { id: string; label: string }[]) {
+      if (await dx.getByRole("checkbox", { name: h.label, exact: true }).isChecked()) ticked.push(h.id);
+    }
+    return ticked.sort();
+  };
+  await expect.poll(tickedNow, { timeout: 10_000 }).toEqual([...remaining].sort());
+  testInfo.annotations.push({ type: "candidates", description: JSON.stringify({ atSymptom, remainingNow: remaining, ticked: await tickedNow() }) });
   await shot(page, testInfo, "honesty-stale-candidates");
-  expect(ticked.sort()).toEqual([...remaining].sort());
 });
 
 test("D-09 the playback strip does not claim no experiment was run when a sweep is shown", async ({ page }, testInfo) => {
@@ -427,7 +429,7 @@ test("D-06 a first visit creates exactly one session", async ({ page }, testInfo
       if (m) cookies.push(m[1]!);
     }
   });
-  await page.goto("/");
+  await page.goto("/lab");
   await expect(page.getByRole("button", { name: /^Run experiment on Revision \d+$/ })).toBeEnabled();
   await page.waitForLoadState("networkidle");
   const wb = await (await page.request.get("/api/workbench")).json();
@@ -440,12 +442,12 @@ test("D-06 a first visit creates exactly one session", async ({ page }, testInfo
 
 test("D-06 after a first visit, a reload shows the revision that was measured", async ({ page }, testInfo) => {
   // Natural timing, no priming: this is what a first-time visitor of the dev server gets.
-  await page.goto("/");
+  await page.goto("/lab");
   const run = page.getByRole("button", { name: /^Run experiment on Revision \d+$/ });
   await expect(run).toBeEnabled();
   await page.waitForLoadState("networkidle");
   const before = (await page.locator(".header__rev").innerText()).trim();
-  await run.click();
+  // The first visit measures the opening experiment by itself (no click needed).
   const instruments = page.getByRole("region", { name: "Instruments" });
   const meta = instruments.locator(".instruments__meta");
   const failure = instruments.locator(".callout--danger");
@@ -459,7 +461,7 @@ test("D-06 after a first visit, a reload shows the revision that was measured", 
     type: "first-visit-reload",
     description: JSON.stringify({ target: TARGET, before, firstRun, after, exploreRevisions: wb.revisions.filter((r: { origin: string }) => r.origin !== "case_intended").length }),
   });
-  expect(firstRun, "the first experiment of a first visit succeeds").toMatch(/^Experiment 1 · Revision 1/);
+  expect(firstRun, "the opening experiment of a first visit succeeds").toMatch(/^Experiment 1 · Revision 1/);
   expect(after, "a reload shows the same revision").toBe(before);
   expect(wb.revisions.filter((r: { origin: string }) => r.origin !== "case_intended")).toHaveLength(1);
 });
@@ -477,7 +479,6 @@ test("D-04 component rows: the accessible name contains the visible label (WCAG 
 
 test("D-03 chart data-table scroll containers are keyboard reachable", async ({ page }) => {
   await openWorkbench(page);
-  await runExploreExperiment(page, 1);
   await page.getByRole("figure", { name: "Frequency response" }).locator("summary", { hasText: "Data table" }).click();
   const findings = (await axeScan(page, "D-03-scrollable-region")).filter((f) => f.rule === "scrollable-region-focusable");
   expect(findings).toEqual([]);
@@ -485,7 +486,6 @@ test("D-03 chart data-table scroll containers are keyboard reachable", async ({ 
 
 test("D-11 named groups use a role that permits a name (no aria-label on generic elements)", async ({ page }) => {
   await openWorkbench(page);
-  await runExploreExperiment(page, 1);
   await editValue(page, "C1", "220n", 2);
   await runExploreExperiment(page, 2);
   const history = page.getByRole("region", { name: "Experiment history" });

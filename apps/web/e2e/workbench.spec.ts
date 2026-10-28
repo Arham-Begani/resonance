@@ -37,7 +37,6 @@ test("complete flow: edit, simulate, compare, mystery, Guide me, cited diagnosis
 
   // ---------- Explore: measure the original, edit C1, measure again ----------
   await openWorkbench(page);
-  await runExploreExperiment(page, 1);
   await expect(page.getByRole("list", { name: "Measured tone levels" })).toContainText("440 Hz");
   await expect(page.getByRole("region", { name: "Goal" })).toContainText(/Goal (met|not met)/);
 

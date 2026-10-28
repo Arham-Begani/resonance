@@ -108,7 +108,7 @@ test("explore: measure, edit with Enter/Escape, re-measure, compare, undo, play 
   // 1. Run the first experiment.
   await tabTo(page, page.getByRole("button", { name: "Run experiment on Revision 1" }), { path });
   await page.keyboard.press("Enter");
-  await waitForExperiment(page, 1);
+  await waitForExperiment(page, 2);
   const afterRun = await focusAfter(page);
 
   // 2. Components list: arrow keys move between rows (roving tabindex); Tab reaches row actions.
@@ -150,18 +150,18 @@ test("explore: measure, edit with Enter/Escape, re-measure, compare, undo, play 
   // 3. Measure Revision 2.
   await tabTo(page, page.getByRole("button", { name: "Run experiment on Revision 2" }), { path });
   await page.keyboard.press("Enter");
-  await waitForExperiment(page, 2);
+  await waitForExperiment(page, 3);
 
   // 4. Compare the two experiments (Space ticks checkboxes, Enter activates buttons).
   const history = page.getByRole("region", { name: "Experiment history" });
-  await tabTo(page, history.getByLabel("Compare Experiment 2"), { path });
+  await tabTo(page, history.getByLabel("Compare Experiment 3"), { path });
   await page.keyboard.press("Space");
-  await tabTo(page, history.getByLabel("Compare Experiment 1"), { path });
+  await tabTo(page, history.getByLabel("Compare Experiment 2"), { path });
   await page.keyboard.press("Space");
   await expect(history.getByText("Two selected.")).toBeVisible();
   await tabTo(page, history.getByRole("button", { name: "Compare" }), { path });
   await page.keyboard.press("Enter");
-  await expect(page.getByLabel("Comparison result")).toContainText("Experiment 1 → Experiment 2");
+  await expect(page.getByLabel("Comparison result")).toContainText("Experiment 2 → Experiment 3");
   const afterCompare = await focusAfter(page);
 
   // 5. Undo (keyboard) returns to Revision 1.
@@ -295,16 +295,16 @@ test("D-02 focus is kept after explore actions (Run experiment, Compare, Undo)",
     landed[step] = f ? `${f.tag}:${f.name} [${f.region}]` : "body";
   };
   await activate(page, page.getByRole("button", { name: "Run experiment on Revision 1" }));
-  await waitForExperiment(page, 1);
+  await waitForExperiment(page, 2);
   await check("Run experiment");
   await editValue(page, "C1", "220n", 2);
   await activate(page, page.getByRole("button", { name: "Run experiment on Revision 2" }));
-  await waitForExperiment(page, 2);
+  await waitForExperiment(page, 3);
   const history = page.getByRole("region", { name: "Experiment history" });
-  await history.getByLabel("Compare Experiment 1").check();
   await history.getByLabel("Compare Experiment 2").check();
+  await history.getByLabel("Compare Experiment 3").check();
   await activate(page, history.getByRole("button", { name: "Compare" }));
-  await expect(page.getByLabel("Comparison result")).toContainText("Experiment 1 → Experiment 2");
+  await expect(page.getByLabel("Comparison result")).toContainText("Experiment 2 → Experiment 3");
   await check("Compare");
   await activate(page, history.getByRole("button", { name: "Undo to Revision 1" }));
   await expect(page.locator(".header__rev")).toHaveText("Revision 1");

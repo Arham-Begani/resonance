@@ -24,6 +24,7 @@ import {
   shot,
   startMystery,
   submitDiagnosis,
+  waitForExperiment,
   type AxeFinding,
   type CopyProblem,
 } from "./support/workbench";
@@ -94,7 +95,7 @@ test("axe WCAG 2 A/AA, overflow and learner copy across the main states (desktop
   await openWorkbench(page);
   await scanState(page, testInfo, "01-initial", scans);
 
-  await runExploreExperiment(page, 1);
+  await runExploreExperiment(page, 2);
   await scanState(page, testInfo, "02-measured", scans);
 
   const caseId = await startMystery(page);
@@ -142,7 +143,6 @@ test("axe WCAG 2 A/AA, overflow and learner copy across the main states (desktop
 
 test("charts are labelled, summarised in text, and distinguish traces by line style (not colour only)", async ({ page }) => {
   await openWorkbench(page);
-  await runExploreExperiment(page, 1);
   const figures = page.locator("figure.chart");
   const count = await figures.count();
   expect(count).toBeGreaterThanOrEqual(2);
@@ -184,7 +184,7 @@ test("live regions: one polite and one assertive region; announcements are short
 
   const since = async (from: number) => (await liveLog(page)).slice(from);
   let mark = (await liveLog(page)).length;
-  await runExploreExperiment(page, 1);
+  await runExploreExperiment(page, 2);
   await expect.poll(async () => (await since(mark)).some((r) => r.text.startsWith("Experiment finished"))).toBe(true);
   const exploreRun = await since(mark);
 
@@ -232,13 +232,13 @@ test("prefers-reduced-motion removes transitions and spinner/skeleton animation"
     const pulse = await skeleton.evaluate((el) => ({ name: getComputedStyle(el).animationName, dur: getComputedStyle(el).animationDuration, n: getComputedStyle(el).animationIterationCount }));
     expect(pulse.name === "none" || (parseFloat(pulse.dur) <= 0.001 && pulse.n === "1"), `skeleton animation ${JSON.stringify(pulse)}`).toBe(true);
   }
-  await expect(page.locator(".instruments__meta").first()).toContainText("Experiment 1 ·", { timeout: 90_000 });
+  await expect(page.locator(".instruments__meta").first()).toContainText("Experiment 2 ·", { timeout: 90_000 });
 });
 
 test("audio: nothing plays without a Play gesture, and only one source plays at a time", async ({ page }, testInfo) => {
   await instrument(page);
   await openWorkbench(page);
-  await runExploreExperiment(page, 1);
+  await runExploreExperiment(page, 2);
   // Running an experiment (a click) must not start audio or even create an AudioContext.
   let log = await audioLog(page);
   expect(log.contexts.length, "no AudioContext before Play").toBe(0);
@@ -291,7 +291,7 @@ test("the whole flow is completable with circuit audio muted and Web Audio unava
   await expect(strip.getByRole("button", { name: "Mute circuit audio" })).toHaveAttribute("aria-pressed", "true");
 
   // Explore: the measured tone levels are text, not sound.
-  await runExploreExperiment(page, 1);
+  await runExploreExperiment(page, 2);
   const levels = page.getByRole("list", { name: "Measured tone levels" });
   await expect(levels).toContainText(/440 Hz\s*−?\d+(\.\d)? dB/);
   await expect(levels).toContainText(/4 kHz\s*−\d+(\.\d)? dB/);
@@ -358,7 +358,7 @@ test.describe("narrow screen 390×844", () => {
       await page.getByRole("tab", { name }).click();
       await expect(page.getByRole("tab", { name })).toHaveAttribute("aria-selected", "true");
     };
-    await page.goto("/");
+    await page.goto("/lab");
     const tabs = page.getByRole("tablist", { name: "Workbench sections" });
     await expect(tabs).toBeVisible();
     // Arrow keys move between tabs (roving tabindex).
@@ -368,7 +368,8 @@ test.describe("narrow screen 390×844", () => {
     await expect(page.getByRole("tab", { name: "Instruments" })).toHaveAttribute("aria-selected", "true");
     await check("initial");
 
-    await runExploreExperiment(page, 1);
+    // The opening experiment is measured automatically on a first visit.
+    await waitForExperiment(page, 1);
     await expect(page.getByRole("list", { name: "Measured tone levels" })).toBeVisible();
     await check("measured");
     await shot(page, testInfo, "narrow-01-measured", true);

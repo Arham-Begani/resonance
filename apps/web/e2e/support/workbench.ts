@@ -150,11 +150,16 @@ export async function primeSession(page: Page): Promise<void> {
   expect(res.ok()).toBeTruthy();
 }
 
-/** Open the workbench and wait until the first revision is ready to measure. */
+/** Open the workbench; on the plain URL, wait until the opening experiment (Experiment 1) is measured. */
 export async function openWorkbench(page: Page, hash = ""): Promise<void> {
-  await page.goto(`/${hash}`);
-  if (!hash) await expect(page.getByRole("button", { name: /^Run experiment on Revision \d+$/ })).toBeEnabled();
-  else await expect(page.getByRole("heading", { name: "Resonance" }).or(page.getByRole("heading", { level: 1 }))).toBeVisible();
+  await page.goto(`/lab${hash}`);
+  if (!hash) {
+    // A first visit measures the opening experiment automatically: it is Experiment 1.
+    await waitForExperiment(page, 1);
+    await expect(page.getByRole("button", { name: /^Run experiment on Revision \d+$/ })).toBeEnabled();
+  } else {
+    await expect(page.getByRole("heading", { name: "Resonance" }).or(page.getByRole("heading", { level: 1 }))).toBeVisible();
+  }
 }
 
 export function runButton(page: Page): Locator {
