@@ -24,7 +24,7 @@ person on Devpost before submission:
 |---|---|
 | Public repository with license and third-party notices | **Done**: https://github.com/Arham-Begani/resonance (MIT `LICENSE`, `THIRD_PARTY_NOTICES.md`); CI green |
 | Nemotron via Nebius Token Factory | **Live verified 2026-10-25**: model listed, tool-call round trip 1.61 s, two full investigate runs (see `docs/ai-integration.md`) |
-| Hosted app | **Deployed**: https://resonance-lwdf.onrender.com (Render, single Docker instance). Smoke test 2026-10-25: health OK with ngspice 44.2 and AI ready; a real experiment in 3.3 s; a case created with no reveal |
+| Hosted app | **Deployed**: https://resonance-circuit-lab.vercel.app (Vercel: static app plus `/api` proxy) backed by https://resonance-lwdf.onrender.com (Render: API, ngspice, Nemotron). Smoke-tested through the proxy: a real experiment ran in 1.3 s, and the session cookie works on the Vercel domain |
 | Demo video (< 3 min) | **Recorded 2026-10-28** (118 s, 1440×892, H.264/AAC): real interactions on the live site with live Nemotron inference (the AI run took 21 s; the hidden fault was C1 at half value, identified correctly and repaired; behaviour restored). Captions are on screen; the audio is the actual clips the app played, at one shared gain. Reproduce with `apps/web/scripts/demo/` (see below). **Upload to YouTube is the owner's step** |
 | Evaluation results | **Measured** on `heldout_v1` (24 cases). Baseline: 24/24 correct, 20/20 restored, 4.29 s/case. Nemotron run 1 (25 Oct): 20/24 correct, 1 incorrect, 3 not submitted, 9/20 restored, 28.41 s/case. Nemotron run 2 (28 Oct, after the completion-reminder change, so not a fresh held-out measurement): 21/24 correct, 0 incorrect, 3 honest abstentions, 17/20 restored, 19.85 s/case, 940,583 tokens |
 | Browser e2e suite | 32/32 at milestone 1; specs updated for milestone 2 but the full re-run is pending (host memory) |
@@ -89,4 +89,4 @@ abstained honestly in 3 cases. It verified a repair in 17 of the 20 faulty circu
 the second run on these cases, after the agent was changed to always finish with a diagnosis
 and a repair proposal; the first run scored 20/24 and 9/20.
 Try it:
-https://resonance-lwdf.onrender.com
+https://resonance-circuit-lab.vercel.app

@@ -11,7 +11,8 @@ Token Factory. No electronics kit or GPU is needed.
 > live Nemotron inference verified. See [Status and limitations](#status-and-limitations) for
 > what is implemented, tested, and pending.
 
-- **Try it:** https://resonance-lwdf.onrender.com (the landing page; the lab is at `/lab`)
+- **Try it:** https://resonance-circuit-lab.vercel.app (the landing page; the lab is at `/lab`).
+  Also served directly by the backend at https://resonance-lwdf.onrender.com.
 - **Repository:** https://github.com/Arham-Begani/resonance
 
 ## What you can do
@@ -193,7 +194,17 @@ cautious there. Cost is not reported, because no verified pricing has been appli
 sample this small, no statistical claim is made, and the fixed baseline still does better on
 these easy cases.
 
-## Deploy (Render)
+## Deploy (Vercel + Render)
+
+The web app is hosted on Vercel (`apps/web/vercel.json`). Vercel builds the static app from
+`apps/web` on every push to `main`, and rewrites `/api/*` to the Render backend. Vercel's
+functions cannot run this backend: it needs an ngspice subprocess, a single long-lived process
+for case locks and agent streams, and on-disk SQLite. Responses, including the session cookie,
+pass through Vercel as first-party. If the proxy buffers the agent event stream, the client
+falls back to polling the event log. The Render service below also serves the same app
+directly.
+
+### Backend (Render)
 
 `render.yaml` defines one Docker web service (the image builds the web app and installs
 Debian's ngspice). In the Render dashboard choose **New → Blueprint**, select this repository,
