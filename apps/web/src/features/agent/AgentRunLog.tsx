@@ -1,12 +1,13 @@
 // Renders a run's genuine events as concise evidence cards: tool requests paired with their
 // results, visible assistant messages with citation chips, errors, and measured usage.
 // Never shows hidden reasoning, fake progress, or invented messages.
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 import type { AgentEvent, AgentRun, EvidenceRef } from "../../api/types";
 import { Badge, Button, Callout } from "../../components/ui/primitives";
-import { Icon } from "../../components/ui/Icon";
+import { Icon, type IconName } from "../../components/ui/Icon";
 import { formatDurationMs, formatHz } from "../../lib/format";
 import type { RunView } from "./agentRuns";
+import { Markdown } from "./Markdown";
 import "./agent.css";
 
 export interface CitationResolver {
@@ -84,6 +85,8 @@ export function readableIdText(text: string, resolver?: CitationResolver): strin
   return text.replace(ID_PATTERN, (id, kind: string) => resolver?.label(id) ?? ID_NOUN[kind] ?? "a result");
 }
 
+const ARG_PREVIEW = 48;
+
 export function describeArgs(args: Record<string, unknown>, resolver?: CitationResolver): string {
   return Object.entries(args)
     .filter(([, v]) => v !== null && v !== undefined && (typeof v === "string" || typeof v === "number" || typeof v === "boolean"))
@@ -92,7 +95,10 @@ export function describeArgs(args: Record<string, unknown>, resolver?: CitationR
       ID_PATTERN.lastIndex = 0;
       if (ID_PATTERN.test(v)) return [k, resolver?.label(v) ?? null]; // never print a raw ID
       if (/^[A-Z][0-9]+$/.test(v)) return [k, v]; // component IDs keep their case (R1, C1)
-      return [k, humanize(v).toLowerCase()];
+      const text = humanize(v).toLowerCase();
+      // Free-text arguments (an explanation, a rationale) are shown in full where they land
+      // (the diagnosis or repair card); the feed keeps a short preview.
+      return [k, text.length > ARG_PREVIEW ? `${text.slice(0, ARG_PREVIEW - 1).trimEnd()}…` : text];
     })
     .filter((entry): entry is [string, string] => entry[1] !== null)
     .slice(0, 3)
@@ -129,6 +135,11 @@ export function groupEvents(events: AgentEvent[]): Item[] {
     }
   }
   return items;
+}
+
+function itemKind(item: Item): string {
+  if (item.kind === "tool") return item.result ? (item.result.ok ? "tool" : "tool-failed") : "tool-pending";
+  return item.event.type === "message" ? "message" : item.event.type === "error" ? "error" : "event";
 }
 
 interface AgentRunLogProps {
@@ -207,24 +218,27 @@ export function AgentRunLog({ title, headingId, view, resolver, onCancel, onDism
         </p>
       ) : null}
 
-      {running ? (
-        <p className="agent-log__status">
-          <span className="spinner" aria-hidden="true" />
-          {latestStatus && latestStatus.type === "status" ? latestStatus.text : connection === "starting" ? "Starting the run…" : "Working…"}
-        </p>
-      ) : null}
-
-      {items.length > 0 ? (
+      {items.length > 0 || running ? (
         <ol className="agent-log__items">
           {items.map((item) => (
-            <li key={item.seq} className="agent-item">
+            <li key={item.seq} className={`agent-item agent-item--${itemKind(item)}`}>
               {item.kind === "tool" ? <ToolItem call={item.call} result={item.result} resolver={resolver} /> : <EventItem event={item.event} resolver={resolver} />}
             </li>
           ))}
+          {running ? (
+            <li className="agent-item agent-item--status">
+              <span className="agent-item__marker" aria-hidden="true">
+                <span className="spinner" />
+              </span>
+              <p className="agent-log__status">
+                {latestStatus && latestStatus.type === "status" ? latestStatus.text : connection === "starting" ? "Starting the run…" : "Working…"}
+              </p>
+            </li>
+          ) : null}
         </ol>
       ) : null}
 
-      {run && !running && run.final_message && !hasMessage ? <p className="agent-item__text">{run.final_message}</p> : null}
+      {run && !running && run.final_message && !hasMessage ? <Markdown className="agent-log__final" text={readableIdText(run.final_message, resolver)} /> : null}
       {run && run.status === "failed" && run.error ? (
         <Callout tone="danger" title="The AI run failed">
           {run.error.message} Manual tools keep working.
@@ -247,6 +261,14 @@ export function AgentRunLog({ title, headingId, view, resolver, onCancel, onDism
   );
 }
 
+function Marker({ children }: { children: ReactNode }) {
+  return (
+    <span className="agent-item__marker" aria-hidden="true">
+      {children}
+    </span>
+  );
+}
+
 function ToolItem({
   call,
   result,
@@ -260,37 +282,44 @@ function ToolItem({
   const args = call ? describeArgs(call.arguments, resolver) : "";
   const resultId = result?.observation_id ?? result?.experiment_id ?? null;
   return (
-    <div className="agent-item__tool">
-      <div className="agent-item__line">
-        {result ? (
-          <Icon name={result.ok ? "check" : "x"} className={result.ok ? "is-ok" : "is-fail"} />
-        ) : (
-          <span className="spinner" aria-hidden="true" />
-        )}
-        <span>
-          <strong>{name}</strong>
-          {args ? <span className="muted"> ({args})</span> : null}
-        </span>
-        <span className="visually-hidden">{result ? (result.ok ? "succeeded" : "failed") : "in progress"}</span>
-      </div>
-      {result ? (
-        <p className="agent-item__text">
-          {readableIdText(result.ok ? result.summary : (result.error?.message ?? result.summary), resolver)}
-          {resultId && resolver?.label(resultId) ? (
-            <>
-              {" "}
-              {resolver.onSelect ? (
-                <button type="button" className="citation" onClick={() => resolver.onSelect?.(resultId)}>
-                  View {resolver.label(resultId)}
-                </button>
-              ) : (
-                <span className="citation">{resolver.label(resultId)}</span>
-              )}
-            </>
-          ) : null}
+    <>
+      <Marker>{result ? <Icon name={result.ok ? "check" : "x"} size={12} /> : <span className="spinner" />}</Marker>
+      <div className="agent-item__body">
+        <p className="agent-item__head">
+          <strong className="agent-item__name">{name}</strong>
+          {args ? <span className="agent-item__args"> ({args})</span> : null}
+          <span className="visually-hidden">{result ? (result.ok ? "succeeded" : "failed") : "in progress"}</span>
         </p>
-      ) : null}
-    </div>
+        {result ? (
+          <p className="agent-item__text">
+            {readableIdText(result.ok ? result.summary : (result.error?.message ?? result.summary), resolver)}
+            {resultId && resolver?.label(resultId) ? (
+              <>
+                {" "}
+                {resolver.onSelect ? (
+                  <button type="button" className="citation" onClick={() => resolver.onSelect?.(resultId)}>
+                    View {resolver.label(resultId)}
+                  </button>
+                ) : (
+                  <span className="citation">{resolver.label(resultId)}</span>
+                )}
+              </>
+            ) : null}
+          </p>
+        ) : null}
+      </div>
+    </>
+  );
+}
+
+function EventLine({ icon, children }: { icon: IconName; children: ReactNode }) {
+  return (
+    <>
+      <Marker>
+        <Icon name={icon} size={12} />
+      </Marker>
+      <p className="agent-item__body agent-item__head">{children}</p>
+    </>
   );
 }
 
@@ -298,49 +327,36 @@ function EventItem({ event, resolver }: { event: AgentEvent; resolver?: Citation
   switch (event.type) {
     case "message":
       return (
-        <div className="agent-item__message">
-          <p className="agent-item__text">{readableIdText(event.text, resolver)}</p>
-          {event.citations && event.citations.length > 0 ? (
-            <p className="agent-item__citations">
-              {event.citations.map((c, i) => (
-                <CitationChip key={`${c.result_id}-${c.quantity}-${i}`} refItem={c} resolver={resolver} />
-              ))}
-            </p>
-          ) : null}
-        </div>
+        <>
+          <Marker>
+            <Icon name="ai" size={12} />
+          </Marker>
+          <div className="agent-item__body agent-item__message">
+            <Markdown className="agent-item__text" text={readableIdText(event.text, resolver)} />
+            {event.citations && event.citations.length > 0 ? (
+              <p className="agent-item__citations">
+                {event.citations.map((c, i) => (
+                  <CitationChip key={`${c.result_id}-${c.quantity}-${i}`} refItem={c} resolver={resolver} />
+                ))}
+              </p>
+            ) : null}
+          </div>
+        </>
       );
     case "proposal": {
       const changes = event.proposal.changes.map((c) => `${c.component_id} ${c.from_display} → ${c.to_display}`).join(", ");
       return (
-        <p className="agent-item__line">
-          <Icon name="edit" />
-          <span>
-            Proposed a change: <span className="num">{changes}</span> (preview below; nothing is applied until you choose Apply)
-          </span>
-        </p>
+        <EventLine icon="edit">
+          Proposed a change: <span className="num">{changes}</span> (preview below; nothing is applied until you choose Apply)
+        </EventLine>
       );
     }
     case "diagnosis":
-      return (
-        <p className="agent-item__line">
-          <Icon name="check" />
-          <span>Submitted a diagnosis (shown in the case panel).</span>
-        </p>
-      );
+      return <EventLine icon="check">Submitted a diagnosis (shown in the case panel).</EventLine>;
     case "repair_proposal":
-      return (
-        <p className="agent-item__line">
-          <Icon name="edit" />
-          <span>Proposed a repair (shown in the case panel).</span>
-        </p>
-      );
+      return <EventLine icon="edit">Proposed a repair (shown in the case panel).</EventLine>;
     case "error":
-      return (
-        <p className="agent-item__line agent-item__line--error">
-          <Icon name="alert" />
-          <span>{event.error.message}</span>
-        </p>
-      );
+      return <EventLine icon="alert">{event.error.message}</EventLine>;
     default:
       return null;
   }

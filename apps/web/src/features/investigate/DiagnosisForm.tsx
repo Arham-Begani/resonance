@@ -15,6 +15,7 @@ import type {
 } from "../../api/types";
 import { Badge, Button, Callout, type Tone } from "../../components/ui/primitives";
 import { formatHz } from "../../lib/format";
+import { Markdown } from "../agent/Markdown";
 import { citableQuantities, hypothesisLabel, INSTRUMENT_SHORT, observationLabel, observationTitle, quantityLabel } from "./labels";
 
 interface CitationDraft {
@@ -330,7 +331,14 @@ export function DiagnosisSummary({ c, record }: { c: PublicCase; record: Diagnos
           ))}
         </p>
       ) : null}
-      {s.explanation ? <p className="diagnosis__explanation">{s.explanation}</p> : null}
+      {s.explanation ? (
+        record.submitted_by === "agent" ? (
+          // The AI writes light Markdown; render the safe subset. A learner's own text stays verbatim.
+          <Markdown className="diagnosis__explanation diagnosis__explanation--md" text={s.explanation} />
+        ) : (
+          <p className="diagnosis__explanation">{s.explanation}</p>
+        )
+      ) : null}
       <Callout tone={CHECK_TONE[check.status] === "neutral" ? "neutral" : (CHECK_TONE[check.status] as "success" | "warning" | "danger")} title={CHECK_LABEL[check.status]}>
         {check.message}
       </Callout>
