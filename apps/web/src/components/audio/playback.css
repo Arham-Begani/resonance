@@ -117,7 +117,7 @@
 
 /* Range input */
 .range {
-  width: 120px;
+  width: 96px;
   height: 24px;
   margin: 0;
   background: transparent;
@@ -173,12 +173,15 @@
   width: 96px;
 }
 
+/* The slider keeps its spoken value (aria-valuetext) and the mute button its pressed state; the
+   visible dB readout gives way so volume and status share one row. */
 .app--narrow .playback__vol-value {
-  min-width: 48px;
+  display: none;
 }
 
-.app--narrow .playback__status {
-  flex-basis: 120px;
+.app--narrow .playback .playback__status {
+  flex: 1 1 0;
+  min-width: 96px;
 }
 
 .app--narrow .playback__levels {

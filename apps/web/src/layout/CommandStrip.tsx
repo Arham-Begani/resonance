@@ -10,6 +10,7 @@ import { formatDb, formatHz } from "../lib/format";
 import { currentRevision, shownRecord, useWorkbench } from "../state/workbench";
 import { isRunActive, useAgentRuns } from "../features/agent/agentRuns";
 import { useCase } from "../features/investigate/caseStore";
+import { useMediaQuery } from "../lib/hooks";
 
 function useLevels(): string | null {
   const { state } = useWorkbench();
@@ -58,6 +59,8 @@ export function CommandStrip() {
   const runs = useAgentRuns();
   const [text, setText] = useState("");
   const levels = useLevels();
+  // Same breakpoint as the Shell: phones show the reason as a note under the field instead.
+  const narrow = useMediaQuery("(max-width: 899px)");
   const emptyPlayback = useCaseEmptyPlayback();
   const ai = state.health?.ai;
   // Explore and Learn share the workbench assistant; Investigate asks for hints on the case.
@@ -110,7 +113,8 @@ export function CommandStrip() {
             className="input command__input"
             value={text}
             maxLength={500}
-            placeholder={placeholder}
+            placeholder={disabledReason && !narrow ? disabledReason : placeholder}
+            title={disabledReason ?? undefined}
             disabled={Boolean(disabledReason)}
             aria-describedby={disabledReason ? noteId : undefined}
             onChange={(e) => setText(e.target.value)}
@@ -126,6 +130,7 @@ export function CommandStrip() {
           )}
         </div>
         {disabledReason ? (
+          // Desktop shows the reason in the disabled field itself (one-line strip); phones show it here.
           <p id={noteId} className="command__note">
             {disabledReason}
           </p>

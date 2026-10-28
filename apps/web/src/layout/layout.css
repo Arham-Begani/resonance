@@ -387,7 +387,7 @@
 /* ---------- Bottom strip: playback | AI command ---------- */
 .strip {
   display: grid;
-  grid-template-columns: minmax(0, 1.3fr) minmax(320px, 1fr);
+  grid-template-columns: minmax(0, 1.6fr) minmax(320px, 1fr);
   align-items: center;
   gap: var(--space-2) 0;
   min-height: 56px;
@@ -437,6 +437,28 @@
   font-size: var(--text-xs);
   white-space: nowrap;
   text-overflow: ellipsis;
+}
+
+/* Desktop keeps the strip one line: the disabled field shows why it is disabled (placeholder at
+   full secondary contrast, full text in its title), and the note stays as its description. */
+.app:not(.app--narrow) .command__note {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.command__input:disabled {
+  border-style: dashed;
+  border-color: var(--color-control-border);
+  background: transparent;
+  opacity: 1;
+}
+
+.command__input:disabled::placeholder {
+  color: var(--color-text-secondary);
 }
 
 /* ---------- Narrow tabs ---------- */
@@ -531,8 +553,8 @@
 }
 
 .app--narrow .rail__dot {
-  top: 6px;
-  right: 6px;
+  top: 10px;
+  right: 8px;
 }
 
 .app--narrow .header {
@@ -631,4 +653,12 @@
   flex-direction: column;
   gap: var(--space-3);
   min-width: 0;
+}
+
+/* Phones: lifted cards sit inside the 16px gutter instead of bleeding to the screen edge. */
+.app--narrow .workspace__panel .panel-card--focus,
+.app--narrow .workspace__panel .agent-log,
+.app--narrow .workspace__panel .proposal {
+  margin-right: 0;
+  margin-left: 0;
 }
