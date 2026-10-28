@@ -173,6 +173,7 @@ function ObservationView({ c, o }: { c: PublicCase; o: Observation }) {
           <ToneComparisonTable tones={tr.tones} floors={floors} caption={`${title}: tone levels, intended design (expected) vs mystery circuit (observed).`} />
           <WaveformChart
             title={isCurrent ? "Source current over time" : "Output over time"}
+            zoomMs={5}
             sampleRateHz={tr.waveform.sample_rate_hz}
             startS={tr.waveform.start_s}
             series={[
