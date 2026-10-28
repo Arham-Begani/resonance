@@ -14,7 +14,7 @@
   align-items: baseline;
   gap: var(--space-2);
   width: 100%;
-  margin-bottom: var(--space-1);
+  margin-bottom: var(--space-2);
   padding: 0;
   font-size: var(--text-sm);
   font-weight: var(--weight-strong);
@@ -26,6 +26,11 @@
   font-size: var(--text-xs);
   letter-spacing: var(--tracking-label);
   text-transform: uppercase;
+}
+
+/* Each tone's question is its own group: 8px from label to choices, 16px+ between tones. */
+.prediction + .prediction {
+  margin-top: var(--space-2);
 }
 
 .prediction__choices {
