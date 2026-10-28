@@ -1572,8 +1572,21 @@ def test_committed_baseline_results_match_the_frozen_set_and_the_readme() -> Non
         assert sum(bool(r["unsupported_certainty"]) for r in nrs) == 1
         assert sum(r["functional_recovery"] == "restored" for r in nrs) == 9
         root_readme = " ".join((_REPO / "README.md").read_text(encoding="utf-8").split())
-        assert "| Correct identification | 24/24 | 20/24 |" in root_readme
-        assert "| Faulty cases restored by a verified repair | 20/20 | 9/20" in root_readme
+        assert "| Correct identification | 24/24 | 20/24 | 21/24 |" in root_readme
+        restored_row = "| Faulty cases restored by a verified repair | 20/20 | 9/20 | 17/20 |"
+        assert restored_row in root_readme
+    if len(heldout) > 1:
+        # Run 2 (after the completion-reminder change), recounted independently.
+        nrs = json.loads(heldout[1].read_text(encoding="utf-8"))["results"]
+        assert len(nrs) == 24
+        assert sum(r["exact_identification"] == "correct" for r in nrs) == 21
+        assert sum(r["exact_identification"] == "incorrect" for r in nrs) == 0
+        assert sum(r["exact_identification"] == "abstained" for r in nrs) == 3
+        abstained = [r for r in nrs if r["exact_identification"] == "abstained"]
+        assert all(r["true_cause_among_candidates"] for r in abstained)
+        assert sum(r["exact_identification"] == "not_submitted" for r in nrs) == 0
+        assert sum(bool(r["unsupported_certainty"]) for r in nrs) == 0
+        assert sum(r["functional_recovery"] == "restored" for r in nrs) == 17
 
 
 def _r_spellings(r: float) -> set[str]:
