@@ -40,11 +40,14 @@ function BudgetMeter({ c }: { c: PublicCase }) {
   );
 }
 
-type StepState = "done" | "current" | "upcoming" | "skipped" | "stopped";
+type StepState = "done" | "current" | "available" | "upcoming" | "skipped" | "stopped";
 
 /**
- * The case lifecycle as five steps, derived only from the public case (status, budget, recorded
- * diagnosis/repair/reveal). Never a percentage: each step is done, current, upcoming or skipped.
+ * The case lifecycle as five steps, derived only from the public case (status, budget, offered
+ * actions, recorded diagnosis/repair/reveal). Never a percentage: each step is done, current,
+ * available (can be done now, alongside the current step), upcoming, skipped or stopped.
+ * A diagnosis can be submitted any time after the symptom, so while experiments remain Measure is
+ * current and Diagnose is available; once the budget is spent Diagnose becomes current.
  */
 export interface CaseStep {
   key: string;
@@ -57,26 +60,44 @@ export function caseSteps(c: PublicCase): CaseStep[] {
   const live = isLiveStatus(c.status);
   const used = c.budget.total - c.budget.remaining;
   const canRepair = c.available_actions.includes("propose_repair") || c.available_actions.includes("verify_repair");
+  const canDiagnose = c.available_actions.includes("submit_diagnosis");
   // Choosing an approach is the doorway to measuring, so "Measure" is current from the start.
   const measure: StepState = c.diagnosis || !live || c.budget.remaining === 0 ? "done" : "current";
-  const diagnose: StepState = c.diagnosis ? "done" : !live ? "skipped" : c.mode && c.budget.remaining === 0 ? "current" : "upcoming";
+  const diagnose: StepState = c.diagnosis
+    ? "done"
+    : !live
+      ? "skipped"
+      : canDiagnose
+        ? measure === "current"
+          ? "available"
+          : "current"
+        : c.budget.remaining === 0 && c.mode
+          ? "current"
+          : "upcoming";
   const repair: StepState = c.repair ? "done" : canRepair ? "current" : !live ? "skipped" : "upcoming";
   const reveal: StepState = c.reveal ? "done" : c.diagnosis && !canRepair && live ? "current" : "upcoming";
   const steps: CaseStep[] = [
     { key: "symptom", label: "Symptom", detail: null, state: "done" },
     { key: "measure", label: "Measure", detail: `${used} of ${c.budget.total} used`, state: measure },
-    { key: "diagnose", label: "Diagnose", detail: null, state: diagnose },
+    { key: "diagnose", label: "Diagnose", detail: diagnose === "available" ? "any time" : null, state: diagnose },
     { key: "repair", label: "Repair", detail: c.repair ? (c.repair.status !== "succeeded" ? "not verified" : c.repair.functional_recovery ? "restored" : "not restored") : null, state: repair },
     { key: "reveal", label: "Reveal", detail: null, state: reveal },
   ];
   if (c.status === "failed") {
-    const i = steps.findIndex((st) => st.state === "current" || st.state === "upcoming" || st.state === "skipped");
+    const i = steps.findIndex((st) => st.state === "current" || st.state === "available" || st.state === "upcoming" || st.state === "skipped");
     if (i >= 0) steps[i] = { ...steps[i]!, state: "stopped" };
   }
   return steps;
 }
 
-const STEP_WORD: Record<StepState, string> = { done: "done", current: "current step", upcoming: "not yet", skipped: "skipped", stopped: "stopped" };
+const STEP_WORD: Record<StepState, string> = {
+  done: "done",
+  current: "current step",
+  available: "available now",
+  upcoming: "not yet",
+  skipped: "skipped",
+  stopped: "stopped",
+};
 
 function CaseProgress({ c }: { c: PublicCase }) {
   const steps = caseSteps(c);

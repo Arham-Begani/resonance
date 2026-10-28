@@ -23,6 +23,20 @@ describe("caseSteps", () => {
     expect(states(diagnosed)).toMatchObject({ measure: "done", diagnose: "done", repair: "current", reveal: "upcoming" });
   });
 
+  it("offers Diagnose alongside Measure whenever the server accepts a diagnosis", () => {
+    const ready = makeCase({ status: "ready", mode: null, available_actions: ["choose_mode", "submit_diagnosis", "close"] });
+    expect(states(ready)).toMatchObject({ measure: "current", diagnose: "available" });
+    const observing = makeCase({ budget: { ...makeCase().budget, used: 1, remaining: 2 }, available_actions: ["run_experiment", "request_hint", "submit_diagnosis", "close"] });
+    expect(states(observing)).toMatchObject({ measure: "current", diagnose: "available", repair: "upcoming" });
+    const diagnose = caseSteps(observing).find((s) => s.key === "diagnose")!;
+    expect(diagnose.detail).toBe("any time");
+    // Only one step is ever the current one (aria-current).
+    expect(caseSteps(observing).filter((s) => s.state === "current")).toHaveLength(1);
+    // While the AI runs, the server withholds submit_diagnosis, so Diagnose is not offered.
+    const agentRunning = makeCase({ mode: "agent", budget: { ...makeCase().budget, used: 1, remaining: 2 }, available_actions: ["cancel_agent", "close"] });
+    expect(states(agentRunning)).toMatchObject({ measure: "current", diagnose: "upcoming" });
+  });
+
   it("reports the repair outcome from the verification, and Reveal as next", () => {
     const repaired = makeCase({
       status: "repair_verification",
