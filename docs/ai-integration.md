@@ -110,7 +110,36 @@ Loop rules:
 - **Fatal tool results.** A simulator failure after the CaseService's own automatic retry stops
   the run as `failed`. So does a refusal because the case is closing.
 - **Final answer.** A reply with visible text and no tool calls completes the run. A reply with
-  neither fails it ("no visible answer").
+  neither fails it ("no visible answer"). Investigate runs add the completion reminders below
+  before accepting such a reply.
+- **Completion reminders (investigate only).** The first measured held-out evaluation
+  (`evals/results/nemotron-heldout_v1-20261025T115418Z.md`, 24 runs with real inference) showed
+  two ways a run could stop early. In 3 of 24 runs the model ended with a final text and never
+  called `submit_diagnosis`. In 11 of 20 faulty cases it diagnosed the fault but never called
+  `propose_repair`, so no repair could be verified. The investigate prompt now says that
+  `submit_diagnosis` is required once before the final summary. It also says that all three
+  conclusions are valid, and that `insufficient_evidence` is the honest one while explanations
+  still tie. After a `fault` diagnosis only, the model should call `propose_repair` for the
+  component its diagnosis names. A disconnected C1 is repaired by replacing C1, and the tool
+  always uses the intended nominal value.
+  The loop also has a bounded check, `case_tools.InvestigateFinishCheck`. When a reply has
+  visible text and no tool calls, it reads the same public case state the tools read
+  (`get_case`, `available_actions_for_run`) and may send **one** extra user turn:
+  - `diagnosis` reminder: the case has no diagnosis yet and this run may still submit one.
+  - `repair` reminder: this run submitted a `fault` diagnosis, there is no repair proposal yet,
+    and the run may still propose one. It is never sent after `no_fault` or
+    `insufficient_evidence`.
+
+  Each kind is sent at most once per run. A reminder is sent only when another model call,
+  another tool call, at least 512 tokens and some wall time still remain. If any of these has run
+  out, the reply completes the run as before. Reminder turns count against the same caps. If the
+  model finishes again without acting, the run ends `completed` with that reply, and the missing
+  diagnosis or repair is reported as missing. The texts are fixed constants in `agent/prompts.py`
+  (`DIAGNOSIS_REMINDER`, `REPAIR_REMINDER`). Each starts with "Note from the Resonance lab
+  software (not from the learner)". They are identical for every hidden condition and name no
+  hypothesis, component or number (tested). Each reminder is announced as a `status` event
+  ("…sending one reminder…"), never as a `message`, so the UI never shows it as agent text.
+  Hint and explore runs have no finish check.
 
 Prompts (`agent/prompts.py`) state the role, the tools, and honesty rules: cite result IDs,
 label predictions, no certainty while more than one explanation fits, no likelihood percentages,
@@ -277,8 +306,9 @@ What the tests cover:
 | Prompts | family, topology and catalog from trusted data for both families and both case kinds; no instrument names (no embedded strategy) |
 | Port typing | `CaseServicePort` matches `CaseService` (names, kinds, defaults, async-ness, resolved type hints; `claim_for_agent(kind)` is `investigate`/`hint` only); mypy also checks it statically via `ports._case_service_conforms` |
 | Explore | previewed (never applied) proposals; `set_goal`; experiments only on the learner's revisions; `suggest_design` (feasible and infeasible goals, numbers checked against an independent formula); family-switch proposals (both components required, target-family predictions checked independently, applicable by the learner with an undo link); `read_learn_attempt` (latest, by ID, unknown; no audio; cited experiment) |
-| Real open capacitor | real CaseService + evaluator + ngspice, high-pass `c1_disconnected`: only floor markers reach the model, no −200 dB anywhere in the requests |
-| Integration | real CaseService, evaluator and ngspice: nothing hidden in model requests; close cancels the run before the reveal |
+| Completion reminders | `test_agent_reminders.py`: missing diagnosis → one reminder → diagnosis recorded; ignored reminder → run completes after one reminder, undiagnosed; fault without repair → one reminder → `propose_repair`; no repair reminder after `no_fault`/`insufficient_evidence`; each kind at most once; none for hint runs or a closing case; no reminder without room in the model-call, tool-call or token caps; reminder turns count against the model-call cap; reminder texts name no hypothesis, component or number; nothing hidden in the requests |
+| Real open capacitor | real CaseService + evaluator + ngspice, high-pass `c1_disconnected`: only floor markers reach the model, no −200 dB anywhere in the requests; both reminders fire from the real case state and the real service accepts `propose_repair(C1)` for the open capacitor |
+| Integration | real CaseService, evaluator and ngspice: nothing hidden in model requests (including the diagnosis reminder); a run that ignores the reminder ends completed with no diagnosis; close cancels the run before the reveal |
 | Verification findings | B-04 (agent sees the actions its own run may take), B-05 (failed or cancelled hint runs not counted), B-02 (case of a lost run released; liveness predicate) |
 
 ## Live verification results (2026-10-25)
