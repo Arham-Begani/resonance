@@ -7,6 +7,10 @@ refuses otherwise, so nothing can run (or be read) once a close has begun.
 
 INVESTIGATE: get_case, assess_evidence, run_experiment, read_observation, submit_diagnosis,
 propose_repair.  HINT: get_case, read_observation.
+
+``InvestigateFinishCheck`` (INVESTIGATE runs only) decides, from the same PUBLIC case state the
+tools read, whether a reply that ends without a tool call should get one completion reminder:
+no diagnosis yet, or a "fault" diagnosis by this run without a repair proposal.
 """
 
 from __future__ import annotations
@@ -24,12 +28,14 @@ from ..contracts.internal import CancelToken
 from ..contracts.investigation import (
     CaseAction,
     CaseExperimentRequest,
+    DiagnosisConclusion,
     DiagnosisSubmission,
     InstrumentKind,
     RepairProposalInput,
     TransientProbe,
 )
-from . import views
+from . import prompts, views
+from .loop import Reminder
 from .ports import CaseServicePort
 from .tools import NoArguments, Tool, ToolOutcome, ToolSet
 
@@ -357,3 +363,51 @@ class CaseCitations:
             for obs in case.observations
             if obs.status == "succeeded"
         }
+
+
+DIAGNOSIS_REMINDER = Reminder(
+    kind="diagnosis",
+    status="Nemotron replied without submitting a diagnosis; sending one reminder to submit one",
+    text=prompts.DIAGNOSIS_REMINDER,
+)
+REPAIR_REMINDER = Reminder(
+    kind="repair",
+    status="Nemotron diagnosed a fault without proposing a repair; sending one reminder",
+    text=prompts.REPAIR_REMINDER,
+)
+
+
+class InvestigateFinishCheck:
+    """Completion check for an INVESTIGATE run (``AgentLoop`` ``finish_check``).
+
+    Reads only the public case (``get_case``) and the run's own permitted actions, exactly what
+    the tools see. Returns the diagnosis reminder while the case has no diagnosis and this run
+    may still submit one; the repair reminder after a "fault" diagnosis by this run while no
+    repair is proposed and this run may still propose one; otherwise ``None``. Never after
+    ``no_fault`` or ``insufficient_evidence``. The loop sends each kind at most once.
+    """
+
+    def __init__(self, ctx: CaseRunContext) -> None:
+        self._ctx = ctx
+
+    async def __call__(self) -> Reminder | None:
+        ctx = self._ctx
+        try:
+            if ctx.cases.is_closing_or_closed(ctx.session_id, ctx.case_id):
+                return None
+            case = ctx.cases.get_case(ctx.session_id, ctx.case_id)
+            actions = ctx.run_actions()
+        except ApiException:
+            return None
+        dx = case.diagnosis
+        if dx is None:
+            return DIAGNOSIS_REMINDER if "submit_diagnosis" in actions else None
+        own = dx.submitted_by == "agent" and dx.agent_run_id == ctx.run_id
+        if (
+            own
+            and dx.submission.conclusion == DiagnosisConclusion.FAULT
+            and case.repair_proposal is None
+            and "propose_repair" in actions
+        ):
+            return REPAIR_REMINDER
+        return None

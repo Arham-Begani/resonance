@@ -23,6 +23,7 @@ from agent_testkit import (
     Hang,
     ScriptedProvider,
     Status,
+    abstain,
     completion,
     last_tool_result,
     make_service,
@@ -102,6 +103,7 @@ async def test_investigation_runs_tools_and_records_measured_usage(settings, sto
                 [("run_experiment", {"instrument": "source_current_sweep"})],
             ),
             diagnose,
+            completion(None, [("propose_repair", {"component_id": "R1"})]),
             summarize,
         ]
     )
@@ -111,10 +113,10 @@ async def test_investigation_runs_tools_and_records_measured_usage(settings, sto
     run = finished_run(service, run_id)
     assert run.status == "completed", run.error
     assert run.source == "nebius"
-    assert run.usage.model_calls == 4
-    assert run.usage.tool_calls == 3
-    assert run.usage.prompt_tokens == 4 * 120
-    assert run.usage.total_tokens == 4 * 150
+    assert run.usage.model_calls == 5
+    assert run.usage.tool_calls == 4
+    assert run.usage.prompt_tokens == 5 * 120
+    assert run.usage.total_tokens == 5 * 150
     assert cases.active_run_id is None, "the case must be released"
     # The experiment was requested as the agent, by this run, with a fresh idempotency key.
     request, requested_by, agent_run_id = cases.experiment_requests[0]
@@ -125,7 +127,9 @@ async def test_investigation_runs_tools_and_records_measured_usage(settings, sto
     assert seq == list(range(1, len(seq) + 1))
     kinds = types(service, run_id)
     assert kinds[0] == "run_started" and kinds[-1] == "run_finished"
-    assert "diagnosis" in kinds
+    assert "diagnosis" in kinds and "repair_proposal" in kinds
+    assert cases.repair_proposal is not None and cases.repair_proposal.component_id == "R1"
+    assert not any("reminder" in e.text for e in events(service, run_id) if e.type == "status")
     assert "Running source-current sweep" in [
         e.text for e in events(service, run_id) if e.type == "status"
     ]
@@ -149,7 +153,7 @@ async def test_investigation_runs_tools_and_records_measured_usage(settings, sto
 
 async def test_investigate_run_chooses_agent_mode_when_unset(settings, store) -> None:
     cases = FakeCaseService(SESSION, mode=None)
-    provider = ScriptedProvider([completion("Ready.")])
+    provider = ScriptedProvider([abstain(), completion("Ready.")])
     service = make_service(settings, store, provider, cases)
     run_id = await start(service, cases)
     assert "set_mode:agent" in cases.calls
@@ -173,6 +177,7 @@ async def test_invalid_arguments_are_rejected_without_execution(settings, store)
                 [("submit_diagnosis", {"conclusion": "fault", "explanation": "R1 doubled"})],
             ),
             completion("I could not run anything."),
+            completion("I still cannot conclude anything."),  # ignores the one reminder
         ]
     )
     service = make_service(settings, store, provider, cases)
@@ -336,12 +341,12 @@ async def test_wall_time_cap_stops_inference(settings, store) -> None:
 async def test_transient_error_is_retried_once(settings, store, monkeypatch) -> None:
     monkeypatch.setattr("resonance.agent.loop.RETRY_BACKOFF_S", 0.0)
     cases = FakeCaseService(SESSION, mode="agent")
-    provider = ScriptedProvider([Status(503), completion("Recovered.")])
+    provider = ScriptedProvider([Status(503), abstain(), completion("Recovered.")])
     service = make_service(settings, store, provider, cases)
     run_id = await start(service, cases)
     run = finished_run(service, run_id)
     assert run.status == "completed"
-    assert len(provider.requests) == 2
+    assert len(provider.requests) == 3
     assert any("retrying" in e.text for e in events(service, run_id) if e.type == "status")
 
 

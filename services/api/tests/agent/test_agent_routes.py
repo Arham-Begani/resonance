@@ -15,6 +15,7 @@ from agent_testkit import (
     FakeCaseService,
     Hang,
     ScriptedProvider,
+    abstain,
     completion,
     make_service,
     make_settings,
@@ -114,7 +115,11 @@ def stream(client: TestClient, run_id: str, headers: dict[str, str] | None = Non
 
 def test_sse_streams_genuine_events_and_replays_from_last_event_id(make_client, cases) -> None:
     provider = ScriptedProvider(
-        [completion(None, [("get_case", {})]), completion("The case has one observation.")]
+        [
+            completion(None, [("get_case", {})]),
+            abstain(),
+            completion("The case has one observation."),
+        ]
     )
     client = make_client(provider)
     run = start_run(client, cases)
@@ -134,7 +139,7 @@ def test_sse_streams_genuine_events_and_replays_from_last_event_id(make_client, 
     log = client.get(f"/api/agent-runs/{run['id']}/events/log").json()
     assert [e["seq"] for e in log["events"]] == [e.seq for e in events]
     assert log["run"]["status"] == "completed"
-    assert client.get(f"/api/agent-runs/{run['id']}").json()["usage"]["model_calls"] == 2
+    assert client.get(f"/api/agent-runs/{run['id']}").json()["usage"]["model_calls"] == 3
 
 
 def test_sse_sends_keepalive_comments_while_idle(make_client, cases, monkeypatch) -> None:

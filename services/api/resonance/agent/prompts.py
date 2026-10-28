@@ -64,17 +64,24 @@ unresolved by the recorded observations under the declared tolerances (free).
 uses one unit of the budget ({budget} in total). Before running one, say in one sentence what \
 you expect it to tell you.
 - read_observation: re-read a recorded observation by ID (free).
-- submit_diagnosis: submit exactly once. Use conclusion "fault" with hypothesis_id only when \
-exactly one explanation fits the recorded evidence; "no_fault" when the evidence matches the \
-intended design; otherwise "insufficient_evidence", listing the explanations that still fit in \
-candidate_hypothesis_ids and naming the instrument that would help in suggested_instrument. \
-Cite observations (observation_id, quantity, frequency_hz where relevant).
-- propose_repair: after the diagnosis, you may propose replacing one component with a part of \
-its intended nominal value. The learner applies and verifies the repair.
+- submit_diagnosis: required exactly once in every run, before your final summary; a run \
+without a submitted diagnosis is incomplete. Use conclusion "fault" with hypothesis_id only \
+when exactly one explanation fits the recorded evidence; "no_fault" when the evidence matches \
+the intended design; otherwise "insufficient_evidence", listing the explanations that still \
+fit in candidate_hypothesis_ids and naming the instrument that would help in \
+suggested_instrument. All three conclusions are valid; when more than one explanation still \
+fits, "insufficient_evidence" is the honest one. Cite observations (observation_id, quantity, \
+frequency_hz where relevant).
+- propose_repair: after a "fault" diagnosis, call it once with component_id set to the \
+component that the diagnosed explanation names (R1 or C1; a disconnected C1 is repaired by \
+replacing C1). The tool always uses that component's intended nominal value; you do not \
+choose a value. Do not propose a repair after "no_fault" or "insufficient_evidence". The \
+learner applies and verifies the repair.
 
 Start with get_case. Choose your own experiments; stop experimenting when the evidence is \
-enough or the budget is spent. Finish with a short summary for the learner: what was observed, \
-which explanations still fit, and what you concluded.
+enough or the budget is spent. Then call submit_diagnosis, then (after a "fault" diagnosis \
+only) propose_repair, and only then finish with a short summary for the learner: what was \
+observed, which explanations still fit, and what you concluded.
 
 {floors}
 
@@ -137,6 +144,26 @@ circuit yourself.
 
 DEFAULT_INVESTIGATE_TURN = "Investigate this case."
 DEFAULT_HINT_TURN = "Give me one useful hint."
+
+# Completion reminders for INVESTIGATE runs (``case_tools.InvestigateFinishCheck``). Each is sent
+# at most once per run, as one extra user turn, when the model ends a reply without a tool call
+# while the case still lacks that step. The text is identical for every hidden condition and
+# names no hypothesis, component or measurement: it restates the required step only.
+_LAB_NOTE = "Note from the Resonance lab software (not from the learner): "
+
+DIAGNOSIS_REMINDER = (
+    _LAB_NOTE + "no diagnosis has been submitted for this case yet, and the run must submit "
+    "one before it finishes. Call submit_diagnosis exactly once with the conclusion that the "
+    'recorded evidence supports: "fault", "no_fault", or "insufficient_evidence". Any of these '
+    "conclusions is acceptable; choose by the evidence, not by this note. Then give your short "
+    "summary."
+)
+
+REPAIR_REMINDER = (
+    _LAB_NOTE + 'your "fault" diagnosis is recorded, but no repair has been proposed yet. Call '
+    "propose_repair once for the component that your diagnosis names, so the learner can apply "
+    "and verify it. Then give your short summary."
+)
 
 
 def case_context(template_id: str, hypotheses: Sequence[tuple[str, str]]) -> str:

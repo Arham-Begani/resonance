@@ -126,6 +126,19 @@ def completion(
     return body
 
 
+def abstain(*candidates: str) -> dict[str, Any]:
+    """A scripted ``submit_diagnosis`` call with conclusion insufficient_evidence (TEST-ONLY).
+
+    Investigate runs get one completion reminder when they end without a diagnosis; tests that
+    are not about that reminder submit this abstention before their final text."""
+    args: dict[str, Any] = {
+        "conclusion": "insufficient_evidence",
+        "candidate_hypothesis_ids": list(candidates or ("r1_increased", "c1_increased")),
+        "explanation": "More than one explanation still fits the recorded evidence.",
+    }
+    return completion(None, [("submit_diagnosis", args)])
+
+
 class Hang:
     """Step that keeps the request open (until cancelled or ``seconds`` elapse)."""
 

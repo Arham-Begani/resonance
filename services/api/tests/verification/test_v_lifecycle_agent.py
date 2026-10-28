@@ -1404,7 +1404,9 @@ async def test_only_the_first_tool_call_of_a_reply_runs(lab_factory: LabFactory)
             ("submit_diagnosis", dx_body(case, "fault")),
         ],
     )
-    c, after, run, evs = await run_agent(lab, [multi, completion("Done.")], c=c, case=case)
+    c, after, run, evs = await run_agent(
+        lab, [multi, completion("Done."), completion("Done.")], c=c, case=case
+    )
     assert run["status"] == "completed"
     assert after["budget"]["used"] == 1 and after["diagnosis"] is None
     assert [o["kind"] for o in after["observations"]] == ["symptom", "output_voltage_sweep"]
@@ -1440,6 +1442,7 @@ async def test_experiment_cap_and_budget_refusals(lab_factory: LabFactory) -> No
         call("run_experiment", {"instrument": "transient_capture", "probe": "source_current"}),
         call("run_experiment", {"instrument": "transient_capture", "probe": "output_voltage"}),
         completion("Budget spent."),
+        completion("Budget spent."),  # ignores the one diagnosis reminder
     ]
     c, after, run, evs = await run_agent(lab, steps)
     calls_after = len(lab.sim.calls)
@@ -1461,6 +1464,7 @@ async def test_experiment_cap_and_budget_refusals(lab_factory: LabFactory) -> No
         call("run_experiment", {"instrument": "transient_capture", "probe": "source_current"}),
         call("run_experiment", {"instrument": "transient_capture", "probe": "output_voltage"}),
         completion("The budget is spent."),
+        completion("The budget is spent."),  # ignores the one diagnosis reminder
     ]
     _, after2, run2, evs2 = await run_agent(lab, steps, c=c2, case=case2)
     assert run2["status"] == "completed"
@@ -1531,8 +1535,9 @@ async def test_retries_only_for_transient_provider_errors(lab_factory: LabFactor
     lab = await lab_factory(provider=ScriptedProvider())
     assert lab.provider is not None
     cases: list[tuple[list[Any], str, int]] = [
-        ([Status(503), completion("Recovered.")], "completed", 2),
-        ([Status(429), completion("Recovered.")], "completed", 2),
+        # The third request answers the one diagnosis reminder (ignored).
+        ([Status(503), completion("Recovered."), completion("Recovered.")], "completed", 3),
+        ([Status(429), completion("Recovered."), completion("Recovered.")], "completed", 3),
         ([Status(500), Status(502)], "failed", 2),  # only one retry per run
         ([Status(400)], "failed", 1),
         ([Status(401)], "failed", 1),
@@ -1612,6 +1617,7 @@ async def test_hidden_reasoning_never_surfaces(lab_factory: LabFactory) -> None:
             "<THINK>SECRET-THINK-2</THINK>Let me re-read the symptom. <think>SECRET-THINK-3 cut",
             [("read_observation", {"observation_id": sym})],
         ),
+        call("submit_diagnosis", dx_body(case, "insufficient_evidence")),
         completion(
             "SECRET-THINK-4 dangling</think>Final visible answer [" + sym + "].",
             reasoning="SECRET-REASONING-2",
@@ -1648,7 +1654,7 @@ async def test_citations_are_checked_never_invented(lab_factory: LabFactory) -> 
         f"Whistle lower [{sym}], also [{fake}], [{foreign}], [{failed}] and "
         "[exp_FAKEfakeFAKEfake2]."
     )
-    c, after, run, evs = await run_agent(lab, [completion(text)], c=c, case=case)
+    c, after, run, evs = await run_agent(lab, [completion(text), completion(text)], c=c, case=case)
     msg = next(e for e in evs if e["type"] == "message")
     assert [(x["result_id"], x["quantity"]) for x in msg["citations"]] == [(sym, "tone_gain_db")]
     for bad in (fake, foreign, failed, "exp_FAKEfakeFAKEfake2"):
@@ -2039,11 +2045,12 @@ async def test_agent_view_lists_the_actions_the_agent_can_take(lab_factory: LabF
         call("get_case", {}),
         call("run_experiment", {"instrument": "source_current_sweep"}),
         call("submit_diagnosis", dx_body(case, "fault")),
+        call("propose_repair", {"component_id": "R1"}),
         completion("Done."),
     ]
     _, after, run, evs = await run_agent(lab, steps, c=c, case=case)
     assert run["status"] == "completed"
-    assert [r["ok"] for r in results(evs)] == [True, True, True], "the actions were possible"
+    assert [r["ok"] for r in results(evs)] == [True] * 4, "the actions were possible"
     assert lab.provider is not None
     seen = tool_content(lab.provider, 1)["available_actions"]
     after_dx = tool_content(lab.provider, 3)["available_actions"]
@@ -2083,6 +2090,7 @@ async def test_mixed_control_is_recorded_and_agent_reads_stay_in_case(
         call("assess_evidence", {}),
         call("run_experiment", {"instrument": "source_current_sweep"}),
         completion("Measured."),
+        completion("Measured."),  # ignores the one diagnosis reminder
     ]
     _, after, run, evs = await run_agent(lab, steps, c=c, case=case)
     assert run["status"] == "completed"

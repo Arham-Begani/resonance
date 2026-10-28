@@ -10,7 +10,13 @@ The model proposes; trusted code disposes:
 - cancellation stops in-flight inference immediately and in-flight simulation cooperatively
   (through the run's ``CancelToken``), with a bounded grace period;
 - only visible assistant text is emitted; think-tags are stripped and provider reasoning fields
-  are never read. Cited result IDs are checked against recorded results.
+  are never read. Cited result IDs are checked against recorded results;
+- an optional ``FinishCheck`` (INVESTIGATE runs only) may answer a reply without tool calls with
+  one bounded ``Reminder`` (a trusted-code user turn, announced as a ``status`` event, never as
+  an agent message). Each reminder kind is sent at most once per run, only while another model
+  call and tool call still fit inside the caps; reminders count against the same caps. If the
+  model finishes again, the run ends as ``completed`` with that reply, exactly as without a
+  check.
 """
 
 from __future__ import annotations
@@ -65,6 +71,24 @@ class EventSink(Protocol):
 
 
 CitationResolver = Callable[[], Awaitable[Mapping[str, QuantityName]]]
+
+
+@dataclass(frozen=True)
+class Reminder:
+    """One bounded note from trusted code, sent to the model as an extra user turn.
+
+    ``kind`` identifies the reminder (sent at most once per run); ``status`` is the learner-
+    visible ``status`` event text; ``text`` is the user turn sent to the model. Neither may
+    depend on hidden state.
+    """
+
+    kind: str
+    status: str
+    text: str
+
+
+FinishCheck = Callable[[], Awaitable[Reminder | None]]
+"""Called when the model ends a reply without tool calls; returns a reminder or ``None``."""
 
 
 class StopSignal:
@@ -125,6 +149,7 @@ class AgentLoop:
         stop: StopSignal,
         usage: AgentUsage,
         resolve_citations: CitationResolver,
+        finish_check: FinishCheck | None = None,
         clock: Callable[[], float] = time.monotonic,
         max_completion_tokens: int = MAX_COMPLETION_TOKENS,
         tool_cancel_grace_s: float | None = None,
@@ -137,6 +162,8 @@ class AgentLoop:
         self._stop = stop
         self._usage = usage
         self._resolve_citations = resolve_citations
+        self._finish_check = finish_check
+        self._reminded: set[str] = set()
         self._clock = clock
         self._max_completion_tokens = max_completion_tokens
         self._grace = TOOL_CANCEL_GRACE_S if tool_cancel_grace_s is None else tool_cancel_grace_s
@@ -171,7 +198,13 @@ class AgentLoop:
                 visible = await self._emit_message(visible)
             if not completion.tool_calls:
                 if visible:
-                    return LoopResult(status="completed", final_message=visible)
+                    reminder = await self._reminder()
+                    if reminder is None:
+                        return LoopResult(status="completed", final_message=visible)
+                    messages.append({"role": "assistant", "content": visible})
+                    messages.append({"role": "user", "content": reminder.text})
+                    self._sink.emit(StatusEvent, text=reminder.status)
+                    continue
                 reason = (
                     "The AI model used its whole reply allowance without a visible answer."
                     if completion.finish_reason == "length"
@@ -221,6 +254,31 @@ class AgentLoop:
                 self._sink.emit(ToolCallEvent, call_id=extra.id, tool=extra.name, arguments={})
                 self._emit_result(extra.id, extra.name, refused)
                 messages.append(_tool_message(extra, refused))
+
+    async def _reminder(self) -> Reminder | None:
+        """The finish check's reminder, if one is due and another model call and tool call
+        still fit inside every cap (otherwise the run simply completes, as without a check)."""
+        if self._finish_check is None or not self._room_for_another_turn():
+            return None
+        try:
+            reminder = await self._finish_check()
+        except Exception as exc:  # noqa: BLE001 - a failed check never fails a finished run
+            log.warning("agent finish check failed: %s", type(exc).__name__)
+            return None
+        if reminder is None or reminder.kind in self._reminded:
+            return None
+        self._reminded.add(reminder.kind)
+        return reminder
+
+    def _room_for_another_turn(self) -> bool:
+        remaining_tokens = self._limits.max_total_tokens - self._usage.total_tokens
+        return (
+            not self._stop.requested
+            and self._clock() < self._deadline
+            and self._usage.model_calls < self._limits.max_model_calls
+            and self._n.tool_calls < self._limits.max_tool_calls
+            and remaining_tokens >= MIN_TOKENS_FOR_CALL
+        )
 
     def _check_stop(self) -> None:
         if self._stop.requested:

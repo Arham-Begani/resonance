@@ -50,7 +50,13 @@ from ..contracts.policy import (
 from ..store.db import DocumentStore, utcnow
 from ..store.session_state import load_session_state
 from . import prompts
-from .case_tools import CaseCitations, CaseRunContext, hint_toolset, investigate_toolset
+from .case_tools import (
+    CaseCitations,
+    CaseRunContext,
+    InvestigateFinishCheck,
+    hint_toolset,
+    investigate_toolset,
+)
 from .client import ChatClient, create_chat_client
 from .explore_tools import (
     AppExplorePort,
@@ -59,7 +65,7 @@ from .explore_tools import (
     explore_toolset,
     load_session_revision,
 )
-from .loop import AgentLoop, CitationResolver, LoopResult, StopSignal
+from .loop import AgentLoop, CitationResolver, FinishCheck, LoopResult, StopSignal
 from .ports import CaseServicePort, ExplorePort
 from .tools import ToolSet
 
@@ -202,10 +208,14 @@ class AgentService:
         context = prompts.case_context(
             case.intended_revision.template_id, [(h.id, h.label) for h in case.hypotheses]
         )
+        finish_check: FinishCheck | None = None
         if body.kind == "investigate":
             toolset = investigate_toolset(ctx)
             system = prompts.investigate_prompt(CASE_EXPERIMENT_BUDGET, context)
             turn = prompts.learner_turn(body.message, prompts.DEFAULT_INVESTIGATE_TURN)
+            # At most one reminder per missing step (diagnosis, then repair after a fault),
+            # within the run's caps; hint and explore runs have no finish check.
+            finish_check = InvestigateFinishCheck(ctx)
         else:
             toolset = hint_toolset(ctx)
             system = prompts.hint_prompt(context)
@@ -222,7 +232,9 @@ class AgentService:
                 await cases.record_hint(session_id, case_id)
 
             handle.after_success = record_hint
-        self._launch(handle, client, toolset, system, turn, CaseCitations(ctx))
+        self._launch(
+            handle, client, toolset, system, turn, CaseCitations(ctx), finish_check=finish_check
+        )
         return handle.snapshot()
 
     async def start_explore_run(self, session_id: str, body: ExploreRunRequest) -> AgentRun:
@@ -333,6 +345,8 @@ class AgentService:
         system: str,
         turn: str,
         citations: CitationResolver,
+        *,
+        finish_check: FinishCheck | None = None,
     ) -> None:
         loop = AgentLoop(
             client=client,
@@ -342,6 +356,7 @@ class AgentService:
             stop=handle.stop,
             usage=handle.run.usage,
             resolve_citations=citations,
+            finish_check=finish_check,
         )
         handle.task = asyncio.get_running_loop().create_task(
             self._drive(handle, loop, client, system, turn), name=f"agent-{handle.run.id}"

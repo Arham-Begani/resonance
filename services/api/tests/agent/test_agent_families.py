@@ -24,7 +24,7 @@ from agent_testkit import (
     wait_finished,
 )
 
-from resonance.agent import views
+from resonance.agent import prompts, views
 from resonance.agent.ports import CaseServicePort
 from resonance.agent.service import AgentService
 from resonance.challenges.evaluator import Evaluator, EvaluatorStore, faults
@@ -304,7 +304,12 @@ async def test_case_prompts_name_the_family_and_catalog_but_no_strategy(
 ) -> None:
     mode = "agent" if kind == "investigate" else "guide"
     cases = FakeCaseService(SESSION, mode=mode, template_id=template_id)  # type: ignore[arg-type]
-    provider = ScriptedProvider([completion("Prediction: I need more evidence.")])
+    provider = ScriptedProvider(
+        [
+            completion("Prediction: I need more evidence."),
+            completion("Still undecided."),  # investigate: ignores the one diagnosis reminder
+        ]
+    )
     service = make_service(settings, store, provider, cases)
     run = await service.start_case_run(
         SESSION,
@@ -393,12 +398,33 @@ async def test_real_open_capacitor_highpass_case_reaches_the_model_honestly(
         EvaluatorStore(settings.evaluator_db_path), create_simulator(settings), artifacts
     )
     cases = CaseService(store, evaluator)
+
+    def diagnose(body: dict[str, Any]) -> dict[str, Any]:
+        current = next(
+            r["observation_id"]
+            for r in (json.loads(m["content"]) for m in body["messages"] if m["role"] == "tool")
+            if r.get("kind") == "source_current_sweep"
+        )
+        args = {
+            "conclusion": "fault",
+            "hypothesis_id": "c1_disconnected",
+            "citations": [{"observation_id": current, "quantity": "source_current_ma"}],
+            "explanation": "No measurable source current at any frequency.",
+        }
+        return completion(None, [("submit_diagnosis", args)])
+
     provider = ScriptedProvider(
         [
             completion(None, [("get_case", {})]),
             completion(None, [("run_experiment", {"instrument": "output_voltage_sweep"})]),
             completion(None, [("run_experiment", {"instrument": "source_current_sweep"})]),
+            # Finishes without a diagnosis -> one diagnosis reminder from the REAL case state.
             completion("Prediction: nothing measurable reaches the output."),
+            diagnose,
+            # Fault diagnosed without a repair -> one repair reminder.
+            completion("C1 behaves as if it were open."),
+            completion(None, [("propose_repair", {"component_id": "C1"})]),
+            completion("I proposed replacing C1 with its intended part."),
         ]
     )
     service = AgentService(
@@ -418,10 +444,22 @@ async def test_real_open_capacitor_highpass_case_reaches_the_model_honestly(
         )
         await wait_finished(service, run.id, limit_s=120)
         assert service.get_run(SESSION, run.id).status == "completed"
+        assert provider.steps == [] and len(provider.requests) == 8
+        # The real CaseService offered submit_diagnosis, then propose_repair, to this run; the
+        # open capacitor is repaired by replacing C1 (the intended nominal part).
+        public = cases.get_case(SESSION, case.id)
+        assert public.diagnosis is not None and public.diagnosis.agent_run_id == run.id
+        assert public.repair_proposal is not None and public.repair_proposal.component_id == "C1"
+        reminders = [
+            m["content"]
+            for m in provider.requests[-1]["messages"]
+            if m["role"] == "user" and m["content"].startswith("Note from the Resonance")
+        ]
+        assert reminders == [prompts.DIAGNOSIS_REMINDER, prompts.REPAIR_REMINDER]
 
         system = provider.requests[0]["messages"][0]["content"]
         assert "RC high-pass filter: a capacitor (C1) from Input to Output" in system
-        get_case, ovs, scs = _tool_results(provider)
+        get_case, ovs, scs, *_ = _tool_results(provider)
         assert get_case["intended_design"]["template_id"] == "rc_highpass"
         assert "c1_disconnected" in {h["id"] for h in get_case["hypotheses"]}
         symptom = get_case["observations"][0]

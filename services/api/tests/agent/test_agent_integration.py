@@ -20,6 +20,7 @@ import pytest
 from agent_testkit import Hang, ScriptedProvider, completion, make_settings
 from fastapi.testclient import TestClient
 
+from resonance.agent import prompts
 from resonance.agent.explore_tools import AppExplorePort
 from resonance.agent.service import AgentService
 from resonance.app import create_app
@@ -71,6 +72,8 @@ def test_agent_investigates_a_real_case_without_seeing_hidden_state(real_app) ->
             completion(None, [("run_experiment", {"instrument": "source_current_sweep"})]),
             completion(None, [("run_experiment", {"instrument": "transient_capture"})]),  # invalid
             completion("I measured the source current."),
+            # The model ignores the one diagnosis reminder: the run ends, completed, undiagnosed.
+            completion("I have nothing to add."),
         ]
     )
     _use_provider(app, provider)
@@ -79,12 +82,19 @@ def test_agent_investigates_a_real_case_without_seeing_hidden_state(real_app) ->
     assert response.status_code == 201, response.text
     run = _wait(client, response.json()["id"])
     assert run["status"] == "completed", run
+    assert run["final_message"] == "I have nothing to add."
+    assert provider.steps == [] and len(provider.requests) == 6
+    assert provider.requests[-1]["messages"][-1] == {
+        "role": "user",
+        "content": prompts.DIAGNOSIS_REMINDER,
+    }
 
     case = client.get(f"/api/cases/{case['id']}").json()
     assert case["mode"] == "agent" and case["active_run_id"] is None
     agent_obs = [o for o in case["observations"] if o["requested_by"] == "agent"]
     assert len(agent_obs) == 1 and agent_obs[0]["agent_run_id"] == run["id"]
     assert case["budget"]["used"] == 1, "the invalid request did not consume budget"
+    assert case["diagnosis"] is None and case["status"] == "observing"
 
     closed = client.post(f"/api/cases/{case['id']}/close").json()
     reveal = closed["reveal"]
