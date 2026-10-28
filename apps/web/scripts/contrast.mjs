@@ -86,6 +86,13 @@ const checks = [
 //  - semantic verdict text (tone goal lines) sits on raised tiles: success/danger on raised above;
 //  - the filled secondary button's edge (control-border, 20% text over raised) is decorative: the
 //    raised fill and the label identify the control. Reported here, not required.
+// Final polish pass (Oct 29):
+//  - AI activity feed markers: success icon on raised, danger on dangerSubtle/surface, accent on
+//    accentSubtle/surface — all required above (icons need 3:1; they pass 4.5:1);
+//  - the "available" case step is a dashed accent ring on bg (accent on bg, 3:1 above);
+//  - a disabled command field shows its reason as textSecondary placeholder text on the surface
+//    strip (textSecondary on surface, 4.5:1 above); disabled controls are exempt, but it passes;
+//  - reveal outcome tiles: textSecondary labels on raised, neutral badges on surface (above).
 const decorative = [["controlBorder (20%)", "#E8EEF2", 0.2, "raised"], ["borderSoft (12%)", "#E8EEF2", 0.12, "bg"]];
 for (const [name, hex, alpha, base] of decorative) {
   const fg = rgb(hex);
