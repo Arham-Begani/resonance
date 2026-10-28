@@ -33,3 +33,7 @@ Thumbs.db
 
 # Claude Code local settings
 .claude/settings.local.json
+
+# Demo recordings (scripts in apps/web/scripts/demo)
+demo-take*/
+*.mp4
