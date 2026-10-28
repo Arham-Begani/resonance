@@ -164,23 +164,34 @@ the verified repair, 2 experiments per case, mean 4.29 s per case. These cases n
 symptom plus one current measurement, so a perfect score shows the pipeline works; it is not
 evidence of diagnostic skill.
 
-Measured Nemotron run (`evals/results/nemotron-heldout_v1-20261025T115418Z.md`,
-`nvidia/nemotron-3-super-120b-a12b`, 2026-10-25, the same 24 cases, symptom, budget and
-tolerances):
+Measured Nemotron runs (`nvidia/nemotron-3-super-120b-a12b`, the same 24 cases, symptom, budget
+and tolerances). Run 1 is `evals/results/nemotron-heldout_v1-20261025T115418Z.md`. Run 2 is
+`evals/results/nemotron-heldout_v1-20261028T190454Z.md`, made after the agent change described
+below:
 
-| | Baseline | Nemotron |
-|---|---|---|
-| Correct identification | 24/24 | 20/24 |
-| Incorrect | 0 | 1 (unsupported certainty: R1 ×0.5 named as C1 ×0.5) |
-| Run ended without a diagnosis | 0 | 3 |
-| Faulty cases restored by a verified repair | 20/20 | 9/20 (11 repairs never proposed, 0 failed) |
-| Experiments per case (mean) | 2 | 1.42 |
-| Wall time per case (mean) | 4.29 s | 28.41 s |
+| | Baseline | Nemotron run 1 (25 Oct) | Nemotron run 2 (28 Oct) |
+|---|---|---|---|
+| Correct identification | 24/24 | 20/24 | 21/24 |
+| Incorrect | 0 | 1 (unsupported certainty: R1 ×0.5 named as C1 ×0.5) | 0 |
+| Abstained ("not enough evidence") | 0 | 0 | 3 (true cause among candidates in all 3) |
+| Run ended without a diagnosis | 0 | 3 | 0 |
+| Faulty cases restored by a verified repair | 20/20 | 9/20 | 17/20 |
+| Experiments per case (mean) | 2 | 1.42 | 1.46 |
+| Wall time per case (mean) | 4.29 s | 28.41 s | 19.85 s |
+| Provider-reported tokens | — | 825,748 | 940,583 |
 
-Nemotron used 825,748 tokens across 140 model calls (provider-reported). Cost is not
-reported, because no verified pricing has been applied. This is one small run, so no
-statistical claim is made. The fixed baseline is better on these easy cases. The main
-Nemotron failure is ending a run without proposing a repair or submitting a diagnosis.
+**What changed between the runs.** In run 1, three runs ended without a diagnosis and eleven
+faulty cases got no repair proposal. The investigate prompt now requires one diagnosis (any
+conclusion) and a repair proposal after a fault. If the model still tries to finish without
+them, the loop sends at most one fixed reminder of each kind; the reminders never hint at an
+answer (see [docs/ai-integration.md](docs/ai-integration.md)).
+
+The change was motivated by run 1 on this same held-out set. That makes run 2 an improvement on
+these cases, not a fresh held-out measurement. In two of the three run-2 abstentions the agent
+had already measured the source current, which separates the R and C faults, so it was overly
+cautious there. Cost is not reported, because no verified pricing has been applied. With a
+sample this small, no statistical claim is made, and the fixed baseline still does better on
+these easy cases.
 
 ## Deploy (Render)
 
