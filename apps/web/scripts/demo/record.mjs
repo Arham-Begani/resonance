@@ -6,7 +6,7 @@
 import { chromium } from "@playwright/test";
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 
-const BASE = process.env.BASE ?? "https://resonance-lwdf.onrender.com";
+const BASE = process.env.BASE ?? "https://resonance-circuit-lab.vercel.app";
 const OUT = process.env.OUT ?? "demo-take";
 const SKIP_AI = process.env.SKIP_AI === "1";
 rmSync(OUT, { recursive: true, force: true });
@@ -14,7 +14,11 @@ mkdirSync(`${OUT}/frames`, { recursive: true });
 
 const log = (...a) => console.log(new Date().toISOString().slice(11, 19), ...a);
 const browser = await chromium.launch({ args: ["--autoplay-policy=no-user-gesture-required"] });
-const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: 1 });
+// 1440x816 CSS px at 4/3 scale = 1920x1088 device px; build.py crops to 1920x1080 (the bottom
+// 8 px hold the content clock).
+const VIEW = { width: 1440, height: 816 };
+const SCALE = 4 / 3;
+const context = await browser.newContext({ viewport: VIEW, deviceScaleFactor: SCALE });
 
 // In-page: capture played audio (decoded samples + start/stop wall times), a visible cursor and
 // a caption bar. All of it is presentation for the recording only.
@@ -72,10 +76,13 @@ await context.addInitScript(() => {
     cv.style.cssText = "position:fixed;left:0;bottom:0;width:128px;height:4px;z-index:2147483647;pointer-events:none;image-rendering:pixelated;";
     document.documentElement.appendChild(cv);
     const g = cv.getContext("2d");
-    setInterval(() => {
+    // Redrawn every animation frame, which also keeps the compositor producing frames (high fps).
+    const tick = () => {
       const v = Date.now() % 4294967296;
       for (let i = 0; i < 32; i++) { g.fillStyle = (Math.floor(v / 2 ** (31 - i)) % 2) ? "#fff" : "#000"; g.fillRect(i * 4, 0, 4, 4); }
-    }, 50);
+      requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
   };
   const both = () => { install(); clock(); };
   if (document.readyState === "loading") addEventListener("DOMContentLoaded", both); else both();
@@ -129,7 +136,7 @@ try {
   await page.goto(BASE + "/");
   await page.getByRole("heading", { level: 1 }).waitFor();
   await page.mouse.move(mouse.x, mouse.y);
-  await cdp.send("Page.startScreencast", { format: "jpeg", quality: 92, maxWidth: 1440, maxHeight: 900, everyNthFrame: 1 });
+  await cdp.send("Page.startScreencast", { format: "jpeg", quality: 90, maxWidth: 1920, maxHeight: 1088, everyNthFrame: 1 });
   mark("start");
 
   // ---------- 1. Landing ----------
@@ -254,22 +261,24 @@ try {
     card.setAttribute("aria-hidden", "true");
     card.style.cssText = "position:fixed;inset:0;z-index:2147483645;background:#0B1014;display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity .4s;font-family:system-ui,-apple-system,'Segoe UI',sans-serif;color:#E8EEF2;";
     card.innerHTML = `<div style="max-width:920px;padding:48px">
-      <div style="font-size:15px;letter-spacing:.08em;color:#65C5D4;font-weight:600;margin-bottom:12px">MEASURED · 24 HELD-OUT CASES · 25 OCT 2026 · SAME SYMPTOM, BUDGET AND TOLERANCES</div>
+      <div style="font-size:15px;letter-spacing:.08em;color:#65C5D4;font-weight:600;margin-bottom:12px">MEASURED · SAME 24 HELD-OUT CASES · SAME SYMPTOM, BUDGET AND TOLERANCES</div>
       <div style="font-size:40px;font-weight:600;margin-bottom:28px">Honest results, including where the AI falls short.</div>
       <table style="width:100%;border-collapse:collapse;font-size:20px;line-height:1.9">
-        <tr style="color:#A7B8C3"><td></td><td>Fixed baseline</td><td>Nemotron (live)</td></tr>
-        <tr><td>Correct diagnosis</td><td>24 / 24</td><td>20 / 24</td></tr>
-        <tr><td>Repairs verified (faulty cases)</td><td>20 / 20</td><td>9 / 20</td></tr>
-        <tr><td>Experiments per case</td><td>2</td><td>1.42</td></tr>
+        <tr style="color:#A7B8C3"><td></td><td>Fixed baseline</td><td>Nemotron run 1</td><td>Nemotron run 2*</td></tr>
+        <tr><td>Correct diagnosis</td><td>24 / 24</td><td>20 / 24</td><td>21 / 24</td></tr>
+        <tr><td>Wrong or unsupported</td><td>0</td><td>1</td><td>0</td></tr>
+        <tr><td>Honest abstentions</td><td>0</td><td>0</td><td>3</td></tr>
+        <tr><td>Repairs verified (of 20)</td><td>20</td><td>9</td><td>17</td></tr>
       </table>
+      <div style="margin-top:14px;font-size:15px;color:#A7B8C3">* After requiring a diagnosis and a repair proposal before the agent finishes — a change made after run 1 on these cases.</div>
       <div style="margin-top:28px;font-size:18px;color:#A7B8C3">Every task works by keyboard and with sound off. Simulated circuits, not physical measurements.</div>
-      <div style="margin-top:20px;font-size:22px;font-weight:600">resonance-lwdf.onrender.com · github.com/Arham-Begani/resonance</div>
+      <div style="margin-top:20px;font-size:22px;font-weight:600">resonance-circuit-lab.vercel.app · github.com/Arham-Begani/resonance</div>
     </div>`;
     document.documentElement.appendChild(card);
     requestAnimationFrame(() => { card.style.opacity = "1"; });
   });
   await caption("");
-  await page.mouse.move(1500, 1000);
+  await page.mouse.move(1400, 790);
   await page.waitForTimeout(7000);
   mark("end");
   // Let a lagging screencast catch up so the closing card is fully captured.

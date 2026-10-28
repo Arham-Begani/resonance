@@ -29,8 +29,10 @@ end_mark = next(m["t"] for m in marks if m["name"] in ("end", "error"))
 def content_time(path: Path, near_ms: float) -> float | None:
     """Decode the 32-bit content clock drawn in the bottom-left corner of a frame."""
     img = Image.open(path).convert("L")
-    h = img.height
-    bits = [1 if img.getpixel((i * 4 + 2, h - 2)) > 127 else 0 for i in range(32)]
+    # The clock is 32 blocks of 4x4 CSS px at the bottom-left; scale to device pixels.
+    k = img.width / 1440
+    y = img.height - round(2 * k)
+    bits = [1 if img.getpixel((round((i * 4 + 2) * k), y)) > 127 else 0 for i in range(32)]
     low = int("".join(map(str, bits)), 2)
     # Restore the high bits from the delivery time (they agree to well within 2^32 ms).
     base = int(near_ms) - (int(near_ms) % 4294967296)
@@ -91,8 +93,8 @@ subprocess.run(
         "ffmpeg", "-y", "-loglevel", "error",
         "-f", "concat", "-safe", "0", "-i", str(take / "frames.txt"),
         "-i", str(take / "audio.wav"),
-        "-vf", "fps=30,crop=1440:892:0:0,format=yuv420p",
-        "-c:v", "libx264", "-preset", "slow", "-crf", "18",
+        "-vf", "fps=60,crop=1920:1080:0:0,format=yuv420p",
+        "-c:v", "libx264", "-preset", "slow", "-crf", "16", "-r", "60",
         "-c:a", "aac", "-b:a", "160k",
         "-t", f"{duration:.2f}", "-movflags", "+faststart",
         str(out),
