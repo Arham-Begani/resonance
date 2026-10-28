@@ -1550,8 +1550,30 @@ def test_committed_baseline_results_match_the_frozen_set_and_the_readme() -> Non
     keys = {k.lower() for k in _all_keys(run)}
     assert not {k for k in keys if "cost" in k or "price" in k or "usd" in k}, keys
     assert run["runner"] == "baseline" and run["model"] is None
-    # No Nemotron result file is committed while no key exists on this host.
-    assert not list(results_dir.glob("nemotron-*"))
+    # Committed Nemotron results must be genuine runs of the pinned model on the frozen sets,
+    # carry no cost figures, and match what the README reports (independent recount).
+    pinned = "nvidia/nemotron-3-super-120b-a12b"
+    for path in results_dir.glob("nemotron-*.json"):
+        nem = json.loads(path.read_text(encoding="utf-8"))
+        assert nem["runner"] == "nemotron" and nem["model"] == pinned, path.name
+        assert nem["case_set"]["name"] in casesets.SET_NAMES, path.name
+        assert all(r["runner"] == "nemotron" for r in nem["results"]), path.name
+        nem_keys = {k.lower() for k in _all_keys(nem)}
+        assert not {k for k in nem_keys if "cost" in k or "price" in k or "usd" in k}, path.name
+        assert path.with_suffix(".md").is_file(), path.name
+    heldout = sorted(results_dir.glob("nemotron-heldout_v1-*.json"))
+    if heldout:
+        nem = json.loads(heldout[0].read_text(encoding="utf-8"))
+        nrs = nem["results"]
+        assert len(nrs) == 24
+        assert sum(r["exact_identification"] == "correct" for r in nrs) == 20
+        assert sum(r["exact_identification"] == "incorrect" for r in nrs) == 1
+        assert sum(r["exact_identification"] == "not_submitted" for r in nrs) == 3
+        assert sum(bool(r["unsupported_certainty"]) for r in nrs) == 1
+        assert sum(r["functional_recovery"] == "restored" for r in nrs) == 9
+        root_readme = " ".join((_REPO / "README.md").read_text(encoding="utf-8").split())
+        assert "| Correct identification | 24/24 | 20/24 |" in root_readme
+        assert "| Faulty cases restored by a verified repair | 20/20 | 9/20" in root_readme
 
 
 def _r_spellings(r: float) -> set[str]:
