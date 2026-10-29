@@ -9,6 +9,7 @@ Needs Python with numpy and Pillow, and ffmpeg on PATH.
 """
 
 import json
+import os
 import subprocess
 import sys
 import wave
@@ -135,7 +136,7 @@ subprocess.run(
         "-i", "audio.wav",
         "-loop", "1", "-framerate", str(FPS), "-i", "cursor.png",
         "-filter_complex", graph, "-map", "[v]", "-map", "1:a",
-        "-c:v", "libx264", "-preset", "slow", "-crf", "17", "-r", str(FPS),
+        "-c:v", "libx264", "-preset", os.environ.get("PRESET", "slow"), "-crf", "17", "-r", str(FPS),
         "-c:a", "aac", "-b:a", "160k",
         "-t", f"{duration:.2f}", "-movflags", "+faststart",
         str(out.resolve()),

@@ -228,14 +228,18 @@ try {
     await agentLog.waitFor({ timeout: 60_000 });
     // Running → Finished / Cancelled / failed: wait until the Cancel button disappears.
     await agentLog.getByRole("button", { name: "Cancel" }).waitFor({ timeout: 60_000 }).catch(() => {});
-    await caption("Each step is a real tool call: run an experiment, assess the evidence, then diagnose.");
+    await caption("Every entry in the feed is a real tool call Nemotron chose to make.");
     await agentLog.getByRole("button", { name: "Cancel" }).waitFor({ state: "detached", timeout: 240_000 });
     const secs = Math.round((Date.now() - t0) / 1000);
     mark("ai-end");
     log("ai seconds", secs);
-    await caption(`The AI run finished in ${secs} s of real inference. Its diagnosis cites recorded observations.`, 3500);
+    // Caption from what is on screen: the AI's own recorded diagnosis, if it submitted one.
     const dx = page.getByRole("region", { name: "Diagnosis" });
-    if (await dx.count()) { await dx.scrollIntoViewIfNeeded(); await page.waitForTimeout(3000); }
+    const dxText = (await dx.count()) ? (await dx.innerText()).replace(/\s+/g, " ") : "";
+    const said = /AI diagnosis:\s*(.+?)(?:\s+(?:Evidence|Cited|Explanation|Supported|Contradicted|Still possible)\b|$)/.exec(dxText)?.[1]?.trim();
+    log("ai diagnosis", said ?? "(none)");
+    await caption(said ? `Finished in ${secs} s of real inference. Nemotron's diagnosis: ${said.replace(/\.$/, "")}.` : `The AI run finished in ${secs} s of real inference.`, 3800);
+    if (await dx.count()) { await dx.scrollIntoViewIfNeeded(); await page.waitForTimeout(2500); }
   }
 
   // ---------- 6. Repair ----------
