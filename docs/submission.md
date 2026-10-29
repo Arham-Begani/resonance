@@ -25,7 +25,7 @@ person on Devpost before submission:
 | Public repository with license and third-party notices | **Done**: https://github.com/Arham-Begani/resonance (MIT `LICENSE`, `THIRD_PARTY_NOTICES.md`); CI green |
 | Nemotron via Nebius Token Factory | **Live verified 2026-10-25**: model listed, tool-call round trip 1.61 s, two full investigate runs (see `docs/ai-integration.md`) |
 | Hosted app | **Deployed**: https://resonance-circuit-lab.vercel.app (Vercel: static app plus `/api` proxy) backed by https://resonance-lwdf.onrender.com (Render: API, ngspice, Nemotron). Smoke-tested through the proxy: a real experiment ran in 1.3 s, and the session cookie works on the Vercel domain |
-| Demo video (< 3 min) | **Recorded 2026-10-28** (118 s, 1440×892, H.264/AAC): real interactions on the live site with live Nemotron inference (the AI run took 21 s; the hidden fault was C1 at half value, identified correctly and repaired; behaviour restored). Captions are on screen; the audio is the actual clips the app played, at one shared gain. Reproduce with `apps/web/scripts/demo/` (see below). **Upload to YouTube is the owner's step** |
+| Demo video (< 3 min) | **Recorded 2026-10-29**: 2 min 3 s, 1920×1080, 60 fps, H.264/AAC (`resonance-demo.mp4`, not committed). Real interactions on the Vercel site with live Nemotron inference. The hidden fault was a disconnected C1; Nemotron diagnosed it from the symptom (0 of 3 experiments) in 13 s, and the repair was verified ("Behaviour restored"). App content was captured at about 20 frames/s and the cursor is drawn at 60 fps. One overlay caption written by the recorder ("…run an experiment…") was corrected in post, because no experiment was run in this take; app content is unedited. **Upload to YouTube is the owner's step** |
 | Evaluation results | **Measured** on `heldout_v1` (24 cases). Baseline: 24/24 correct, 20/20 restored, 4.29 s/case. Nemotron run 1 (25 Oct): 20/24 correct, 1 incorrect, 3 not submitted, 9/20 restored, 28.41 s/case. Nemotron run 2 (28 Oct, after the completion-reminder change, so not a fresh held-out measurement): 21/24 correct, 0 incorrect, 3 honest abstentions, 17/20 restored, 19.85 s/case, 940,583 tokens |
 | Browser e2e suite | 32/32 at milestone 1; specs updated for milestone 2 but the full re-run is pending (host memory) |
 | Submission text | Draft below |
@@ -83,7 +83,7 @@ ngspice simulation and an NVIDIA Nemotron lab partner that has to measure, not g
 - https://resonance-circuit-lab.vercel.app
 - https://github.com/Arham-Begani/resonance
 
-**Video:** the YouTube link, once uploaded (public, 1 min 58 s or the 1080p60 take).
+**Video:** the YouTube link, once uploaded (public; the 2 min 3 s 1080p60 take).
 
 **Built with:** react, typescript, vite, d3, python, fastapi, pydantic, numpy, ngspice, sqlite,
 nvidia-nemotron, nebius-token-factory, openai-python, docker, render, vercel, playwright
