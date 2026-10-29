@@ -69,7 +69,129 @@ python scripts/demo/build.py demo-take resonance-demo.mp4
 | 110–130 s | Apply the nominal-part repair and verify: measured grid within ±0.5 dB, Expected vs Repaired audio. Close and reveal: identification and recovery reported separately. | |
 | 130–150 s | Keyboard-only control and screen-reader-friendly summaries; muted completion; the evaluation table (baseline vs Nemotron with measured latency). | State limitations plainly. |
 
-## Draft submission text
+## Devpost fields (ready to paste)
+
+**Project name:** Resonance
+
+**Elevator pitch** (at most 200 characters):
+Hear what a circuit does, then find out why it fails: a browser electronics lab with real
+ngspice simulation and an NVIDIA Nemotron lab partner that has to measure, not guess.
+
+**Track:** Best Apps and Agents
+
+**Try it out:**
+- https://resonance-circuit-lab.vercel.app
+- https://github.com/Arham-Begani/resonance
+
+**Video:** the YouTube link, once uploaded (public, 1 min 58 s or the 1080p60 take).
+
+**Built with:** react, typescript, vite, d3, python, fastapi, pydantic, numpy, ngspice, sqlite,
+nvidia-nemotron, nebius-token-factory, openai-python, docker, render, vercel, playwright
+
+**Was this project started before the hackathon?** No. It was built during the hackathon:
+work began on 15 October 2026, and the public commit history runs from 19 October.
+
+### About the project
+
+#### Inspiration
+Electronics is usually taught with equations and graphs, but people experience circuits with
+their ears. Two things kept me interested. First, a low-pass filter is something you can *hear*
+removing a whistle from a tone. Second, the most important diagnostic lesson for a first-order
+RC filter is an *ambiguity*: doubling the resistor and doubling the capacitor produce exactly
+the same output, H(jω) = 1/(1 + jωRC). I wanted a lab where a learner, and an AI, have to
+discover that by measuring, not by being told.
+
+#### What it does
+One workbench, three modes, sharing the same schematic, component list, instruments and
+experiment history:
+- **Explore:** edit an RC low-pass or high-pass filter with explicit SI units and run a real
+  ngspice AC sweep and two-tone transient. Hear input and output at one shared listening level
+  (never normalized), check a measured goal, preview an analytical suggestion (labeled as a
+  prediction), apply it, measure it, compare and undo.
+- **Learn:** predict whether a change makes each tone louder or quieter, run it, and get graded
+  on the *measured* change.
+- **Investigate:** a hidden single fault (R or C drifted ×2 or ×0.5, a disconnected capacitor,
+  or no fault). You get one standard symptom and up to three bounded experiments.
+  - Choose **Guide me** (you measure, with hints) or **Investigate for me**, where Nemotron
+    chooses its own experiments through tool calls, assesses the evidence, submits a
+    diagnosis that cites recorded observations (or says the evidence is not enough), and
+    proposes a repair.
+  - The repair is verified numerically across 31 frequencies, then the case is revealed.
+    Exact identification and functional recovery are reported separately.
+
+#### How we built it
+- **Simulation:** a FastAPI + Pydantic backend compiles a typed circuit graph into trusted
+  netlists and runs ngspice as an isolated subprocess per job. Results are checked against
+  analytical RC equations within 1 % / 1°. Audio is resampled from the transient onto a
+  uniform 48 kHz grid with one shared gain, and tone amplitudes are validated against AC
+  within 0.5 dB.
+- **Hidden state:** it lives in a separate evaluator with its own database. The agent and the
+  browser only ever see sanitized observations, and values are quantized so they cannot be
+  fingerprinted.
+- **The agent:** NVIDIA Nemotron (`nvidia/nemotron-3-super-120b-a12b`) on Nebius Token
+  Factory, through the OpenAI-compatible API, in a small explicit tool loop. It has separate
+  tool sets for Explore, Investigate and hints, and caps on model calls, tool calls, tokens
+  and wall time. Deterministic code executes every tool and decides which explanations are
+  supported, contradicted or unresolved. The model never sees the answer.
+- **Frontend:** React + TypeScript + Vite with types generated from the OpenAPI schema,
+  accessible SVG charts with data tables and text summaries, and full keyboard operation.
+- **Deployment:** Vercel serves the app and proxies the API to a Docker service on Render
+  that runs ngspice.
+
+#### Challenges we ran into
+- **Honest audio:** getting sound that is honest, not just pleasant. Every clip shares one
+  gain, so a quieter whistle really is the filter's attenuation.
+- **Leaking the answer:** keeping the hidden fault from leaking through floating-point
+  precision, error text, caches, or the model's context.
+- **Agent completion:** in the first held-out run, Nemotron sometimes ended a run without
+  submitting a diagnosis or proposing a repair. The prompt now requires both, and the loop
+  sends at most one fixed reminder that never hints at the answer.
+
+#### Accomplishments that we're proud of
+- **Evaluation:** a frozen held-out set of 24 cases, used to compare Nemotron with a
+  fixed-experiment baseline under the same symptom, budget and tolerances.
+  - Baseline: 24/24 correct, 20/20 repairs verified.
+  - Nemotron run 1: 20/24 correct, 1 unsupported claim, 9/20 repairs verified.
+  - Nemotron run 2, after the completion change: 21/24 correct, 0 wrong, 3 honest
+    abstentions (the true cause was among the candidates every time), 17/20 repairs
+    verified.
+  - Run 2 follows a change made after run 1 on these cases, so it is not a fresh held-out
+    measurement. These cases are easy (one current measurement resolves them), so the
+    baseline does better, and that is what we report.
+- **Tests:** 734 backend tests with real ngspice, plus browser end-to-end, keyboard and axe
+  WCAG checks.
+
+#### What we learned
+- Constraining an agent with deterministic evidence checks makes its claims checkable.
+- An honest "not enough evidence" is a feature, not a failure.
+
+#### What's next
+- More circuit families: second-order RLC and an op-amp buffer.
+- Fault cases that need a deliberate intervention, not only more measurements.
+- Sessions with real beginners and assistive-technology users. Accessibility has been checked
+  with automated tools and keyboard tests, not yet with screen-reader users.
+
+### Feedback on Nebius and NVIDIA tools
+These are our observations from building and evaluating Resonance:
+- **Getting started:** the Token Factory cookbook made setup quick. With the
+  OpenAI-compatible endpoint we used the standard `openai` Python client unchanged, and
+  `/v1/models` listed the five Nemotron models we needed to choose from.
+- **Tool calls** with `nvidia/nemotron-3-super-120b-a12b` were reliable:
+  - all 48 held-out investigation runs completed without a provider or tool-loop error, and
+    every tool call in our live verification runs succeeded;
+  - `parallel_tool_calls=false` was accepted;
+  - reasoning came back in separate `reasoning`/`reasoning_content` fields, not as `<think>`
+    tags in the content.
+- **Latency and caching:** about 1.6 s for a single tool-call turn and 11–30 s for a full
+  investigation (7–9 model calls). Prompt caching was reported in usage, which helped with
+  our repeated system context.
+- **What we had to handle ourselves:**
+  - the model occasionally ended a run with a final message instead of a required tool call;
+  - a full investigation costs about 40k tokens, because each turn resends the conversation.
+  Clearer guidance on enforcing a required final tool call (for example a documented
+  `tool_choice` behaviour for Nemotron) would help agent builders.
+
+## Short description (older draft)
 
 **Resonance — hear what a circuit does, discover why it fails.** A browser electronics lab where
 learners edit RC low-pass and high-pass filters, predict and test changes in Learn mode, run real ngspice simulations, hear input and output at one honest
